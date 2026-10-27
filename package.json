@@ -4,7 +4,9 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "typecheck": "bun check"
+    "typecheck": "bun check",
+    "dev": "bun --hot src/index.ts",
+    "build": "bun build src/index.ts --target=bun --outdir ./out"
   },
   "devDependencies": {
     "@types/bun": "latest"

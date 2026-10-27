@@ -6,11 +6,28 @@ To install dependencies:
 bun install
 ```
 
-To run:
+To run locally:
 
 ```bash
-bun run index.ts
+bun run dev
 ```
+
+## Infra (Docker)
+
+Serviços: `nginx` (única porta publicada), `app` (API Bun) e `postgres`
+(volume nomeado `postgres-data`). API e banco ficam acessíveis apenas na rede
+interna `backend`.
+
+```bash
+cp .env.example .env   # preencha DB_USER, DB_PASS, etc.
+docker compose up -d --build
+```
+
+O `Dockerfile` compila a API com `bun build` (target `bun`) e a imagem final
+roda apenas o bundle gerado em `out/`.
+
+Por padrão o nginx responde na porta 80 do host. Para usar outra porta, defina
+`HTTP_PORT` no `.env` (ex.: `HTTP_PORT=8080`).
 
 To type check:
 
