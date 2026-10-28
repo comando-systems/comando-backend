@@ -1,7 +1,3 @@
--- =========================================================
--- ITEMS IN EACH SESSION
--- =========================================================
-
 CREATE TABLE session_items (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 

@@ -1,7 +1,3 @@
--- =========================================================
--- PAYMENTS
--- =========================================================
-
 CREATE TABLE payments (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 

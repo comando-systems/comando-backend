@@ -1,3 +1,7 @@
 FROM postgres:17-alpine
 
-COPY migrations/ /docker-entrypoint-initdb.d/
+COPY init/ /docker-entrypoint-initdb.d/
+COPY migrations/ /migrations/
+COPY migrations/up/ /docker-entrypoint-initdb.d/migrations/up/
+
+RUN chmod -R a+rX /docker-entrypoint-initdb.d /migrations

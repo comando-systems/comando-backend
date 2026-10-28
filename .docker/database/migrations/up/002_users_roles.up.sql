@@ -1,7 +1,3 @@
--- =========================================================
--- USERS AND ROLES
--- =========================================================
-
 CREATE TABLE users (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name VARCHAR(120) NOT NULL,

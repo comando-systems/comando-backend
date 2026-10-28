@@ -1,14 +1,9 @@
--- =========================================================
--- COUNTER AND TABLE SESSIONS
--- =========================================================
-
 CREATE TABLE service_sessions (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 
     type session_type NOT NULL,
     status session_status NOT NULL DEFAULT 'OPEN',
 
-    -- Optional identifier for a physical table.
     table_number INTEGER,
 
     opened_by BIGINT NOT NULL REFERENCES users(id),
@@ -34,7 +29,6 @@ CREATE TABLE service_sessions (
     )
 );
 
--- Prevents two open sessions for the same physical table.
 CREATE UNIQUE INDEX service_sessions_open_table_unique
     ON service_sessions (table_number)
     WHERE type = 'TABLE' AND status = 'OPEN';

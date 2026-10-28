@@ -1,7 +1,3 @@
--- =========================================================
--- INDEXES
--- =========================================================
-
 CREATE INDEX service_sessions_status_type_idx
     ON service_sessions (status, type);
 
