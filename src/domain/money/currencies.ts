@@ -1,17 +1,17 @@
-import type { CurrencyMap, Money } from "./money";
+import type { CurrencyMap, Money } from "./types";
 
-const format = (money: Money) => (money.cents / 100).toFixed(2)
+const format = (money: Money) => (money.cents / 100).toFixed(2);
 const formatInverseDot = (money: Money) => format(money).replace(".", ",");
 
-const unformat = (text: string) => ({ cents: Math.round(Number(text.trim()) * 100), })
-const unformatInverseDot = (text:string) => unformat(text.replace(".", ","))
+const unformat = (text: string) => ({ cents: Math.round(Number(text.trim()) * 100) });
+const unformatInverseDot = (text: string) => unformat(text.replace(",", "."));
 
 export const currencies = {
   "pt-BR": {
     currency: "BRL",
     symbol: "R$",
     format: formatInverseDot,
-    unformat: unformatInverseDot
+    unformat: unformatInverseDot,
   },
   "en-US": {
     currency: "USD",
@@ -26,5 +26,3 @@ export const currencies = {
     unformat: unformatInverseDot,
   },
 } satisfies CurrencyMap;
-
-
