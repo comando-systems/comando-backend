@@ -5,10 +5,9 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
+
+import { paymentMethodEnum, serviceSessions, users } from "./";
 import { relations } from "drizzle-orm";
-import { paymentMethodEnum } from "./enums";
-import { serviceSessions } from "./sessions";
-import { users } from "./users";
 
 export const payments = pgTable("payments", {
   id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
