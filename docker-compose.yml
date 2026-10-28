@@ -8,10 +8,7 @@ x-logging: &logging
 
 services:
   api:
-    build:
-      context: .
-      dockerfile: .docker/api.Dockerfile
-    restart: unless-stopped
+    build: .docker/api.Dockerfile
     environment:
       DATABASE_URL: postgres://${DB_USER}:${DB_PASS}@postgres:${DB_PORT:-5432}/${DB_NAME}
     expose: ["8080"]
