@@ -2,7 +2,7 @@ FROM oven/bun:1-alpine AS base
 WORKDIR /app
 
 COPY package.json bun.lock tsconfig.json ./
-COPY src ./src
+COPY ./src ./src
 RUN bun install --frozen-lockfile && \
     bun build src/index.ts --target=bun --outdir ./out
 

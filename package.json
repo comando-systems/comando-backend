@@ -5,13 +5,21 @@
   "private": true,
   "scripts": {
     "typecheck": "bun check",
-    "dev": "bun --hot src/index.ts",
-    "build": "bun build src/index.ts --target=bun --outdir ./out"
+    "dev": "bun --hot api/index.ts",
+    "build": "bun build api/index.ts --target=bun --outdir ./out",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "drizzle-kit": "^0.31.11"
   },
   "peerDependencies": {
     "typescript": "^7"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.4",
+    "postgres": "^3.4.9"
   }
 }
