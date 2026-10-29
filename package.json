@@ -5,10 +5,12 @@
   "private": true,
   "scripts": {
     "typecheck": "bun check",
+    "test": "bun test",
     "dev": "bun --hot api/index.ts",
     "build": "bun build api/index.ts --target=bun --outdir ./out",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:seed": "bun scripts/seed.ts",
     "db:studio": "drizzle-kit studio"
   },
   "devDependencies": {

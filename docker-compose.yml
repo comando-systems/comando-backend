@@ -6,17 +6,52 @@ x-logging: &logging
     max-size: "10m"
     max-file: "3"
 
+x-api: &api
+  build:
+    context: .
+    dockerfile: api/Dockerfile
+  image: comando-api
+  environment:
+    DATABASE_URL: postgres://${DB_USER}:${DB_PASS}@postgres:${DB_PORT:-5432}/${DB_NAME}
+    JWT_SECRET: ${JWT_SECRET}
+    TOKEN_TTL_SECONDS: ${TOKEN_TTL_SECONDS:-28800}
+  networks: [backend]
+  logging: *logging
+
 services:
+  migrate:
+    <<: *api
+    command: ["bun", "run", "out/migrate.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   api:
-    build: .docker/api.Dockerfile
-    environment:
-      DATABASE_URL: postgres://${DB_USER}:${DB_PASS}@postgres:${DB_PORT:-5432}/${DB_NAME}
+    <<: *api
     expose: [8080]
     depends_on:
       postgres:
         condition: service_healthy
-    networks: [backend]
-    logging: *logging
+      migrate:
+        condition: service_completed_successfully
+
+  seed:
+    <<: *api
+    profiles: ["tools"]
+    command: ["bun", "run", "out/seed.js"]
+    environment:
+      DATABASE_URL: postgres://${DB_USER}:${DB_PASS}@postgres:${DB_PORT:-5432}/${DB_NAME}
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_NAME: ${ADMIN_NAME:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
 
   postgres:
     build:

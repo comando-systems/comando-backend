@@ -2,6 +2,7 @@
   "compilerOptions": {
     "lib": ["ESNext"],
     "target": "ESNext",
+    "types": ["bun"],
     "module": "Preserve",
     "moduleDetection": "force",
     "jsx": "react-jsx",
@@ -15,9 +16,8 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["api/*"]
+      "@/*": ["./api/*"]
     }
   }
 }
