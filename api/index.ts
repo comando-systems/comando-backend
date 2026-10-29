@@ -1,3 +1,6 @@
+import { getJwtSecret } from "@/app/config/env";
 import { startServer } from "./http/server";
 
-startServer(8080);
+// Fail fast when required runtime configuration is missing.
+getJwtSecret();
+startServer();

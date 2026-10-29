@@ -1,11 +1,20 @@
+import { getPort } from "@/app/config/env";
 import { routes } from "../routes";
 
-export function startServer(port = 8080) {
+export function startServer(port = getPort()) {
   return Bun.serve({
     port,
     routes,
     fetch() {
-      return new Response("Unmatched route", { status: 404 });
+      return Response.json(
+        {
+          error: {
+            code: "NOT_FOUND",
+            message: "Route not found",
+          },
+        },
+        { status: 404 },
+      );
     },
   });
 }
