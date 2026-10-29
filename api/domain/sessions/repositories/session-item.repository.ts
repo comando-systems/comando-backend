@@ -1,5 +1,6 @@
-import { and, eq } from "drizzle-orm";
-import { db } from "@/db";
+import { and, asc, eq } from "drizzle-orm";
+import { db, type DbExecutor } from "@/db";
+import { requireRow } from "@/db/helpers";
 import {
   sessionItems,
   type NewSessionItem,
@@ -7,20 +8,52 @@ import {
 } from "@/db/schema/sessions";
 
 export interface ISessionItemRepository {
-  findById(id: number): Promise<SessionItem | undefined>;
-  findActiveBySessionId(sessionId: number): Promise<SessionItem[]>;
-  add(data: NewSessionItem): Promise<SessionItem>;
-  remove(id: number, removedBy: number): Promise<SessionItem | undefined>;
+  findById(id: number, client?: DbExecutor): Promise<SessionItem | undefined>;
+  findBySessionId(
+    sessionId: number,
+    client?: DbExecutor,
+  ): Promise<SessionItem[]>;
+  findActiveBySessionId(
+    sessionId: number,
+    client?: DbExecutor,
+  ): Promise<SessionItem[]>;
+  add(data: NewSessionItem, client?: DbExecutor): Promise<SessionItem>;
+  removeForSession(
+    sessionId: number,
+    itemId: number,
+    removedBy: number,
+    client?: DbExecutor,
+  ): Promise<SessionItem | undefined>;
 }
 
 export class SessionItemRepository implements ISessionItemRepository {
-  async findById(id: number): Promise<SessionItem | undefined> {
-    const [item] = await db.select().from(sessionItems).where(eq(sessionItems.id, id));
+  async findById(
+    id: number,
+    client: DbExecutor = db,
+  ): Promise<SessionItem | undefined> {
+    const [item] = await client
+      .select()
+      .from(sessionItems)
+      .where(eq(sessionItems.id, id));
     return item;
   }
 
-  async findActiveBySessionId(sessionId: number): Promise<SessionItem[]> {
-    return db
+  async findBySessionId(
+    sessionId: number,
+    client: DbExecutor = db,
+  ): Promise<SessionItem[]> {
+    return client
+      .select()
+      .from(sessionItems)
+      .where(eq(sessionItems.sessionId, sessionId))
+      .orderBy(asc(sessionItems.addedAt), asc(sessionItems.id));
+  }
+
+  async findActiveBySessionId(
+    sessionId: number,
+    client: DbExecutor = db,
+  ): Promise<SessionItem[]> {
+    return client
       .select()
       .from(sessionItems)
       .where(
@@ -28,16 +61,28 @@ export class SessionItemRepository implements ISessionItemRepository {
           eq(sessionItems.sessionId, sessionId),
           eq(sessionItems.status, "ACTIVE"),
         ),
-      );
+      )
+      .orderBy(asc(sessionItems.addedAt), asc(sessionItems.id));
   }
 
-  async add(data: NewSessionItem): Promise<SessionItem> {
-    const [item] = await db.insert(sessionItems).values(data).returning();
-    return item;
+  async add(
+    data: NewSessionItem,
+    client: DbExecutor = db,
+  ): Promise<SessionItem> {
+    const [item] = await client
+      .insert(sessionItems)
+      .values(data)
+      .returning();
+    return requireRow(item, "Failed to add session item");
   }
 
-  async remove(id: number, removedBy: number): Promise<SessionItem | undefined> {
-    const [item] = await db
+  async removeForSession(
+    sessionId: number,
+    itemId: number,
+    removedBy: number,
+    client: DbExecutor = db,
+  ): Promise<SessionItem | undefined> {
+    const [item] = await client
       .update(sessionItems)
       .set({
         status: "REMOVED",
@@ -45,7 +90,13 @@ export class SessionItemRepository implements ISessionItemRepository {
         removedAt: new Date(),
         updatedAt: new Date(),
       })
-      .where(eq(sessionItems.id, id))
+      .where(
+        and(
+          eq(sessionItems.id, itemId),
+          eq(sessionItems.sessionId, sessionId),
+          eq(sessionItems.status, "ACTIVE"),
+        ),
+      )
       .returning();
     return item;
   }
