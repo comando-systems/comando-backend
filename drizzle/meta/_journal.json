@@ -8,6 +8,20 @@
       "when": 1793220721801,
       "tag": "0000_omniscient_magik",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793222825971,
+      "tag": "0001_quick_liz_osborn",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793290424000,
+      "tag": "0002_marvelous_maverick",
+      "breakpoints": true
     }
   ]
 }
