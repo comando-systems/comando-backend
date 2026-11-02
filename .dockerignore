@@ -1,0 +1,10 @@
+node_modules
+dist
+out
+coverage
+.git
+.env
+.env.*
+IMPLEMENTATION_PLAN.md
+tests
+*.md
