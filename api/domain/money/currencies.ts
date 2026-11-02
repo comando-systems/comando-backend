@@ -1,6 +1,6 @@
 // Locale-aware formatting helpers for the supported currencies.
 import { centsToDecimal, decimalToCents } from "./money";
-import type { CurrencyMap, Money } from "./types";
+import type { CurrencyMap, Money } from ".";
 
 // API money is always integer cents; only presentation is decimal/localized.
 const format = (money: Money) => centsToDecimal(money.cents);

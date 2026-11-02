@@ -1,7 +1,7 @@
 // Persistence contract for products; implementations receive an optional
 // executor so callers can reuse an existing transaction.
 import type { DbExecutor } from "@/db";
-import type { NewProduct, Product } from "./types";
+import type { NewProduct, Product } from ".";
 
 export interface IProductRepository {
   findById(id: number, client?: DbExecutor): Promise<Product | undefined>;

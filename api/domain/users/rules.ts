@@ -1,6 +1,6 @@
 // User existence invariant shared by authentication and administration flows.
 import { NotFoundError } from "@/app/errors";
-import type { User, UserWithRoles } from "./types";
+import type { User, UserWithRoles } from ".";
 
 function userNotFound(): NotFoundError {
   return new NotFoundError("User not found", "USER_NOT_FOUND");

@@ -1,7 +1,7 @@
 // Session state invariants shared by the HTTP and application layers.
 import { ConflictError, NotFoundError, ValidationError } from "@/app/errors";
 import type { SessionStatus, SessionType } from "./enums";
-import type { ServiceSession, SessionTotals } from "./types";
+import type { ServiceSession, SessionTotals } from ".";
 
 /** Narrows a lookup result to an existing session. */
 export function requireSession(

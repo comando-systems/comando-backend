@@ -1,6 +1,6 @@
 // Persistence contract for session payments; optional executor supports transactions.
 import type { DbExecutor } from "@/db";
-import type { NewPayment, Payment } from "./types";
+import type { NewPayment, Payment } from ".";
 
 export interface IPaymentRepository {
   findBySessionId(

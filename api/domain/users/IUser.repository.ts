@@ -1,6 +1,6 @@
 // Persistence contract for users and their role assignments.
 import type { DbExecutor } from "@/db";
-import type { NewUser, User, UserWithRoles } from "./types";
+import type { NewUser, User, UserWithRoles } from ".";
 
 export interface IUserRepository {
   findById(id: number, client?: DbExecutor): Promise<User | undefined>;

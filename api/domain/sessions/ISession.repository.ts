@@ -2,7 +2,7 @@
 // by close/cancel/add-item flows to serialize concurrent changes.
 import type { DbExecutor } from "@/db";
 import type { SessionStatus } from "./enums";
-import type { NewServiceSession, ServiceSession } from "./types";
+import type { NewServiceSession, ServiceSession } from ".";
 
 export interface ISessionRepository {
   findById(id: number, client?: DbExecutor): Promise<ServiceSession | undefined>;

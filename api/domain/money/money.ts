@@ -1,5 +1,5 @@
 // Integer-cent money helpers. Avoids floating-point drift at API boundaries.
-import type { Money } from "./types";
+import type { Money } from ".";
 
 /** Parses a decimal string such as "10.50" into integer cents. Rejects >2 places. */
 export function decimalToCents(value: string): number {

@@ -4,7 +4,7 @@ import type {
   PaymentAmount,
   PricedItem,
   SessionTotals,
-} from "./types";
+} from ".";
 
 /** Sums active items at their historical price and subtracts all payments. */
 export function calculateSessionTotals(

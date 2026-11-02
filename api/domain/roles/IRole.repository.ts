@@ -1,6 +1,6 @@
 // Persistence contract for roles and the user-role join table.
 import type { DbExecutor } from "@/db";
-import type { NewRole, Role } from "./types";
+import type { NewRole, Role } from ".";
 
 export interface IRoleRepository {
   findById(id: number, client?: DbExecutor): Promise<Role | undefined>;

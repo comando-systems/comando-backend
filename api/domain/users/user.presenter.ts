@@ -1,5 +1,5 @@
 // Maps user rows plus roles to the public API shape. Never exposes password hashes.
-import type { PublicUser, User, UserWithRoles } from "./types";
+import type { PublicUser, User, UserWithRoles } from ".";
 
 /** Presents a user with deduplicated roles. */
 export function toPublicUser({ user, roles }: UserWithRoles): PublicUser {

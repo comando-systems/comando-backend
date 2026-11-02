@@ -1,6 +1,6 @@
 // Maps persisted payments (decimal) to the public cents-based contract.
 import { decimalToCents } from "@/domain/money";
-import type { Payment, PublicPayment } from "./types";
+import type { Payment, PublicPayment } from ".";
 
 /** Converts a payment row into the API shape. */
 export function toPublicPayment(payment: Payment): PublicPayment {

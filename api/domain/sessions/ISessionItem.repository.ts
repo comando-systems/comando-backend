@@ -1,6 +1,6 @@
 // Persistence contract for session items, including the audited removal update.
 import type { DbExecutor } from "@/db";
-import type { NewSessionItem, SessionItem } from "./types";
+import type { NewSessionItem, SessionItem } from ".";
 
 export interface ISessionItemRepository {
   findById(id: number, client?: DbExecutor): Promise<SessionItem | undefined>;

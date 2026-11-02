@@ -5,7 +5,7 @@ import type {
   PublicSessionItem,
   ServiceSession,
   SessionItem,
-} from "./types";
+} from ".";
 
 /** Converts a session row into the API shape. */
 export function toPublicSession(session: ServiceSession): PublicSession {
