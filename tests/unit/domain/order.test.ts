@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { Item } from '@/domain/entity/item';
-import { Order } from '@/domain/entity/order';
+import { Order, OrderPayment, type PaymentMethod } from '@/domain/entity/order';
 import {
   InvalidStateTransitionError,
   InvalidValueError,
@@ -38,6 +38,7 @@ describe('Order', () => {
         { item: createItem('1', 750), quantity: 2 },
         { item: createItem('2', 300), quantity: 1 },
       ],
+      payments: [{ method: 'CASH', amountCents: 1800 }],
       now,
     });
 
@@ -47,6 +48,9 @@ describe('Order', () => {
     expect(order.closedAt).toEqual(now);
     expect(order.total.cents).toBe(1800);
     expect(order.items).toHaveLength(2);
+    expect(order.payments).toHaveLength(1);
+    expect(order.payments[0]?.method).toBe('CASH');
+    expect(order.payments[0]?.amountCents).toBe(1800);
   });
 
   test('combines repeated counter lines for the same item', () => {
@@ -57,6 +61,7 @@ describe('Order', () => {
         { item: createItem('1', 750), quantity: 1 },
         { item: createItem('1', 750), quantity: 2 },
       ],
+      payments: [{ method: 'CASH', amountCents: 2250 }],
       now,
     });
 
@@ -71,6 +76,7 @@ describe('Order', () => {
         id: new OrderID('1'),
         openedByUserId: new UserID('1'),
         lines: [],
+        payments: [],
         now,
       }),
     ).toThrow(InvalidValueError);
@@ -129,7 +135,7 @@ describe('Order', () => {
   test('closes an open table order and rejects further changes', () => {
     const order = createTableOrder();
 
-    order.close(new UserID('2'), later);
+    order.close(new UserID('2'), [], later);
 
     expect(order.status).toBe('CLOSED');
     expect(order.closedByUserId?.value).toBe('2');
@@ -148,16 +154,68 @@ describe('Order', () => {
     expect(order.status).toBe('CANCELED');
     expect(order.canceledByUserId?.value).toBe('1');
     expect(order.canceledAt).toEqual(later);
-    expect(() => order.close(new UserID('2'), later)).toThrow(InvalidStateTransitionError);
+    expect(() => order.close(new UserID('2'), [], later)).toThrow(InvalidStateTransitionError);
   });
 
   test('allows closing an empty table order', () => {
     const order = createTableOrder();
 
-    order.close(new UserID('2'), later);
+    order.close(new UserID('2'), [], later);
 
     expect(order.status).toBe('CLOSED');
     expect(order.total.cents).toBe(0);
+    expect(order.payments).toHaveLength(0);
+  });
+
+  test('records split payments that match the order total', () => {
+    const order = createTableOrder();
+    order.addItem(createItem('1', 1000), 1, now);
+
+    order.close(
+      new UserID('2'),
+      [
+        { method: 'CASH', amountCents: 400 },
+        { method: 'PIX', amountCents: 600 },
+      ],
+      later,
+    );
+
+    expect(order.payments.map((payment) => [payment.method, payment.amountCents])).toEqual([
+      ['CASH', 400],
+      ['PIX', 600],
+    ]);
+  });
+
+  test('rejects payments that do not match the order total', () => {
+    const order = createTableOrder();
+    order.addItem(createItem('1', 1000), 1, now);
+
+    expect(() =>
+      order.close(new UserID('2'), [{ method: 'CASH', amountCents: 999 }], later),
+    ).toThrow(InvariantViolationError);
+    expect(order.status).toBe('OPEN');
+
+    expect(() =>
+      Order.createCounter({
+        id: new OrderID('2'),
+        openedByUserId: new UserID('1'),
+        lines: [{ item: createItem('2', 500), quantity: 1 }],
+        payments: [{ method: 'CASH', amountCents: 400 }],
+        now,
+      }),
+    ).toThrow(InvariantViolationError);
+  });
+
+  test('rejects invalid payment amounts and methods', () => {
+    expect(() => OrderPayment.create({ method: 'CASH', amountCents: 0 })).toThrow(
+      InvalidValueError,
+    );
+    expect(() => OrderPayment.create({ method: 'CASH', amountCents: -1 })).toThrow(
+      InvalidValueError,
+    );
+    expect(() =>
+      OrderPayment.create({ method: 'BITCOIN' as PaymentMethod, amountCents: 100 }),
+    ).toThrow(InvalidValueError);
   });
 
   test('restores persisted orders with their lines', () => {

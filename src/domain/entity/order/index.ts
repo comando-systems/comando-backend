@@ -15,9 +15,21 @@ import { OrderItemKey } from '@/domain/value-objects/order-item-key';
 
 export type OrderType = 'COUNTER' | 'TABLE';
 export type OrderStatus = 'OPEN' | 'CLOSED' | 'CANCELED';
+export type PaymentMethod = 'CASH' | 'DEBIT_CARD' | 'CREDIT_CARD' | 'PIX' | 'OTHER';
 
 export const ORDER_TYPES: readonly OrderType[] = Object.freeze(['COUNTER', 'TABLE']);
 export const ORDER_STATUSES: readonly OrderStatus[] = Object.freeze(['OPEN', 'CLOSED', 'CANCELED']);
+export const PAYMENT_METHODS: readonly PaymentMethod[] = Object.freeze([
+  'CASH',
+  'DEBIT_CARD',
+  'CREDIT_CARD',
+  'PIX',
+  'OTHER',
+]);
+
+export function isPaymentMethod(value: string): value is PaymentMethod {
+  return PAYMENT_METHODS.includes(value as PaymentMethod);
+}
 
 export interface OrderItemProps {
   key: OrderItemKey;
@@ -106,6 +118,54 @@ export class OrderItem {
   }
 }
 
+export interface OrderPaymentInput {
+  readonly method: PaymentMethod;
+  readonly amountCents: number;
+}
+
+export interface OrderPaymentProps {
+  readonly method: PaymentMethod;
+  readonly amount: Money;
+}
+
+/**
+ * A single payment applied to a closed order. Split payments are represented by
+ * multiple entries; amounts must be positive and sum to the order total.
+ */
+export class OrderPayment {
+  private constructor(private readonly props: OrderPaymentProps) {}
+
+  static create(input: OrderPaymentInput): OrderPayment {
+    if (!isPaymentMethod(input.method)) {
+      throw new InvalidValueError('Invalid payment method');
+    }
+
+    const amount = Money.fromCents(input.amountCents);
+
+    if (amount.isZero() || amount.isNegative()) {
+      throw new InvalidValueError('Payment amount must be positive');
+    }
+
+    return new OrderPayment({ method: input.method, amount });
+  }
+
+  get method(): PaymentMethod {
+    return this.props.method;
+  }
+
+  get amount(): Money {
+    return this.props.amount;
+  }
+
+  get amountCents(): number {
+    return this.props.amount.cents;
+  }
+
+  toJSON(): { method: PaymentMethod; amountCents: number } {
+    return { method: this.props.method, amountCents: this.props.amount.cents };
+  }
+}
+
 export interface OrderProps {
   id: OrderID;
   type: OrderType;
@@ -122,6 +182,18 @@ export interface OrderProps {
   version: number;
 }
 
+function normalizePayments(inputs: readonly OrderPaymentInput[]): readonly OrderPayment[] {
+  return Object.freeze(inputs.map((input) => OrderPayment.create(input)));
+}
+
+function assertPaymentsMatchTotal(payments: readonly OrderPayment[], total: Money): void {
+  const paid = payments.reduce((sum, payment) => sum.add(payment.amount), Money.zero());
+
+  if (!paid.equals(total)) {
+    throw new InvariantViolationError('Payments must sum to the order total');
+  }
+}
+
 export interface CounterOrderLine {
   readonly item: Item;
   readonly quantity: number;
@@ -131,6 +203,7 @@ export interface CreateCounterOrderInput {
   readonly id: OrderID;
   readonly openedByUserId: UserID;
   readonly lines: readonly CounterOrderLine[];
+  readonly payments: readonly OrderPaymentInput[];
   readonly now: Date;
 }
 
@@ -142,10 +215,15 @@ export interface OpenTableOrderInput {
 }
 
 export class Order {
+  private paymentList: readonly OrderPayment[];
+
   private constructor(
     private readonly props: OrderProps,
     private readonly lineMap: Map<string, OrderItem>,
-  ) {}
+    payments: readonly OrderPayment[] = [],
+  ) {
+    this.paymentList = payments;
+  }
 
   static createCounter(input: CreateCounterOrderInput): Order {
     if (input.lines.length === 0) {
@@ -176,6 +254,9 @@ export class Order {
       order.addOrIncrementLine(line.item, line.quantity, now);
     }
 
+    order.paymentList = normalizePayments(input.payments);
+    assertPaymentsMatchTotal(order.paymentList, order.total);
+
     return order;
   }
 
@@ -202,7 +283,11 @@ export class Order {
     );
   }
 
-  static restore(props: OrderProps, items: readonly OrderItem[]): Order {
+  static restore(
+    props: OrderProps,
+    items: readonly OrderItem[],
+    payments: readonly OrderPayment[] = [],
+  ): Order {
     const lineMap = new Map<string, OrderItem>();
 
     for (const item of items) {
@@ -212,7 +297,7 @@ export class Order {
       lineMap.set(item.key.toString(), item);
     }
 
-    return new Order(
+    const order = new Order(
       {
         ...props,
         openedAt: requireValidDate(props.openedAt, 'Opened at'),
@@ -224,7 +309,16 @@ export class Order {
         version: requirePositiveInteger(props.version, 'Version'),
       },
       lineMap,
+      payments,
     );
+
+    if (order.status === 'CLOSED') {
+      assertPaymentsMatchTotal(order.paymentList, order.total);
+    } else if (order.paymentList.length > 0) {
+      throw new InvariantViolationError('Only closed orders can have payments');
+    }
+
+    return order;
   }
 
   get id(): OrderID {
@@ -283,6 +377,10 @@ export class Order {
     return [...this.lineMap.values()];
   }
 
+  get payments(): readonly OrderPayment[] {
+    return this.paymentList;
+  }
+
   get total(): Money {
     return this.items.reduce((total, item) => total.add(item.lineTotal), Money.zero());
   }
@@ -309,10 +407,14 @@ export class Order {
     this.touch(now);
   }
 
-  close(byUserId: UserID, now: Date): void {
+  close(byUserId: UserID, payments: readonly OrderPaymentInput[], now: Date): void {
     this.assertOpen();
     const timestamp = requireValidDate(now, 'Now');
+    const normalizedPayments = normalizePayments(payments);
 
+    assertPaymentsMatchTotal(normalizedPayments, this.total);
+
+    this.paymentList = normalizedPayments;
     this.props.status = 'CLOSED';
     this.props.closedByUserId = byUserId;
     this.props.closedAt = timestamp;

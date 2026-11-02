@@ -30,9 +30,19 @@ describe('User', () => {
     const user = createUser({ roles: ['CASHIER', 'SERVER'] });
 
     expect(user.hasPermission('orders:counter')).toBe(true);
+    expect(user.hasPermission('orders:close')).toBe(true);
     expect(user.hasPermission('orders:cancel')).toBe(true);
     expect(user.hasPermission('users:manage')).toBe(false);
     expect(permissionsForRoles(['ADMIN'])).toEqual(new Set(['users:manage', 'items:manage']));
+  });
+
+  test('grants closing and cancellation to cashiers and servers', () => {
+    expect(permissionsForRoles(['CASHIER'])).toEqual(
+      new Set(['orders:counter', 'orders:history', 'orders:close', 'orders:cancel']),
+    );
+    expect(permissionsForRoles(['SERVER'])).toEqual(
+      new Set(['orders:open', 'orders:update', 'orders:close', 'orders:cancel']),
+    );
   });
 
   test('rejects invalid data', () => {
