@@ -1,23 +1,23 @@
+// Service session endpoints: opening, items, closing, and cancellation.
 import { services } from "@/app/container";
-import { authenticate, requirePermission } from "@/http/middleware/auth";
-import { json } from "@/shared/http/json";
-import { handle } from "@/shared/http/route";
+import { authorize } from "@/http/middleware/auth";
+import { json } from "@/http/response";
+import { handle } from "@/http/handle";
 import {
   Input,
   parseEnumParam,
   parseId,
   readJson,
-} from "@/shared/validation";
+} from "@/http/validation";
 import {
   SESSION_STATUSES,
   SESSION_TYPES,
-} from "@/domain/sessions/session.service";
+} from "@/domain/sessions";
 
 export const sessionRoutes = {
   "/sessions": {
     GET: handle(async (request: Bun.BunRequest<"/sessions">) => {
-      const actor = await authenticate(request);
-      requirePermission(actor, "sessions:read");
+      await authorize(request, "sessions:read");
 
       const status = parseEnumParam(
         new URL(request.url).searchParams.get("status"),
@@ -28,11 +28,11 @@ export const sessionRoutes = {
       return json(await services.sessions.list(status));
     }),
     POST: handle(async (request: Bun.BunRequest<"/sessions">) => {
-      const actor = await authenticate(request);
-      requirePermission(actor, "sessions:open");
+      const actor = await authorize(request, "sessions:open");
 
       const input = new Input(await readJson(request));
       const type = input.enum("type", SESSION_TYPES);
+      // Table assignment is validated against `type` in the domain layer.
       const tableNumber = input.optionalInteger("tableNumber", {
         min: 1,
         max: 9_999,
@@ -51,16 +51,14 @@ export const sessionRoutes = {
   },
   "/sessions/:id": {
     GET: handle(async (request: Bun.BunRequest<"/sessions/:id">) => {
-      const actor = await authenticate(request);
-      requirePermission(actor, "sessions:read");
+      await authorize(request, "sessions:read");
 
       return json(await services.sessions.detail(parseId(request.params.id)));
     }),
   },
   "/sessions/:id/close": {
     POST: handle(async (request: Bun.BunRequest<"/sessions/:id/close">) => {
-      const actor = await authenticate(request);
-      requirePermission(actor, "sessions:close");
+      const actor = await authorize(request, "sessions:close");
 
       return json(
         await services.sessions.close(
@@ -72,8 +70,7 @@ export const sessionRoutes = {
   },
   "/sessions/:id/cancel": {
     POST: handle(async (request: Bun.BunRequest<"/sessions/:id/cancel">) => {
-      const actor = await authenticate(request);
-      requirePermission(actor, "sessions:cancel");
+      const actor = await authorize(request, "sessions:cancel");
 
       return json(
         await services.sessions.cancel(
@@ -85,17 +82,16 @@ export const sessionRoutes = {
   },
   "/sessions/:id/items": {
     GET: handle(async (request: Bun.BunRequest<"/sessions/:id/items">) => {
-      const actor = await authenticate(request);
-      requirePermission(actor, "sessions:read");
+      await authorize(request, "sessions:read");
 
       return json(await services.sessions.listItems(parseId(request.params.id)));
     }),
     POST: handle(async (request: Bun.BunRequest<"/sessions/:id/items">) => {
-      const actor = await authenticate(request);
-      requirePermission(actor, "items:manage");
+      const actor = await authorize(request, "items:manage");
 
       const input = new Input(await readJson(request));
       const productId = input.integer("productId", { min: 1 });
+      // Quantities keep three decimal places to match numeric(10, 3).
       const quantity = input.decimal("quantity", {
         min: 0.001,
         max: 100_000,
@@ -115,8 +111,7 @@ export const sessionRoutes = {
   "/sessions/:id/items/:itemId": {
     DELETE: handle(
       async (request: Bun.BunRequest<"/sessions/:id/items/:itemId">) => {
-        const actor = await authenticate(request);
-        requirePermission(actor, "items:manage");
+        const actor = await authorize(request, "items:manage");
 
         return json(
           await services.sessions.removeItem(

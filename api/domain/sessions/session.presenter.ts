@@ -1,41 +1,13 @@
+// Maps session and item rows to the public cents-based contract.
+import { decimalToCents, subtotalCents } from "@/domain/money";
 import type {
+  PublicSession,
+  PublicSessionItem,
   ServiceSession,
-  ServiceSessionStatus,
-  ServiceSessionType,
   SessionItem,
-} from "@/db/schema/sessions";
-import {
-  decimalToCents,
-  subtotalCents,
-} from "@/domain/money/money";
+} from "./types";
 
-export interface PublicSession {
-  id: number;
-  type: ServiceSessionType;
-  status: ServiceSessionStatus;
-  tableNumber: number | null;
-  openedBy: number;
-  closedBy: number | null;
-  openedAt: Date;
-  closedAt: Date | null;
-  notes: string | null;
-}
-
-export interface PublicSessionItem {
-  id: number;
-  sessionId: number;
-  productId: number;
-  quantity: number;
-  unitPriceCents: number;
-  subtotalCents: number;
-  status: "ACTIVE" | "REMOVED";
-  addedBy: number;
-  addedAt: Date;
-  updatedAt: Date;
-  removedBy: number | null;
-  removedAt: Date | null;
-}
-
+/** Converts a session row into the API shape. */
 export function toPublicSession(session: ServiceSession): PublicSession {
   return {
     id: session.id,

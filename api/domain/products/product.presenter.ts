@@ -1,16 +1,8 @@
-import type { Product } from "@/db/schema/products";
-import { decimalToCents } from "@/domain/money/money";
+// Maps internal product rows (decimal strings) to the public cents-based shape.
+import { decimalToCents } from "@/domain/money";
+import type { Product, PublicProduct } from "./types";
 
-export interface PublicProduct {
-  id: number;
-  name: string;
-  description: string | null;
-  priceCents: number;
-  active: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
+/** Converts a database row into the API contract without leaking internals. */
 export function toPublicProduct(product: Product): PublicProduct {
   return {
     id: product.id,

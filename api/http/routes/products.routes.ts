@@ -1,20 +1,24 @@
+// Product catalog endpoints; reads are broad, mutations require products:manage.
 import { services } from "@/app/container";
-import { MAX_MONEY_CENTS } from "@/domain/money/money";
-import { authenticate, requirePermission } from "@/http/middleware/auth";
-import { json } from "@/shared/http/json";
-import { handle } from "@/shared/http/route";
+import { MAX_MONEY_CENTS } from "@/domain/money";
+import { authorize } from "@/http/middleware/auth";
+import { json } from "@/http/response";
+import { handle } from "@/http/handle";
 import {
   Input,
   parseBooleanParam,
   parseId,
   readJson,
-} from "@/shared/validation";
+} from "@/http/validation";
+
+const NAME_OPTIONS = { min: 1, max: 150 } as const;
+const DESCRIPTION_OPTIONS = { max: 2_000 } as const;
+const PRICE_OPTIONS = { min: 0, max: MAX_MONEY_CENTS } as const;
 
 export const productRoutes = {
   "/products": {
     GET: handle(async (request: Bun.BunRequest<"/products">) => {
-      const actor = await authenticate(request);
-      requirePermission(actor, "products:read");
+      await authorize(request, "products:read");
 
       const active = parseBooleanParam(
         new URL(request.url).searchParams.get("active"),
@@ -24,16 +28,12 @@ export const productRoutes = {
       return json(await services.products.list({ active }));
     }),
     POST: handle(async (request: Bun.BunRequest<"/products">) => {
-      const actor = await authenticate(request);
-      requirePermission(actor, "products:manage");
+      await authorize(request, "products:manage");
 
       const input = new Input(await readJson(request));
-      const name = input.string("name", { min: 1, max: 150 });
-      const description = input.nullableString("description", { max: 2_000 });
-      const priceCents = input.integer("priceCents", {
-        min: 0,
-        max: MAX_MONEY_CENTS,
-      });
+      const name = input.string("name", NAME_OPTIONS);
+      const description = input.nullableString("description", DESCRIPTION_OPTIONS);
+      const priceCents = input.integer("priceCents", PRICE_OPTIONS);
 
       return json(
         await services.products.create({ name, description, priceCents }),
@@ -43,22 +43,17 @@ export const productRoutes = {
   },
   "/products/:id": {
     GET: handle(async (request: Bun.BunRequest<"/products/:id">) => {
-      const actor = await authenticate(request);
-      requirePermission(actor, "products:read");
+      await authorize(request, "products:read");
 
       return json(await services.products.getById(parseId(request.params.id)));
     }),
     PATCH: handle(async (request: Bun.BunRequest<"/products/:id">) => {
-      const actor = await authenticate(request);
-      requirePermission(actor, "products:manage");
+      await authorize(request, "products:manage");
 
       const input = new Input(await readJson(request));
-      const name = input.optionalString("name", { min: 1, max: 150 });
-      const description = input.nullableString("description", { max: 2_000 });
-      const priceCents = input.optionalInteger("priceCents", {
-        min: 0,
-        max: MAX_MONEY_CENTS,
-      });
+      const name = input.optionalString("name", NAME_OPTIONS);
+      const description = input.nullableString("description", DESCRIPTION_OPTIONS);
+      const priceCents = input.optionalInteger("priceCents", PRICE_OPTIONS);
       const active = input.optionalBoolean("active");
 
       return json(
@@ -71,9 +66,9 @@ export const productRoutes = {
       );
     }),
     DELETE: handle(async (request: Bun.BunRequest<"/products/:id">) => {
-      const actor = await authenticate(request);
-      requirePermission(actor, "products:manage");
+      await authorize(request, "products:manage");
 
+      // Deactivation is a soft delete; historical session items keep the product.
       return json(
         await services.products.deactivate(parseId(request.params.id)),
       );

@@ -1,10 +1,11 @@
+// Unit tests for the role-to-permission matrix and multi-role unions.
 import { describe, expect, test } from "bun:test";
 import {
   PERMISSIONS,
   can,
   isRoleName,
   permissionsFor,
-} from "./permissions";
+} from ".";
 
 describe("role permissions", () => {
   test("ADMIN has every permission", () => {

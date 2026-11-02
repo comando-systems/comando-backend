@@ -1,5 +1,7 @@
+// Integer-cent money helpers. Avoids floating-point drift at API boundaries.
 import type { Money } from "./types";
 
+/** Parses a decimal string such as "10.50" into integer cents. Rejects >2 places. */
 export function decimalToCents(value: string): number {
   const match = /^(-?)(\d+)(?:\.(\d{1,2}))?$/.exec(value.trim());
 
@@ -18,6 +20,7 @@ export function decimalToCents(value: string): number {
   return sign === "-" ? -cents : cents;
 }
 
+/** Formats integer cents as a plain decimal string accepted by PostgreSQL numeric. */
 export function centsToDecimal(cents: number): string {
   if (!Number.isSafeInteger(cents)) {
     throw new Error("Amount must be a safe integer in cents.");
@@ -31,8 +34,10 @@ export function centsToDecimal(cents: number): string {
   return `${sign}${whole}.${fraction}`;
 }
 
+// Upper bound accepted by the HTTP layer; keeps numeric(12, 2) values valid.
 export const MAX_MONEY_CENTS = 999_999_999_999;
 
+/** Multiplies a unit price by a fractional quantity and rounds to whole cents. */
 export function subtotalCents(
   unitPriceCents: number,
   quantity: number,
@@ -40,20 +45,7 @@ export function subtotalCents(
   return Math.round(unitPriceCents * quantity);
 }
 
-export function fromNumber(cents: number): Money {
-  if (!Number.isSafeInteger(cents)) {
-    throw new Error("Amount must be a safe integer in cents.");
-  }
-  return { cents };
-}
-
-export function fromCents(cents: number): Money {
-  if (!Number.isSafeInteger(cents)) {
-    throw new Error("Amount must be a safe integer in cents.");
-  }
-  return { cents };
-}
-
+/** Immutable money value used by callers that prefer a small object API. */
 export class MoneyAmount {
   readonly cents: number;
 
@@ -64,23 +56,16 @@ export class MoneyAmount {
     this.cents = cents;
   }
 
-  static fromNumber(cents: number): MoneyAmount {
-    return new MoneyAmount(cents);
-  }
-
   static fromCents(cents: number): MoneyAmount {
     return new MoneyAmount(cents);
   }
 
   static fromFormatted(value: string): MoneyAmount {
-    const normalized = value.trim().replace(",", ".");
+    const cents = decimalToCents(value.replace(",", "."));
 
-    if (!/^\d+(\.\d{1,2})?$/.test(normalized)) {
+    if (cents < 0) {
       throw new Error("Invalid monetary format.");
     }
-
-    const [whole, fraction = ""] = normalized.split(".");
-    const cents = Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
 
     return MoneyAmount.fromCents(cents);
   }
@@ -116,10 +101,6 @@ export class MoneyAmount {
   }
 
   toString(): string {
-    const sign = this.cents < 0 ? "-" : "";
-    const absolute = Math.abs(this.cents);
-    const whole = Math.floor(absolute / 100);
-    const fraction = String(absolute % 100).padStart(2, "0");
-    return `${sign}${whole}.${fraction}`;
+    return centsToDecimal(this.cents);
   }
 }

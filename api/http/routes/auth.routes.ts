@@ -1,8 +1,9 @@
+// Authentication endpoints: login, current profile, and self-service password change.
 import { services } from "@/app/container";
 import { authenticate } from "@/http/middleware/auth";
-import { json, noContent } from "@/shared/http/json";
-import { handle } from "@/shared/http/route";
-import { Input, readJson } from "@/shared/validation";
+import { json, noContent } from "@/http/response";
+import { handle } from "@/http/handle";
+import { Input, readJson } from "@/http/validation";
 
 export const authRoutes = {
   "/auth/login": {
@@ -22,6 +23,7 @@ export const authRoutes = {
   },
   "/auth/password": {
     PUT: handle(async (request: Bun.BunRequest<"/auth/password">) => {
+      // Authenticated users may change only their own password.
       const actor = await authenticate(request);
       const input = new Input(await readJson(request));
       const currentPassword = input.string("currentPassword", {

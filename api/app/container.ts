@@ -1,16 +1,23 @@
-import { AuthService } from "@/domain/users/auth.service";
-import { UserService } from "@/domain/users/user.service";
-import { userRepository } from "@/domain/users/repositories/user.repository";
-import { roleRepository } from "@/domain/roles/repositories/role.repository";
-import { ProductService } from "@/domain/products/product.service";
-import { productRepository } from "@/domain/products/repositories/product.repository";
-import { SessionService } from "@/domain/sessions/session.service";
-import { sessionRepository } from "@/domain/sessions/repositories/session.repository";
-import { sessionItemRepository } from "@/domain/sessions/repositories/session-item.repository";
-import { PaymentService } from "@/domain/payments/payment.service";
-import { paymentRepository } from "@/domain/payments/repositories/payment.repository";
+// Composition root: wires repositories, transactions, and application services.
+
+import {
+  AuthService,
+  PaymentService,
+  ProductService,
+  SessionService,
+  UserService,
+} from "@/app/services";
+import {
+  paymentRepository,
+  productRepository,
+  roleRepository,
+  sessionItemRepository,
+  sessionRepository,
+  userRepository,
+} from "@/domain/repositories";
 import { databaseTransactions } from "./transaction";
 
+/** Singleton service instances shared by every HTTP route. */
 export const services = {
   auth: new AuthService(userRepository, roleRepository),
   users: new UserService(userRepository, roleRepository, databaseTransactions),

@@ -1,21 +1,12 @@
-import { decimalToCents, subtotalCents } from "@/domain/money/money";
+// Pure session total calculation over persisted decimal values.
+import { decimalToCents, subtotalCents } from "@/domain/money";
+import type {
+  PaymentAmount,
+  PricedItem,
+  SessionTotals,
+} from "./types";
 
-export interface PricedItem {
-  unitPrice: string;
-  quantity: string;
-  status: "ACTIVE" | "REMOVED";
-}
-
-export interface PaymentAmount {
-  amount: string;
-}
-
-export interface SessionTotals {
-  itemsCents: number;
-  paidCents: number;
-  balanceCents: number;
-}
-
+/** Sums active items at their historical price and subtracts all payments. */
 export function calculateSessionTotals(
   items: readonly PricedItem[],
   payments: readonly PaymentAmount[],

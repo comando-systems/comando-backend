@@ -4,24 +4,18 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "typecheck": "bun check",
+    "check": "bun run typecheck && bun run check:imports",
+    "check:imports": "bun scripts/check-imports.ts",
+    "typecheck": "bun check --no-script",
     "test": "bun test",
     "dev": "bun --hot api/index.ts",
     "build": "bun build api/index.ts --target=bun --outdir ./out",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
-    "db:seed": "bun scripts/seed.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:seed": "bun scripts/database/seed.ts"
   },
   "devDependencies": {
-    "@types/bun": "latest",
-    "drizzle-kit": "^0.31.11"
+    "@types/bun": "latest"
   },
   "peerDependencies": {
     "typescript": "^7"
-  },
-  "dependencies": {
-    "drizzle-orm": "^0.45.4",
-    "postgres": "^3.4.9"
   }
 }

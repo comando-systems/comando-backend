@@ -19,22 +19,12 @@ x-api: &api
   logging: *logging
 
 services:
-  migrate:
-    <<: *api
-    command: ["bun", "run", "out/migrate.js"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: "no"
-
   api:
     <<: *api
     expose: [8080]
     depends_on:
       postgres:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
 
   seed:
     <<: *api
@@ -49,8 +39,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
     restart: "no"
 
   postgres:

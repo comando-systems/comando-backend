@@ -1,3 +1,4 @@
+// Shared money types; the wire/API representation is always integer cents.
 export interface Money {
   cents: number;
 }

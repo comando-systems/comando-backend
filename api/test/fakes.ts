@@ -1,18 +1,27 @@
+// In-memory repository fakes used by service tests; they mimic database behavior
+// without touching PostgreSQL.
 import type { TransactionManager } from "@/app/transaction";
-import type { Payment, NewPayment } from "@/db/schema/payments";
-import type { NewProduct, Product } from "@/db/schema/products";
 import type {
+  IPaymentRepository,
+  NewPayment,
+  Payment,
+} from "@/domain/payments";
+import type {
+  IProductRepository,
+  NewProduct,
+  Product,
+} from "@/domain/products";
+import type {
+  ISessionItemRepository,
+  ISessionRepository,
   NewServiceSession,
-  ServiceSession,
-  ServiceSessionStatus,
-  SessionItem,
   NewSessionItem,
-} from "@/db/schema/sessions";
-import type { IPaymentRepository } from "@/domain/payments/repositories/payment.repository";
-import type { IProductRepository } from "@/domain/products/repositories/product.repository";
-import type { ISessionItemRepository } from "@/domain/sessions/repositories/session-item.repository";
-import type { ISessionRepository } from "@/domain/sessions/repositories/session.repository";
+  ServiceSession,
+  SessionItem,
+  SessionStatus,
+} from "@/domain/sessions";
 
+// Tests run without a database, so transactions simply pass no client through.
 export const testTransactions: TransactionManager = {
   transaction: (work) => work(undefined),
 };
@@ -21,6 +30,7 @@ function now(): Date {
   return new Date();
 }
 
+/** In-memory session repository that enforces the same open-state transitions. */
 export class FakeSessionRepository implements ISessionRepository {
   readonly rows: ServiceSession[] = [];
   private nextId = 1;
@@ -42,7 +52,7 @@ export class FakeSessionRepository implements ISessionRepository {
   }
 
   async findByStatus(
-    status?: ServiceSessionStatus,
+    status?: SessionStatus,
   ): Promise<ServiceSession[]> {
     return status
       ? this.rows.filter((row) => row.status === status)
@@ -86,7 +96,7 @@ export class FakeSessionRepository implements ISessionRepository {
 
   private finish(
     id: number,
-    status: ServiceSessionStatus,
+    status: SessionStatus,
     closedBy: number,
   ): ServiceSession | undefined {
     const session = this.rows.find(
@@ -104,6 +114,7 @@ export class FakeSessionRepository implements ISessionRepository {
   }
 }
 
+/** In-memory item repository with logical removal semantics. */
 export class FakeSessionItemRepository implements ISessionItemRepository {
   readonly rows: SessionItem[] = [];
   private nextId = 1;
@@ -165,24 +176,33 @@ export class FakeSessionItemRepository implements ISessionItemRepository {
   }
 }
 
+/** In-memory product repository; `seed` inserts catalog rows for tests. */
 export class FakeProductRepository implements IProductRepository {
   readonly rows: Product[] = [];
   private nextId = 1;
 
-  seed(input: { name?: string; price: string; active?: boolean }): Product {
+  private insert(data: NewProduct): Product {
     const id = this.nextId++;
     const product: Product = {
       id,
-      name: input.name ?? `Product ${id}`,
-      description: null,
-      price: input.price,
-      active: input.active ?? true,
+      name: data.name,
+      description: data.description ?? null,
+      price: data.price,
+      active: data.active ?? true,
       createdAt: now(),
       updatedAt: now(),
     };
 
     this.rows.push(product);
     return product;
+  }
+
+  seed(input: { name?: string; price: string; active?: boolean }): Product {
+    return this.insert({
+      name: input.name ?? `Product ${this.nextId}`,
+      price: input.price,
+      active: input.active,
+    });
   }
 
   async findById(id: number): Promise<Product | undefined> {
@@ -202,19 +222,7 @@ export class FakeProductRepository implements IProductRepository {
   }
 
   async create(data: NewProduct): Promise<Product> {
-    const id = this.nextId++;
-    const product: Product = {
-      id,
-      name: data.name,
-      description: data.description ?? null,
-      price: data.price,
-      active: data.active ?? true,
-      createdAt: now(),
-      updatedAt: now(),
-    };
-
-    this.rows.push(product);
-    return product;
+    return this.insert(data);
   }
 
   async update(
@@ -236,6 +244,7 @@ export class FakeProductRepository implements IProductRepository {
   }
 }
 
+/** Append-only in-memory payment repository. */
 export class FakePaymentRepository implements IPaymentRepository {
   readonly rows: Payment[] = [];
   private nextId = 1;

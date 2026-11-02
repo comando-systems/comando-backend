@@ -1,7 +1,10 @@
+// Minimal HMAC-SHA256 token signing and verification built on node:crypto.
+
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { getJwtSecret, getTokenTtlSeconds } from "@/app/config/env";
 import { UnauthorizedError } from "@/app/errors";
 
+/** Claims embedded in an issued token. */
 export interface TokenPayload {
   sub: number;
   iat: number;
@@ -36,6 +39,7 @@ function isTokenPayload(value: unknown): value is TokenPayload {
   );
 }
 
+/** Signs a token for a user; the TTL defaults to TOKEN_TTL_SECONDS. */
 export function signToken(
   userId: number,
   ttlSeconds: number = getTokenTtlSeconds(),
@@ -59,6 +63,7 @@ export function signToken(
   return `${encodedPayload}.${sign(encodedPayload)}`;
 }
 
+/** Verifies the signature, payload shape, and expiry; throws UnauthorizedError otherwise. */
 export function verifyToken(token: string): TokenPayload {
   const [encodedPayload, signature, ...rest] = token.split(".");
 
@@ -70,6 +75,7 @@ export function verifyToken(token: string): TokenPayload {
   const provided = Buffer.from(signature, "utf8");
   const expected = Buffer.from(expectedSignature, "utf8");
 
+  // Constant-time comparison prevents leaking signature bytes via timing.
   if (
     provided.length !== expected.length ||
     !timingSafeEqual(provided, expected)
@@ -91,6 +97,7 @@ export function verifyToken(token: string): TokenPayload {
     throw new UnauthorizedError("Invalid token");
   }
 
+  // Expiry is checked after signature and shape validation.
   if (payload.exp <= Math.floor(Date.now() / 1000)) {
     throw new UnauthorizedError("Token expired");
   }

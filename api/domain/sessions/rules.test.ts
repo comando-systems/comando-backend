@@ -1,22 +1,13 @@
+// Unit tests for session lifecycle and table-assignment invariants.
 import { describe, expect, test } from "bun:test";
-import { assertPaymentAllowed } from "@/domain/payments/rules";
+import { assertPaymentAllowed } from "@/domain/payments";
+import { expectCode } from "@/test/assertions";
 import {
   assertSessionCanBeCancelled,
   assertSessionOpen,
   assertSessionSettled,
   assertTableAssignment,
-} from "./rules";
-
-function expectCode(work: () => void, code: string): void {
-  try {
-    work();
-  } catch (error) {
-    expect(error).toMatchObject({ code });
-    return;
-  }
-
-  throw new Error(`Expected error with code ${code}`);
-}
+} from ".";
 
 describe("session rules", () => {
   test("only open sessions accept modifications", () => {

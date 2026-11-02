@@ -1,5 +1,6 @@
+// Unit tests for session totals based on active items and recorded payments.
 import { describe, expect, test } from "bun:test";
-import { calculateSessionTotals } from "./totals";
+import { calculateSessionTotals } from ".";
 
 describe("session totals", () => {
   test("sums active items using their historical unit price", () => {

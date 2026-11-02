@@ -1,7 +1,7 @@
 # Comandô
 
 Restaurant order management API built with TypeScript, Bun, PostgreSQL, and
-Drizzle ORM.
+Bun SQL.
 
 The API manages users and roles, products, service sessions (tables or counter),
 consumed items, payments, and session closing. Business rules are enforced in
@@ -18,7 +18,10 @@ the application layer and backed by PostgreSQL constraints where practical.
 bun install
 cp .env.example .env
 # edit .env with your DATABASE_URL and JWT_SECRET
-bun run db:migrate
+
+# create the schema once on an empty database
+psql "$DATABASE_URL" -f .docker/database/script.sql
+
 bun run db:seed
 bun run dev
 ```
@@ -43,15 +46,71 @@ It also creates an administrator when `ADMIN_EMAIL` and `ADMIN_PASSWORD` are set
 ## Scripts
 
 ```bash
-bun run dev          # start with hot reload
-bun run typecheck    # bun check
-bun test             # run the test suite
-bun run build        # bundle the API
-bun run db:generate  # generate a Drizzle migration
-bun run db:migrate   # apply migrations
-bun run db:seed      # ensure roles and optional administrator
-bun run db:studio    # open Drizzle Studio
+bun run dev           # start with hot reload
+bun run check         # typecheck + import/layout checks
+bun run typecheck     # bun check --no-script
+bun run check:imports # enforce barrel imports and flat domain modules
+bun test              # run the test suite
+bun run build         # bundle the API
+bun run db:seed       # ensure roles and optional administrator
 ```
+
+## Database schema
+
+The complete schema lives in `.docker/database/script.sql`, including enum
+types, tables, constraints, indexes, and the default roles. PostgreSQL runs it
+once when the Docker data volume is first initialized.
+
+The script is not applied to an existing database. To recreate a development
+database from scratch:
+
+```bash
+docker compose down -v
+docker compose up -d --build
+```
+
+To apply the schema manually to an empty PostgreSQL database:
+
+```bash
+psql "$DATABASE_URL" -f .docker/database/script.sql
+```
+
+Schema changes are made directly in the script. For an existing database,
+apply the equivalent SQL manually and keep the script as the source of truth.
+
+## Project structure
+
+```text
+api/
+  app/
+    services/     # use cases (auth, users, products, sessions, payments)
+  domain/
+    money/        # monetary helpers
+    users/        # flat domain modules
+    roles/
+    products/
+    sessions/
+    payments/
+    repositories/ # repository implementations
+  http/           # routes, middleware, server, validation, and responses
+  test/           # fakes and shared test support
+scripts/
+  database/       # optional administrator seed
+  check-imports.ts
+.docker/
+  database/       # PostgreSQL image and script.sql schema
+```
+
+Each `api/domain/<module>` directory stays flat and exposes its public API
+through `index.ts`. Entities, types, enums, presenters, pure domain rules, and
+the repository interface (`I<Entity>.repository.ts`) live directly in the
+module. Repository classes live in `api/domain/repositories`, and use-case
+services live in `api/app/services`.
+
+Consumers import a module through its barrel (`@/domain/users`), never a deep
+file. `scripts/check-imports.ts` rejects deep `@/domain/*` and
+`@/app/services/*` imports, enforces an `index.ts` per domain module, and keeps
+domain modules flat.
 
 ## Docker
 
@@ -61,8 +120,8 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-Only nginx is published (`HTTP_PORT`, default `80`). A one-off `migrate`
-service applies migrations before the API starts.
+Only nginx is published (`HTTP_PORT`, default `80`). The PostgreSQL container
+loads `.docker/database/script.sql` on first initialization.
 
 Optional bootstrap administrator:
 
@@ -186,7 +245,7 @@ permissions `403`, unknown resources `404`, and business conflicts `409`.
 
 ```bash
 bun test
-bun run typecheck
+bun run check
 ```
 
 The suite covers monetary conversions, permission rules, session/payment

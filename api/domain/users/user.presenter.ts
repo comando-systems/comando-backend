@@ -1,20 +1,12 @@
-import type { User } from "@/db/schema/users";
-import type { UserWithRoles } from "./repositories/user.repository";
+// Maps user rows plus roles to the public API shape. Never exposes password hashes.
+import type { PublicUser, User, UserWithRoles } from "./types";
 
-export interface PublicUser {
-  id: number;
-  name: string;
-  email: string;
-  active: boolean;
-  roles: string[];
-  createdAt: Date;
-  updatedAt: Date;
-}
-
+/** Presents a user with deduplicated roles. */
 export function toPublicUser({ user, roles }: UserWithRoles): PublicUser {
   return toPublicUserFrom(user, roles);
 }
 
+/** Presents a user from a row and any role source (auth login, admin API). */
 export function toPublicUserFrom(
   user: User,
   roles: readonly string[],

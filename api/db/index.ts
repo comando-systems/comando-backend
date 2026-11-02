@@ -1,18 +1,18 @@
-import { drizzle } from "drizzle-orm/postgres-js";
-import type { PgDatabase } from "drizzle-orm/pg-core";
-import type { PostgresJsQueryResultHKT } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+// Shared Bun SQL connection used by every repository.
+import { SQL } from "bun";
 import { getDatabaseUrl } from "@/app/config/env";
-import * as schema from "./schema";
 
-const client = postgres(getDatabaseUrl());
+// `SQL.camel` maps snake_case columns to camelCase object keys.
+// `bigint` keeps int8 values exact; repositories convert ids to numbers.
+export const db = new SQL(getDatabaseUrl(), {
+  bigint: true,
+  transform: SQL.camel,
+});
 
-export const db = drizzle(client, { schema });
+/** Query executor shared by repositories; transactions are also SQL clients. */
+export type DbExecutor = SQL;
 
-export type DbExecutor = PgDatabase<PostgresJsQueryResultHKT, typeof schema>;
-
+/** Closes the connection pool after pending queries finish. */
 export async function closeDatabase(): Promise<void> {
-  await client.end({ timeout: 5 });
+  await db.close({ timeout: 5 });
 }
-
-export { schema };

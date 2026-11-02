@@ -1,16 +1,8 @@
-import type { Payment, PaymentMethod } from "@/db/schema/payments";
-import { decimalToCents } from "@/domain/money/money";
+// Maps persisted payments (decimal) to the public cents-based contract.
+import { decimalToCents } from "@/domain/money";
+import type { Payment, PublicPayment } from "./types";
 
-export interface PublicPayment {
-  id: number;
-  sessionId: number;
-  amountCents: number;
-  method: PaymentMethod;
-  receivedBy: number;
-  paidAt: Date;
-  notes: string | null;
-}
-
+/** Converts a payment row into the API shape. */
 export function toPublicPayment(payment: Payment): PublicPayment {
   return {
     id: payment.id,

@@ -1,18 +1,9 @@
+// Unit tests for token signing, verification, tampering, and expiry.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { expectCode } from "@/test/assertions";
 import { signToken, verifyToken } from "./token";
 
 const secret = "test-secret-with-enough-entropy";
-
-function expectCode(work: () => void, code: string): void {
-  try {
-    work();
-  } catch (error) {
-    expect(error).toMatchObject({ code });
-    return;
-  }
-
-  throw new Error(`Expected error with code ${code}`);
-}
 
 beforeAll(() => {
   process.env.JWT_SECRET = secret;

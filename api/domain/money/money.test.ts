@@ -1,10 +1,11 @@
+// Unit tests for integer-cent money conversions and locale formatting.
 import { describe, expect, test } from "bun:test";
 import {
   MoneyAmount,
   centsToDecimal,
   decimalToCents,
   subtotalCents,
-} from "./money";
+} from ".";
 
 describe("decimal money helpers", () => {
   test("converts decimal strings to cents without floating point drift", () => {

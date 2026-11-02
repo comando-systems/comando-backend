@@ -1,6 +1,6 @@
-export const ROLE_NAMES = ["ADMIN", "CAIXA", "GARCOM"] as const;
-
-export type RoleName = (typeof ROLE_NAMES)[number];
+// Central authorization matrix. Permissions are additive across roles, so a
+// user with CAIXA + GARCOM receives the union of both permission sets.
+import { isRoleName, type RoleName } from "./enums";
 
 export const PERMISSIONS = [
   "users:manage",
@@ -36,10 +36,7 @@ const ROLE_PERMISSIONS: Record<RoleName, readonly Permission[]> = {
   ],
 };
 
-export function isRoleName(value: string): value is RoleName {
-  return (ROLE_NAMES as readonly string[]).includes(value);
-}
-
+/** Collects permissions from every recognized role; unknown roles are ignored. */
 export function permissionsFor(roles: readonly string[]): Set<Permission> {
   const permissions = new Set<Permission>();
 
@@ -54,6 +51,7 @@ export function permissionsFor(roles: readonly string[]): Set<Permission> {
   return permissions;
 }
 
+/** Checks one permission against the combined role set. */
 export function can(
   roles: readonly string[],
   permission: Permission,

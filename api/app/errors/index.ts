@@ -1,7 +1,10 @@
+// Error serialization and PostgreSQL error helpers.
+
 import { AppError } from "./app-error";
 
 export * from "./app-error";
 
+/** Converts unknown errors into the API envelope without leaking internals. */
 export function toErrorResponse(error: unknown): Response {
   if (error instanceof AppError) {
     return Response.json(
@@ -29,11 +32,15 @@ export function toErrorResponse(error: unknown): Response {
   );
 }
 
+/** Detects PostgreSQL unique constraint violations (SQLSTATE 23505). */
 export function isUniqueViolation(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) {
+    return false;
+  }
+
+  // Bun SQL exposes the SQLSTATE in `errno`; `code` stays as its own error code.
   return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === "23505"
+    ("code" in error && error.code === "23505") ||
+    ("errno" in error && error.errno === "23505")
   );
 }
