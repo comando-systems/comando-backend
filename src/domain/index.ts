@@ -8,15 +8,21 @@ export {
   type CounterOrderLine,
   type CreateCounterOrderInput,
   type CreateOrderItemInput,
+  isPaymentMethod,
   type OpenTableOrderInput,
   ORDER_STATUSES,
   ORDER_TYPES,
   Order,
   OrderItem,
   type OrderItemProps,
+  OrderPayment,
+  type OrderPaymentInput,
+  type OrderPaymentProps,
   type OrderProps,
   type OrderStatus,
   type OrderType,
+  PAYMENT_METHODS,
+  type PaymentMethod,
 } from '@/domain/entity/order';
 export {
   type CreateUserInput,
@@ -42,6 +48,7 @@ export type {
   ItemRepository,
 } from '@/domain/repository/item-repository';
 export type { OrderItemRepository } from '@/domain/repository/order-item-repository';
+export type { OrderPaymentRepository } from '@/domain/repository/order-payment-repository';
 export type {
   FindOrderOptions,
   OrderFilters,

@@ -3,16 +3,19 @@ import { z } from 'zod';
 const environmentSchema = z.enum(['development', 'test', 'production']);
 const logLevelSchema = z.enum(['debug', 'info', 'warn', 'error']);
 
+const postgresUrl = z
+  .string()
+  .min(1)
+  .refine((value) => value.startsWith('postgres://') || value.startsWith('postgresql://'), {
+    message: 'must be a PostgreSQL connection string',
+  });
+
 const configSchema = z.object({
   NODE_ENV: environmentSchema.default('development'),
   HOST: z.string().min(1).default('0.0.0.0'),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
-  DATABASE_URL: z
-    .string()
-    .min(1, 'DATABASE_URL is required')
-    .refine((value) => value.startsWith('postgres://') || value.startsWith('postgresql://'), {
-      message: 'DATABASE_URL must be a PostgreSQL connection string',
-    }),
+  DATABASE_READ_URL: postgresUrl,
+  DATABASE_WRITE_URL: postgresUrl,
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must have at least 32 characters'),
   JWT_ISSUER: z.string().min(1).default('comando'),
   JWT_AUDIENCE: z.string().min(1).default('comando-api'),
@@ -31,7 +34,8 @@ export interface AppConfig {
   readonly environment: Environment;
   readonly host: string;
   readonly port: number;
-  readonly databaseUrl: string;
+  readonly databaseReadUrl: string;
+  readonly databaseWriteUrl: string;
   readonly jwtSecret: string;
   readonly jwtIssuer: string;
   readonly jwtAudience: string;
@@ -68,7 +72,8 @@ export function loadConfig(
     environment: value.NODE_ENV,
     host: value.HOST,
     port: value.PORT,
-    databaseUrl: value.DATABASE_URL,
+    databaseReadUrl: value.DATABASE_READ_URL,
+    databaseWriteUrl: value.DATABASE_WRITE_URL,
     jwtSecret: value.JWT_SECRET,
     jwtIssuer: value.JWT_ISSUER,
     jwtAudience: value.JWT_AUDIENCE,

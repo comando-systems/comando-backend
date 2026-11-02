@@ -19,8 +19,8 @@
     "test:integration": "bun test tests/integration",
     "test:e2e": "bun test tests/e2e",
     "test:all": "bun test",
-    "db:migrate:up": "migrate -path migrations -database \"$DATABASE_URL\" up",
-    "db:migrate:down": "migrate -path migrations -database \"$DATABASE_URL\" down 1"
+    "db:migrate:up": "migrate -path migrations -database \"$DATABASE_WRITE_URL\" up",
+    "db:migrate:down": "migrate -path migrations -database \"$DATABASE_WRITE_URL\" down 1"
   },
   "dependencies": {
     "hono": "^4.11.1",

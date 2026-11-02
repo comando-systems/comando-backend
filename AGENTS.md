@@ -89,7 +89,8 @@ Do not add feature-local copies of these layers. Do not create `modules/<feature
 - Quantity must be a positive integer.
 - Calculate totals on the server; never trust client-submitted totals.
 - A `COUNTER` order is created with its complete set of lines and persisted directly as `CLOSED` in one transaction.
-- A `TABLE` order is opened as `OPEN`. A `SERVER` can add items/change quantities and cancel it. A `CASHIER` can close it.
+- A `TABLE` order is opened as `OPEN`. A `SERVER` can add items/change quantities. Both `CASHIER` and `SERVER` can close or cancel it.
+- Closing an order records its payment methods and amounts. Payments must sum exactly to the order total; zero-total orders require no payments.
 - `CLOSED` and `CANCELED` are terminal states in the initial scope.
 - Users must be deactivated/soft-deleted, never physically deleted.
 - Removing an item from the active catalog must not destroy historical order data.
@@ -100,8 +101,8 @@ Do not add feature-local copies of these layers. Do not create `modules/<feature
 - Supported roles: `ADMIN`, `CASHIER`, `SERVER`.
 - Users may have multiple roles; effective permissions are the union of their roles.
 - `ADMIN`: create/edit/deactivate users; create/edit/remove items.
-- `CASHIER`: create completed counter orders; view permitted order history; close open table orders.
-- `SERVER`: open table orders; add items/change quantities; cancel open table orders.
+- `CASHIER`: create completed counter orders; view permitted order history; close or cancel open table orders.
+- `SERVER`: open table orders; add items/change quantities; close or cancel open table orders.
 - Enforce permissions in application use cases. HTTP middleware may provide an early check but does not replace use-case authorization.
 - Disabled users cannot authenticate. Define and test how disabling a user affects already-issued tokens.
 

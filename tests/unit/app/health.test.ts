@@ -3,23 +3,47 @@ import { loadConfig } from '@/app/config';
 import { createApp } from '@/app/http/app';
 import type { AppContainer } from '@/app/http/types';
 import { JsonLogger } from '@/infrastructure/logging/json-logger';
+import { createRepositories } from '@/infrastructure/repositories';
 
 function createTestContainer(): AppContainer {
   const config = loadConfig({
     NODE_ENV: 'test',
-    DATABASE_URL: 'postgres://user:password@localhost:5432/comando',
+    DATABASE_READ_URL: 'postgres://user:password@localhost:5432/comando',
+    DATABASE_WRITE_URL: 'postgres://user:password@localhost:5432/comando',
     JWT_SECRET: 'a'.repeat(32),
     LOG_LEVEL: 'error',
   });
+
+  const sql = {} as AppContainer['database']['read'];
+  const database: AppContainer['database'] = {
+    read: sql,
+    write: sql,
+    readSql: () => sql,
+    writeSql: () => sql,
+    transaction: async (work) => work(),
+    readOnly: async (work) => work(),
+    async ping() {},
+    async close() {},
+  };
 
   return {
     config,
     logger: new JsonLogger('error'),
     clock: { now: () => new Date('2026-01-01T00:00:00.000Z') },
-    database: {
-      sql: {} as AppContainer['database']['sql'],
-      async ping() {},
-      async close() {},
+    database,
+    repositories: createRepositories(database),
+    unitOfWork: {
+      async run() {
+        throw new Error('not used by health tests');
+      },
+      async read() {
+        throw new Error('not used by health tests');
+      },
+    },
+    ids: {
+      users: { next: async () => '1' },
+      items: { next: async () => '1' },
+      orders: { next: async () => '1' },
     },
     async close() {},
   };
