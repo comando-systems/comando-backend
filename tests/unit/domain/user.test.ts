@@ -1,33 +1,55 @@
 import { describe, expect, test } from 'bun:test';
-import { permissionsForRoles, User } from '@/domain/entity/user';
-import { InvalidValueError, InvariantViolationError } from '@/domain/errors';
+import { parseRoles, permissionsForRoles, User } from '@/domain/entity/user';
+import { InvalidValueError } from '@/domain/errors';
 import { UserID } from '@/domain/value-objects/ids';
 
 const now = new Date('2026-01-01T12:00:00.000Z');
 
-function createUser(overrides: Partial<Parameters<typeof User.create>[0]> = {}): User {
-  return User.create({
+function restoreUser(overrides: Partial<Parameters<typeof User.restore>[0]> = {}): User {
+  return User.restore({
     id: new UserID('1'),
     name: 'Ada Lovelace',
     email: 'ADA@example.com',
-    passwordHash: 'hash',
     roles: ['ADMIN'],
-    now,
+    banned: false,
+    createdAt: now,
+    updatedAt: now,
     ...overrides,
   });
 }
 
+describe('parseRoles', () => {
+  test('splits the comma-separated storage format and deduplicates', () => {
+    expect(parseRoles('CASHIER,SERVER')).toEqual(['CASHIER', 'SERVER']);
+    expect(parseRoles(' ADMIN , ADMIN ')).toEqual(['ADMIN']);
+  });
+
+  test('returns an empty list for missing values', () => {
+    expect(parseRoles(null)).toEqual([]);
+    expect(parseRoles(undefined)).toEqual([]);
+    expect(parseRoles('')).toEqual([]);
+  });
+
+  test('rejects unknown roles', () => {
+    expect(() => parseRoles('ADMIN,OWNER')).toThrow(InvalidValueError);
+  });
+});
+
 describe('User', () => {
   test('normalizes email and deduplicates roles', () => {
-    const user = createUser({ roles: ['ADMIN', 'ADMIN', 'CASHIER'] });
+    const user = restoreUser({ roles: ['ADMIN', 'ADMIN', 'CASHIER'] });
 
     expect(user.email).toBe('ada@example.com');
     expect(user.roles).toEqual(['ADMIN', 'CASHIER']);
     expect(user.isActive).toBe(true);
   });
 
+  test('treats banned users as inactive', () => {
+    expect(restoreUser({ banned: true }).isActive).toBe(false);
+  });
+
   test('unions permissions from all roles', () => {
-    const user = createUser({ roles: ['CASHIER', 'SERVER'] });
+    const user = restoreUser({ roles: ['CASHIER', 'SERVER'] });
 
     expect(user.hasPermission('orders:counter')).toBe(true);
     expect(user.hasPermission('orders:close')).toBe(true);
@@ -46,41 +68,8 @@ describe('User', () => {
   });
 
   test('rejects invalid data', () => {
-    expect(() => createUser({ name: '   ' })).toThrow(InvalidValueError);
-    expect(() => createUser({ email: 'not-an-email' })).toThrow(InvalidValueError);
-    expect(() => createUser({ roles: [] })).toThrow(InvalidValueError);
-    expect(() => createUser({ passwordHash: '' })).toThrow(InvalidValueError);
-  });
-
-  test('updates mutable profile data', () => {
-    const user = createUser();
-    const later = new Date('2026-01-02T12:00:00.000Z');
-
-    user.update({ name: 'Grace Hopper', roles: ['CASHIER'], now: later });
-
-    expect(user.name).toBe('Grace Hopper');
-    expect(user.roles).toEqual(['CASHIER']);
-    expect(user.updatedAt).toEqual(later);
-  });
-
-  test('deactivates once and preserves history', () => {
-    const user = createUser();
-    const later = new Date('2026-01-02T12:00:00.000Z');
-
-    user.deactivate(later);
-
-    expect(user.isActive).toBe(false);
-    expect(user.deletedAt).toEqual(later);
-    expect(() => user.deactivate(later)).toThrow(InvariantViolationError);
-  });
-
-  test('changes password hash without exposing plaintext', () => {
-    const user = createUser();
-    const later = new Date('2026-01-02T12:00:00.000Z');
-
-    user.changePasswordHash('new-hash', later);
-
-    expect(user.passwordHash).toBe('new-hash');
-    expect(user.updatedAt).toEqual(later);
+    expect(() => restoreUser({ name: '   ' })).toThrow(InvalidValueError);
+    expect(() => restoreUser({ email: 'not-an-email' })).toThrow(InvalidValueError);
+    expect(() => restoreUser({ roles: [] })).toThrow(InvalidValueError);
   });
 });

@@ -11,10 +11,9 @@ export interface UserPage {
   readonly total: number;
 }
 
+// Read-only: Better Auth owns user creation, credentials, roles, and bans.
 export interface UserRepository {
   findById(id: UserID): Promise<User | null>;
   findByEmail(email: string): Promise<User | null>;
-  create(user: User): Promise<void>;
-  update(user: User): Promise<void>;
   list(options: UserPageOptions): Promise<UserPage>;
 }

@@ -25,13 +25,12 @@ export {
   type PaymentMethod,
 } from '@/domain/entity/order';
 export {
-  type CreateUserInput,
   isRole,
   type Permission,
+  parseRoles,
   permissionsForRoles,
   ROLES,
   type Role,
-  type UpdateUserInput,
   User,
   type UserProps,
 } from '@/domain/entity/user';

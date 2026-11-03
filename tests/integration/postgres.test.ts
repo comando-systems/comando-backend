@@ -1,14 +1,19 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
 import { Item } from '@/domain/entity/item';
 import { Order } from '@/domain/entity/order';
-import { User } from '@/domain/entity/user';
+import type { Role, User } from '@/domain/entity/user';
 import type { Repositories } from '@/domain/repository';
 import { ItemID, OrderID, UserID } from '@/domain/value-objects/ids';
 import type { DatabaseConnections } from '@/infrastructure/database/connections';
 import { SequenceIdGenerator } from '@/infrastructure/database/sequence-id-generator';
 import { DatabaseUnitOfWork } from '@/infrastructure/database/unit-of-work';
 import { createRepositories } from '@/infrastructure/repositories';
-import { createTestDatabase, resetDatabase, TEST_DATABASE_URL } from './support/database';
+import {
+  createTestDatabase,
+  insertUser,
+  resetDatabase,
+  TEST_DATABASE_URL,
+} from './support/database';
 
 const now = new Date('2026-01-01T12:00:00.000Z');
 const later = new Date('2026-01-01T13:00:00.000Z');
@@ -32,20 +37,15 @@ describe.skipIf(!TEST_DATABASE_URL)('PostgreSQL repositories', () => {
     await database.close();
   });
 
-  const userIds = () => new SequenceIdGenerator(database.write, 'users_id_seq');
   const itemIds = () => new SequenceIdGenerator(database.write, 'items_id_seq');
   const orderIds = () => new SequenceIdGenerator(database.write, 'orders_id_seq');
 
-  async function createUser(roles: Array<'ADMIN' | 'CASHIER' | 'SERVER'> = ['ADMIN']) {
-    const user = User.create({
-      id: new UserID(await userIds().next()),
-      name: 'Ada Lovelace',
-      email: `ada-${crypto.randomUUID()}@example.com`,
-      passwordHash: 'hash',
-      roles,
-      now,
-    });
-    await unitOfWork.run((repos) => repos.users.create(user));
+  async function createUser(roles: Role[] = ['ADMIN']): Promise<User> {
+    const { id } = await insertUser(database, { roles });
+    const user = await unitOfWork.run((repos) => repos.users.findById(new UserID(id)));
+    if (!user) {
+      throw new Error('Expected user');
+    }
     return user;
   }
 
@@ -60,34 +60,40 @@ describe.skipIf(!TEST_DATABASE_URL)('PostgreSQL repositories', () => {
     return item;
   }
 
-  test('maps users, roles, updates, deactivation, and pagination', async () => {
-    const user = await createUser(['ADMIN', 'CASHIER']);
+  test('maps users, multiple roles, ban state, and pagination', async () => {
+    const active = await insertUser(database, { roles: ['CASHIER', 'SERVER'] });
+    const banned = await insertUser(database, { roles: ['SERVER'], banned: true });
 
     const found = await unitOfWork.run((repos) =>
-      repos.users.findByEmail(user.email.toUpperCase()),
+      repos.users.findByEmail(active.email.toUpperCase()),
     );
-
-    expect(found?.id.value).toBe(user.id.value);
-    expect(found?.roles).toEqual(['ADMIN', 'CASHIER']);
+    expect(found?.id.value).toBe(active.id);
+    expect(found?.roles).toEqual(['CASHIER', 'SERVER']);
     expect(found?.isActive).toBe(true);
 
-    found?.update({ name: 'Grace Hopper', roles: ['SERVER'], now: later });
-    await unitOfWork.run((repos) => repos.users.update(found as User));
-
-    const updated = await unitOfWork.run((repos) => repos.users.findById(user.id));
-    expect(updated?.name).toBe('Grace Hopper');
-    expect(updated?.roles).toEqual(['SERVER']);
-
-    updated?.deactivate(later);
-    await unitOfWork.run((repos) => repos.users.update(updated as User));
-
-    const deactivated = await unitOfWork.run((repos) => repos.users.findById(user.id));
-    expect(deactivated?.isActive).toBe(false);
-    expect(deactivated?.deletedAt).toEqual(later);
+    const bannedUser = await unitOfWork.run((repos) => repos.users.findById(new UserID(banned.id)));
+    expect(bannedUser?.isActive).toBe(false);
 
     const page = await unitOfWork.run((repos) => repos.users.list({ page: 1, pageSize: 20 }));
-    expect(page.total).toBe(1);
-    expect(page.users).toHaveLength(1);
+    expect(page.total).toBe(2);
+    expect(page.users).toHaveLength(2);
+  });
+
+  test('enforces role check and keeps users referenced by sessions', async () => {
+    await expect(
+      database.write`
+        INSERT INTO users (name, email, role)
+        VALUES ('Invalid', ${`invalid-${crypto.randomUUID()}@example.com`}, 'OWNER')
+      `,
+    ).rejects.toThrow();
+
+    const { id } = await insertUser(database);
+    await database.write`
+      INSERT INTO sessions (user_id, token, expires_at)
+      VALUES (${id}, ${crypto.randomUUID()}, CURRENT_TIMESTAMP + INTERVAL '1 hour')
+    `;
+
+    await expect(database.write`DELETE FROM users WHERE id = ${id}`).rejects.toThrow();
   });
 
   test('maps items, price updates, soft removal, and active filtering', async () => {
@@ -233,24 +239,22 @@ describe.skipIf(!TEST_DATABASE_URL)('PostgreSQL repositories', () => {
   });
 
   test('rolls back the whole transaction on failure', async () => {
-    const id = await userIds().next();
-    const user = User.create({
-      id: new UserID(id),
-      name: 'Rollback User',
-      email: `rollback-${crypto.randomUUID()}@example.com`,
-      passwordHash: 'hash',
-      roles: ['ADMIN'],
+    const id = await itemIds().next();
+    const item = Item.create({
+      id: new ItemID(id),
+      name: 'Rollback Item',
+      priceCents: 100,
       now,
     });
 
     await expect(
       unitOfWork.run(async (repos) => {
-        await repos.users.create(user);
+        await repos.items.create(item);
         throw new Error('forced rollback');
       }),
     ).rejects.toThrow('forced rollback');
 
-    const found = await unitOfWork.run((repos) => repos.users.findById(new UserID(id)));
+    const found = await unitOfWork.run((repos) => repos.items.findById(new ItemID(id)));
     expect(found).toBeNull();
   });
 

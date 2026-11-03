@@ -18,13 +18,39 @@ export async function resetDatabase(database: DatabaseConnections): Promise<void
   await database.write`
     TRUNCATE TABLE
       audit_logs,
-      refresh_tokens,
       order_payments,
       order_items,
       orders,
       items,
-      user_roles,
+      verifications,
+      accounts,
+      sessions,
       users
     RESTART IDENTITY CASCADE
   `;
+}
+
+// Better Auth owns user creation, so tests insert rows directly.
+export async function insertUser(
+  database: DatabaseConnections,
+  input: { roles?: readonly string[]; banned?: boolean } = {},
+): Promise<{ id: string; email: string }> {
+  const email = `user-${crypto.randomUUID()}@example.com`;
+  const rows = await database.write<{ id: string }[]>`
+    INSERT INTO users (name, email, role, banned)
+    VALUES (
+      'Test User',
+      ${email},
+      ${(input.roles ?? ['ADMIN']).join(',')},
+      ${input.banned ?? false}
+    )
+    RETURNING id::text AS id
+  `;
+
+  const row = rows[0];
+  if (!row) {
+    throw new Error('Failed to insert test user');
+  }
+
+  return { id: row.id, email };
 }
