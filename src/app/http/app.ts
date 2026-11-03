@@ -8,6 +8,7 @@ import { toErrorResponse } from '@/app/http/error-handler';
 import { requestIdMiddleware } from '@/app/http/middleware/request-id';
 import { requestLoggerMiddleware } from '@/app/http/middleware/request-logger';
 import type { AppContainer, AppEnv } from '@/app/http/types';
+import { authenticate } from './middleware/authenticate';
 
 export function createApp(container: AppContainer): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
@@ -19,7 +20,8 @@ export function createApp(container: AppContainer): Hono<AppEnv> {
     '*',
     cors({
       origin: container.config.corsOrigin === '*' ? '*' : container.config.corsOrigin,
-      allowHeaders: ['Authorization', 'Content-Type', 'X-Request-Id'],
+      credentials: container.config.corsOrigin !== '*',
+      allowHeaders: ['Authorization', 'Content-Type', 'X-Request-Id', 'expo-origin'],
       exposeHeaders: ['X-Request-Id'],
       allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
       maxAge: 600,
@@ -68,6 +70,12 @@ export function createApp(container: AppContainer): Hono<AppEnv> {
     );
     return context.json(body, status as ContentfulStatusCode);
   });
+
+  app.on(['GET', 'POST'], '/api/auth/*', (context) => container.auth.handler(context.req.raw));
+
+  app.get('/me', authenticate(container.auth), (context) =>
+    context.json({ principal: context.get('principal') }),
+  );
 
   return app;
 }

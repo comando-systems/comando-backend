@@ -42,10 +42,9 @@ services:
       PORT: 3000
       DATABASE_READ_URL: "postgres://${POSTGRES_USER:-comando}:${POSTGRES_PASSWORD:-comando}@postgres:5432/${POSTGRES_DB:-comando}?sslmode=disable"
       DATABASE_WRITE_URL: "postgres://${POSTGRES_USER:-comando}:${POSTGRES_PASSWORD:-comando}@postgres:5432/${POSTGRES_DB:-comando}?sslmode=disable"
-      JWT_SECRET: "${JWT_SECRET:-replace-with-a-long-random-secret-at-least-32-chars}"
-      JWT_ISSUER: "${JWT_ISSUER:-comando}"
-      JWT_AUDIENCE: "${JWT_AUDIENCE:-comando-api}"
-      JWT_EXPIRES_IN_SECONDS: "${JWT_EXPIRES_IN_SECONDS:-900}"
+      BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET}"
+      BETTER_AUTH_URL: "${BETTER_AUTH_URL:-http://localhost:8080}"
+      APP_SCHEME: "${APP_SCHEME:-comando}"
       CORS_ORIGIN: "${CORS_ORIGIN:-*}"
       BODY_LIMIT_BYTES: "${BODY_LIMIT_BYTES:-1048576}"
       LOGIN_RATE_LIMIT_MAX: "${LOGIN_RATE_LIMIT_MAX:-10}"

@@ -4,7 +4,8 @@ import { ConfigurationError, loadConfig } from '@/app/config';
 const validEnvironment = {
   DATABASE_READ_URL: 'postgres://reader:password@localhost:5432/comando',
   DATABASE_WRITE_URL: 'postgres://writer:password@localhost:5432/comando',
-  JWT_SECRET: 'a'.repeat(32),
+  BETTER_AUTH_SECRET: 'a'.repeat(32),
+  BETTER_AUTH_URL: 'http://localhost:3000',
 };
 
 describe('loadConfig', () => {
@@ -15,9 +16,7 @@ describe('loadConfig', () => {
     expect(config.port).toBe(3000);
     expect(config.databaseReadUrl).toBe(validEnvironment.DATABASE_READ_URL);
     expect(config.databaseWriteUrl).toBe(validEnvironment.DATABASE_WRITE_URL);
-    expect(config.jwtIssuer).toBe('comando');
-    expect(config.jwtAudience).toBe('comando-api');
-    expect(config.jwtExpiresInSeconds).toBe(900);
+    expect(config.appScheme).toBe('comando');
     expect(config.logLevel).toBe('info');
   });
 
@@ -34,15 +33,9 @@ describe('loadConfig', () => {
     expect(() =>
       loadConfig({
         DATABASE_READ_URL: validEnvironment.DATABASE_READ_URL,
-        JWT_SECRET: validEnvironment.JWT_SECRET,
+        BETTER_AUTH_SECRET: validEnvironment.BETTER_AUTH_SECRET,
       }),
     ).toThrow('DATABASE_WRITE_URL');
-  });
-
-  test('rejects short JWT secrets', () => {
-    expect(() => loadConfig({ ...validEnvironment, JWT_SECRET: 'short' })).toThrow(
-      'JWT_SECRET must have at least 32 characters',
-    );
   });
 
   test('rejects non-postgres database URLs', () => {
@@ -59,12 +52,11 @@ describe('loadConfig', () => {
     const config = loadConfig({
       ...validEnvironment,
       PORT: '8080',
-      JWT_EXPIRES_IN_SECONDS: '120',
       LOG_LEVEL: 'debug',
     });
 
     expect(config.port).toBe(8080);
-    expect(config.jwtExpiresInSeconds).toBe(120);
+    expect(config.appScheme).toBe('comando');
     expect(config.logLevel).toBe('debug');
   });
 });

@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { loadConfig } from '@/app/config';
 import { createApp } from '@/app/http/app';
 import type { AppContainer } from '@/app/http/types';
+import type { Auth } from '@/infrastructure/auth';
 import { JsonLogger } from '@/infrastructure/logging/json-logger';
 import { createRepositories } from '@/infrastructure/repositories';
 
@@ -10,7 +11,8 @@ function createTestContainer(): AppContainer {
     NODE_ENV: 'test',
     DATABASE_READ_URL: 'postgres://user:password@localhost:5432/comando',
     DATABASE_WRITE_URL: 'postgres://user:password@localhost:5432/comando',
-    JWT_SECRET: 'a'.repeat(32),
+    BETTER_AUTH_SECRET: 'a'.repeat(32),
+    BETTER_AUTH_URL: 'http://localhost:3000',
     LOG_LEVEL: 'error',
   });
 
@@ -41,10 +43,10 @@ function createTestContainer(): AppContainer {
       },
     },
     ids: {
-      users: { next: async () => '1' },
       items: { next: async () => '1' },
       orders: { next: async () => '1' },
     },
+    auth: {} as Auth,
     async close() {},
   };
 }

@@ -16,15 +16,14 @@ const configSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   DATABASE_READ_URL: postgresUrl,
   DATABASE_WRITE_URL: postgresUrl,
-  JWT_SECRET: z.string().min(32, 'JWT_SECRET must have at least 32 characters'),
-  JWT_ISSUER: z.string().min(1).default('comando'),
-  JWT_AUDIENCE: z.string().min(1).default('comando-api'),
-  JWT_EXPIRES_IN_SECONDS: z.coerce.number().int().min(60).max(86_400).default(900),
   CORS_ORIGIN: z.string().min(1).default('*'),
   BODY_LIMIT_BYTES: z.coerce.number().int().min(1_024).max(10_485_760).default(1_048_576),
   LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(10_000).default(10),
   LOGIN_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().min(1).max(86_400).default(60),
   LOG_LEVEL: logLevelSchema.default('info'),
+  BETTER_AUTH_SECRET: z.string().min(32, 'BETTER_AUTH_SECRET must have at least 32 characters'),
+  BETTER_AUTH_URL: z.url(),
+  APP_SCHEME: z.string().min(1).default('comando'),
 });
 
 export type Environment = z.infer<typeof environmentSchema>;
@@ -36,15 +35,14 @@ export interface AppConfig {
   readonly port: number;
   readonly databaseReadUrl: string;
   readonly databaseWriteUrl: string;
-  readonly jwtSecret: string;
-  readonly jwtIssuer: string;
-  readonly jwtAudience: string;
-  readonly jwtExpiresInSeconds: number;
   readonly corsOrigin: string;
   readonly bodyLimitBytes: number;
   readonly loginRateLimitMax: number;
   readonly loginRateLimitWindowSeconds: number;
   readonly logLevel: LogLevel;
+  readonly authSecret: string;
+  readonly authUrl: string;
+  readonly appScheme: string;
 }
 
 export class ConfigurationError extends Error {
@@ -74,14 +72,13 @@ export function loadConfig(
     port: value.PORT,
     databaseReadUrl: value.DATABASE_READ_URL,
     databaseWriteUrl: value.DATABASE_WRITE_URL,
-    jwtSecret: value.JWT_SECRET,
-    jwtIssuer: value.JWT_ISSUER,
-    jwtAudience: value.JWT_AUDIENCE,
-    jwtExpiresInSeconds: value.JWT_EXPIRES_IN_SECONDS,
     corsOrigin: value.CORS_ORIGIN,
     bodyLimitBytes: value.BODY_LIMIT_BYTES,
     loginRateLimitMax: value.LOGIN_RATE_LIMIT_MAX,
     loginRateLimitWindowSeconds: value.LOGIN_RATE_LIMIT_WINDOW_SECONDS,
     logLevel: value.LOG_LEVEL,
+    authSecret: value.BETTER_AUTH_SECRET,
+    authUrl: value.BETTER_AUTH_URL,
+    appScheme: value.APP_SCHEME,
   });
 }
