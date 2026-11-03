@@ -42,12 +42,12 @@ Do not create a complete `domain/application/infrastructure/presentation` stack 
 - `domain/repository`: repository interfaces/contracts.
 - `domain/errors`: domain-specific errors.
 - Keep the structure small. A small enum/type may live in the relevant `index.ts`; do not create `types.ts` merely by habit.
-- Domain code must not import Bun HTTP APIs, database clients, JWT libraries, environment variables, or infrastructure implementations.
+- Domain code must not import Bun HTTP APIs, database clients, Better Auth, environment variables, or infrastructure implementations.
 
 ### `infrastructure/`
 
 - Database connection, transaction adapter, and concrete repository implementations.
-- JWT signing and verification.
+- Better Auth instance (sessions, credentials, admin plugin) and its database adapter.
 - Password hashing.
 - Structured logging and external integrations.
 - SQL migrations are maintained in the root `migrations/` directory, not hidden inside runtime source.
@@ -92,7 +92,7 @@ Do not add feature-local copies of these layers. Do not create `modules/<feature
 - A `TABLE` order is opened as `OPEN`. A `SERVER` can add items/change quantities. Both `CASHIER` and `SERVER` can close or cancel it.
 - Closing an order records its payment methods and amounts. Payments must sum exactly to the order total; zero-total orders require no payments.
 - `CLOSED` and `CANCELED` are terminal states in the initial scope.
-- Users must be deactivated/soft-deleted, never physically deleted.
+- Users must be deactivated (Better Auth ban, which revokes their sessions), never physically deleted.
 - Removing an item from the active catalog must not destroy historical order data.
 - Do not split counter and table orders into separate entity models.
 
@@ -127,12 +127,13 @@ Do not add feature-local copies of these layers. Do not create `modules/<feature
 
 ## Authentication and logging
 
-- Store only password hashes. Prefer Argon2id after verifying the current Bun API or selected library.
-- JWT access tokens must be signed, short-lived, and validated for signature and expiry. Validate issuer/audience when configured.
+- Authentication is handled by Better Auth (email/password, `admin` and `expo` plugins) mounted at `/api/auth/*`. Public sign-up is disabled; only `ADMIN` creates users.
+- Store only password hashes, using Argon2id through `Bun.password`.
+- Sessions are opaque, server-side, and revocable. Do not enable `session.cookieCache`: banning a user must take effect on the next request.
+- Roles live in `users.role` as a comma-separated list; parse them only with `parseRoles`. The domain `User` is a read model.
 - Secrets come from validated environment variables or a secret manager.
-- If refresh tokens are implemented, persist only token hashes and support rotation/revocation.
 - Use structured logs with request IDs and useful context.
-- Never log credentials, password hashes, JWTs, refresh tokens, authorization headers, or secrets.
+- Never log credentials, password hashes, session tokens, cookies, authorization headers, or secrets.
 - Keep operational logs distinct from persistent audit events.
 
 ## Testing
