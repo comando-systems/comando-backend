@@ -26,7 +26,7 @@ export class OpenTableOrderUseCase {
     return this.unitOfWork.run(async (repositories) => {
       await requireActor(repositories, input.actorUserId, 'orders:open');
 
-      const openOrder = await repositories.orders.findOpenTableByCode(tableCode);
+      const openOrder = await repositories.orders.findActiveTableByCode(tableCode);
 
       if (openOrder !== null) {
         throw new ConflictError('Table already has an open order');

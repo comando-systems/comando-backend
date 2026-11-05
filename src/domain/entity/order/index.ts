@@ -12,13 +12,33 @@ import {
 import type { ItemID, OrderID, UserID } from '@/domain/value-objects/ids';
 import { Money } from '@/domain/value-objects/money';
 import { OrderItemKey } from '@/domain/value-objects/order-item-key';
+import {
+  type Adjustment,
+  calculatePricing,
+  type PricingBreakdown,
+  requireAdjustment,
+  requireBasisPoints,
+} from './pricing';
+
+export type {
+  Adjustment,
+  AdjustmentMode,
+  AdjustmentType,
+  PricingBreakdown,
+} from './pricing';
+export { ADJUSTMENT_MODES, ADJUSTMENT_TYPES, MAX_BASIS_POINTS } from './pricing';
 
 export type OrderType = 'COUNTER' | 'TABLE';
-export type OrderStatus = 'OPEN' | 'CLOSED' | 'CANCELED';
+export type OrderStatus = 'OPEN' | 'AWAITING_PAYMENT' | 'CLOSED' | 'CANCELED';
 export type PaymentMethod = 'CASH' | 'DEBIT_CARD' | 'CREDIT_CARD' | 'PIX' | 'OTHER';
 
 export const ORDER_TYPES: readonly OrderType[] = Object.freeze(['COUNTER', 'TABLE']);
-export const ORDER_STATUSES: readonly OrderStatus[] = Object.freeze(['OPEN', 'CLOSED', 'CANCELED']);
+export const ORDER_STATUSES: readonly OrderStatus[] = Object.freeze([
+  'OPEN',
+  'AWAITING_PAYMENT',
+  'CLOSED',
+  'CANCELED',
+]);
 export const PAYMENT_METHODS: readonly PaymentMethod[] = Object.freeze([
   'CASH',
   'DEBIT_CARD',
@@ -121,11 +141,14 @@ export class OrderItem {
 export interface OrderPaymentInput {
   readonly method: PaymentMethod;
   readonly amountCents: number;
+  // Cash handed over by the customer; the change is derived, never trusted from the client.
+  readonly receivedCents?: number | null;
 }
 
 export interface OrderPaymentProps {
   readonly method: PaymentMethod;
   readonly amount: Money;
+  readonly received: Money | null;
 }
 
 /**
@@ -146,7 +169,19 @@ export class OrderPayment {
       throw new InvalidValueError('Payment amount must be positive');
     }
 
-    return new OrderPayment({ method: input.method, amount });
+    let received: Money | null = null;
+    if (input.receivedCents !== undefined && input.receivedCents !== null) {
+      if (input.method !== 'CASH') {
+        throw new InvalidValueError('Only cash payments can record an amount received');
+      }
+
+      received = Money.fromCents(input.receivedCents);
+      if (received.cents < amount.cents) {
+        throw new InvalidValueError('Amount received cannot be less than the payment amount');
+      }
+    }
+
+    return new OrderPayment({ method: input.method, amount, received });
   }
 
   get method(): PaymentMethod {
@@ -161,8 +196,28 @@ export class OrderPayment {
     return this.props.amount.cents;
   }
 
-  toJSON(): { method: PaymentMethod; amountCents: number } {
-    return { method: this.props.method, amountCents: this.props.amount.cents };
+  get receivedCents(): number | null {
+    return this.props.received === null ? null : this.props.received.cents;
+  }
+
+  get changeCents(): number | null {
+    return this.props.received === null
+      ? null
+      : this.props.received.cents - this.props.amount.cents;
+  }
+
+  toJSON(): {
+    method: PaymentMethod;
+    amountCents: number;
+    receivedCents: number | null;
+    changeCents: number | null;
+  } {
+    return {
+      method: this.props.method,
+      amountCents: this.props.amount.cents,
+      receivedCents: this.receivedCents,
+      changeCents: this.changeCents,
+    };
   }
 }
 
@@ -171,9 +226,16 @@ export interface OrderProps {
   type: OrderType;
   status: OrderStatus;
   tableCode: string | null;
+  label: string | null;
   openedByUserId: UserID;
   closedByUserId: UserID | null;
   canceledByUserId: UserID | null;
+  paymentRequestedByUserId: UserID | null;
+  paymentRequestedAt: Date | null;
+  adjustment: Adjustment | null;
+  applyServiceFee: boolean;
+  // Rate snapshot in basis points; zero when the fee does not apply.
+  serviceFeeBasisPoints: number;
   openedAt: Date;
   closedAt: Date | null;
   canceledAt: Date | null;
@@ -204,6 +266,10 @@ export interface CreateCounterOrderInput {
   readonly openedByUserId: UserID;
   readonly lines: readonly CounterOrderLine[];
   readonly payments: readonly OrderPaymentInput[];
+  readonly label?: string | null;
+  readonly adjustment?: Adjustment | null;
+  // Present only when the sale charges a service fee.
+  readonly serviceFeeBasisPoints?: number;
   readonly now: Date;
 }
 
@@ -211,7 +277,17 @@ export interface OpenTableOrderInput {
   readonly id: OrderID;
   readonly openedByUserId: UserID;
   readonly tableCode: string;
+  // Current rate from the settings; table orders charge the fee by default.
+  readonly serviceFeeBasisPoints?: number;
   readonly now: Date;
+}
+
+function normalizeLabel(value: string | null | undefined): string | null {
+  if (value === null || value === undefined || value.trim() === '') {
+    return null;
+  }
+
+  return requireNonEmptyString(value, 'Label', 160);
 }
 
 export class Order {
@@ -237,9 +313,21 @@ export class Order {
         type: 'COUNTER',
         status: 'CLOSED',
         tableCode: null,
+        label: normalizeLabel(input.label),
         openedByUserId: input.openedByUserId,
         closedByUserId: input.openedByUserId,
         canceledByUserId: null,
+        paymentRequestedByUserId: null,
+        paymentRequestedAt: null,
+        adjustment:
+          input.adjustment === undefined || input.adjustment === null
+            ? null
+            : requireAdjustment(input.adjustment),
+        applyServiceFee: input.serviceFeeBasisPoints !== undefined,
+        serviceFeeBasisPoints:
+          input.serviceFeeBasisPoints === undefined
+            ? 0
+            : requireBasisPoints(input.serviceFeeBasisPoints, 'Service fee'),
         openedAt: now,
         closedAt: now,
         canceledAt: null,
@@ -269,9 +357,15 @@ export class Order {
         type: 'TABLE',
         status: 'OPEN',
         tableCode: requireNonEmptyString(input.tableCode, 'Table code', 64),
+        label: null,
         openedByUserId: input.openedByUserId,
         closedByUserId: null,
         canceledByUserId: null,
+        paymentRequestedByUserId: null,
+        paymentRequestedAt: null,
+        adjustment: null,
+        applyServiceFee: true,
+        serviceFeeBasisPoints: requireBasisPoints(input.serviceFeeBasisPoints ?? 0, 'Service fee'),
         openedAt: now,
         closedAt: null,
         canceledAt: null,
@@ -300,6 +394,13 @@ export class Order {
     const order = new Order(
       {
         ...props,
+        label: normalizeLabel(props.label),
+        adjustment: props.adjustment === null ? null : requireAdjustment(props.adjustment),
+        serviceFeeBasisPoints: requireBasisPoints(props.serviceFeeBasisPoints, 'Service fee'),
+        paymentRequestedAt:
+          props.paymentRequestedAt === null
+            ? null
+            : requireValidDate(props.paymentRequestedAt, 'Payment requested at'),
         openedAt: requireValidDate(props.openedAt, 'Opened at'),
         closedAt: props.closedAt === null ? null : requireValidDate(props.closedAt, 'Closed at'),
         canceledAt:
@@ -311,6 +412,17 @@ export class Order {
       lineMap,
       payments,
     );
+
+    if (!order.props.applyServiceFee && order.props.serviceFeeBasisPoints !== 0) {
+      throw new InvariantViolationError('A service fee rate requires the fee to apply');
+    }
+
+    if (
+      order.status === 'AWAITING_PAYMENT' &&
+      (order.props.paymentRequestedAt === null || order.props.paymentRequestedByUserId === null)
+    ) {
+      throw new InvariantViolationError('An order awaiting payment records who requested it');
+    }
 
     if (order.status === 'CLOSED') {
       assertPaymentsMatchTotal(order.paymentList, order.total);
@@ -337,8 +449,34 @@ export class Order {
     return this.props.tableCode;
   }
 
+  get label(): string | null {
+    return this.props.label;
+  }
+
   get openedByUserId(): UserID {
     return this.props.openedByUserId;
+  }
+
+  get paymentRequestedByUserId(): UserID | null {
+    return this.props.paymentRequestedByUserId;
+  }
+
+  get paymentRequestedAt(): Date | null {
+    return this.props.paymentRequestedAt === null
+      ? null
+      : new Date(this.props.paymentRequestedAt.getTime());
+  }
+
+  get adjustment(): Adjustment | null {
+    return this.props.adjustment;
+  }
+
+  get applyServiceFee(): boolean {
+    return this.props.applyServiceFee;
+  }
+
+  get serviceFeeBasisPoints(): number {
+    return this.props.serviceFeeBasisPoints;
   }
 
   get closedByUserId(): UserID | null {
@@ -381,8 +519,20 @@ export class Order {
     return this.paymentList;
   }
 
-  get total(): Money {
+  get subtotal(): Money {
     return this.items.reduce((total, item) => total.add(item.lineTotal), Money.zero());
+  }
+
+  get pricing(): PricingBreakdown {
+    return calculatePricing({
+      subtotal: this.subtotal,
+      adjustment: this.props.adjustment,
+      serviceFeeBasisPoints: this.props.serviceFeeBasisPoints,
+    });
+  }
+
+  get total(): Money {
+    return this.pricing.total;
   }
 
   getItem(itemId: ItemID): OrderItem | null {
@@ -390,13 +540,13 @@ export class Order {
   }
 
   addItem(item: Item, quantity: number, now: Date): void {
-    this.assertOpen();
+    this.assertEditableLines();
     this.addOrIncrementLine(item, quantity, now);
     this.touch(now);
   }
 
   changeItemQuantity(itemId: ItemID, quantity: number, now: Date): void {
-    this.assertOpen();
+    this.assertEditableLines();
     const line = this.getItem(itemId);
 
     if (line === null) {
@@ -407,8 +557,67 @@ export class Order {
     this.touch(now);
   }
 
+  removeItem(itemId: ItemID, now: Date): void {
+    this.assertEditableLines();
+    const key = new OrderItemKey(this.props.id, itemId).toString();
+
+    if (!this.lineMap.delete(key)) {
+      throw new InvariantViolationError('Order item not found');
+    }
+
+    this.touch(now);
+  }
+
+  setAdjustment(adjustment: Adjustment | null, now: Date): void {
+    this.assertActive();
+    this.props.adjustment = adjustment === null ? null : requireAdjustment(adjustment);
+    this.touch(now);
+  }
+
+  // `basisPoints` is the current rate from the settings; it is snapshotted on the order.
+  setServiceFee(apply: boolean, basisPoints: number, now: Date): void {
+    this.assertActive();
+    this.props.applyServiceFee = apply;
+    this.props.serviceFeeBasisPoints = apply ? requireBasisPoints(basisPoints, 'Service fee') : 0;
+    this.touch(now);
+  }
+
+  /**
+   * The server hands a table over to the cashier. The lines are locked until it is reopened.
+   */
+  requestPayment(byUserId: UserID, now: Date): void {
+    if (this.props.type !== 'TABLE') {
+      throw new InvalidStateTransitionError('Only table orders can wait for payment');
+    }
+    if (this.props.status !== 'OPEN') {
+      throw new InvalidStateTransitionError(
+        `Order is ${this.props.status} and cannot request payment`,
+      );
+    }
+    if (this.lineMap.size === 0) {
+      throw new InvariantViolationError('An order without items cannot request payment');
+    }
+
+    const timestamp = requireValidDate(now, 'Now');
+    this.props.status = 'AWAITING_PAYMENT';
+    this.props.paymentRequestedByUserId = byUserId;
+    this.props.paymentRequestedAt = timestamp;
+    this.touch(timestamp);
+  }
+
+  reopen(now: Date): void {
+    if (this.props.status !== 'AWAITING_PAYMENT') {
+      throw new InvalidStateTransitionError(`Order is ${this.props.status} and cannot be reopened`);
+    }
+
+    this.props.status = 'OPEN';
+    this.props.paymentRequestedByUserId = null;
+    this.props.paymentRequestedAt = null;
+    this.touch(now);
+  }
+
   close(byUserId: UserID, payments: readonly OrderPaymentInput[], now: Date): void {
-    this.assertOpen();
+    this.assertActive();
     const timestamp = requireValidDate(now, 'Now');
     const normalizedPayments = normalizePayments(payments);
 
@@ -422,7 +631,7 @@ export class Order {
   }
 
   cancel(byUserId: UserID, now: Date): void {
-    this.assertOpen();
+    this.assertActive();
     const timestamp = requireValidDate(now, 'Now');
 
     this.props.status = 'CANCELED';
@@ -432,8 +641,8 @@ export class Order {
   }
 
   private addOrIncrementLine(item: Item, quantity: number, now: Date): void {
-    if (!item.isActive) {
-      throw new InvariantViolationError('Removed items cannot be added to an order');
+    if (!item.isSellable) {
+      throw new InvariantViolationError('Only sellable items can be added to an order');
     }
 
     const normalizedQuantity = requirePositiveInteger(quantity, 'Quantity');
@@ -461,8 +670,16 @@ export class Order {
     );
   }
 
-  private assertOpen(): void {
+  // Lines can change only while the server is still taking the order.
+  private assertEditableLines(): void {
     if (this.props.status !== 'OPEN') {
+      throw new InvalidStateTransitionError(`Order is ${this.props.status} and cannot be changed`);
+    }
+  }
+
+  // Open and awaiting payment are the live states; closed and canceled are terminal.
+  private assertActive(): void {
+    if (this.props.status !== 'OPEN' && this.props.status !== 'AWAITING_PAYMENT') {
       throw new InvalidStateTransitionError(`Order is ${this.props.status} and cannot be changed`);
     }
   }

@@ -1,14 +1,21 @@
 export {
   type CreateItemInput,
+  DEFAULT_ITEM_CATEGORY,
   Item,
   type ItemProps,
   type UpdateItemInput,
 } from '@/domain/entity/item';
 export {
+  ADJUSTMENT_MODES,
+  ADJUSTMENT_TYPES,
+  type Adjustment,
+  type AdjustmentMode,
+  type AdjustmentType,
   type CounterOrderLine,
   type CreateCounterOrderInput,
   type CreateOrderItemInput,
   isPaymentMethod,
+  MAX_BASIS_POINTS,
   type OpenTableOrderInput,
   ORDER_STATUSES,
   ORDER_TYPES,
@@ -23,7 +30,13 @@ export {
   type OrderType,
   PAYMENT_METHODS,
   type PaymentMethod,
+  type PricingBreakdown,
 } from '@/domain/entity/order';
+export {
+  Settings,
+  type SettingsProps,
+  type UpdateSettingsInput,
+} from '@/domain/entity/settings';
 export {
   type CreateUserInput,
   isRole,
@@ -55,6 +68,7 @@ export type {
   OrderPage,
   OrderRepository,
 } from '@/domain/repository/order-repository';
+export type { SettingsRepository } from '@/domain/repository/settings-repository';
 export type {
   UserPage,
   UserPageOptions,

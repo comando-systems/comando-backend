@@ -19,7 +19,7 @@ export async function resolveActiveOrderLines(
   const uniqueIds = [...new Set(lines.map((line) => line.itemId.value))].map(
     (value) => new ItemID(value),
   );
-  const items = await repositories.items.findActiveByIds(uniqueIds);
+  const items = await repositories.items.findSellableByIds(uniqueIds);
   const itemsById = new Map(items.map((item) => [item.id.value, item]));
 
   return lines.map((line) => {

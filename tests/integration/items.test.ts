@@ -225,7 +225,7 @@ describe.skipIf(!TEST_DATABASE_URL)('item administration', () => {
     expect(line?.itemName).toBe('Coffee');
     expect(line?.unitPrice.cents).toBe(750);
 
-    const active = await unitOfWork.run((repos) => repos.items.findActiveByIds([item.id]));
+    const active = await unitOfWork.run((repos) => repos.items.findSellableByIds([item.id]));
     expect(active).toHaveLength(0);
   });
 });

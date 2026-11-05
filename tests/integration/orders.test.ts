@@ -215,7 +215,7 @@ describe.skipIf(!TEST_DATABASE_URL)('order application use cases', () => {
       openTableOrder.execute({ actorUserId: cashier.id, tableCode: 'T-02' }),
     ).rejects.toThrow('You are not allowed');
 
-    const open = await unitOfWork.run((repos) => repos.orders.findOpenTableByCode('T-01'));
+    const open = await unitOfWork.run((repos) => repos.orders.findActiveTableByCode('T-01'));
     expect(open?.id.value).toBe(order.id.value);
   });
 

@@ -103,7 +103,7 @@ describe.skipIf(!TEST_DATABASE_URL)('PostgreSQL repositories', () => {
     updated?.remove(later);
     await unitOfWork.run((repos) => repos.items.update(updated as Item));
 
-    const active = await unitOfWork.run((repos) => repos.items.findActiveByIds([item.id]));
+    const active = await unitOfWork.run((repos) => repos.items.findSellableByIds([item.id]));
     expect(active).toHaveLength(0);
 
     const activePage = await unitOfWork.run((repos) => repos.items.list({ page: 1, pageSize: 20 }));
