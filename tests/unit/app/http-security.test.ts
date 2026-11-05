@@ -47,7 +47,6 @@ describe('authMiddleware', () => {
   test.each([
     ['no header', {}],
     ['another scheme', { authorization: 'Basic abc' }],
-    ['an empty token', { authorization: 'Bearer    ' }],
     ['a token the service rejects', { authorization: 'Bearer bad-token' }],
   ])('answers 401 for %s', async (_label, headers) => {
     const response = await app.request('/', { headers });
@@ -138,5 +137,17 @@ describe('loginRateLimitMiddleware', () => {
     } finally {
       Date.now = realNow;
     }
+  });
+});
+
+describe('authMiddleware edge cases', () => {
+  // HTTP trims trailing spaces, so an empty token is only reachable by calling the middleware.
+  test('rejects a bearer header that carries no token', async () => {
+    const middleware = authMiddleware(createTokenService());
+    const context = { req: { header: () => 'Bearer    ' } } as unknown as Parameters<
+      typeof middleware
+    >[0];
+
+    await expect(middleware(context, async () => {})).rejects.toBeInstanceOf(UnauthorizedError);
   });
 });

@@ -34,15 +34,15 @@ function createLogger() {
 
 describe('application errors', () => {
   test.each([
-    [new ValidationError(), 400, 'VALIDATION_ERROR'],
-    [new UnauthorizedError(), 401, 'UNAUTHORIZED'],
-    [new ForbiddenError(), 403, 'FORBIDDEN'],
-    [new NotFoundError(), 404, 'NOT_FOUND'],
-    [new ConflictError(), 409, 'CONFLICT'],
-    [new PayloadTooLargeError(), 413, 'PAYLOAD_TOO_LARGE'],
-    [new TooManyRequestsError(), 429, 'TOO_MANY_REQUESTS'],
-    [new ServiceUnavailableError(), 503, 'SERVICE_UNAVAILABLE'],
-  ])('%p carries its HTTP status and code', (error, status, code) => {
+    ['ValidationError', new ValidationError(), 400, 'VALIDATION_ERROR'],
+    ['UnauthorizedError', new UnauthorizedError(), 401, 'UNAUTHORIZED'],
+    ['ForbiddenError', new ForbiddenError(), 403, 'FORBIDDEN'],
+    ['NotFoundError', new NotFoundError(), 404, 'NOT_FOUND'],
+    ['ConflictError', new ConflictError(), 409, 'CONFLICT'],
+    ['PayloadTooLargeError', new PayloadTooLargeError(), 413, 'PAYLOAD_TOO_LARGE'],
+    ['TooManyRequestsError', new TooManyRequestsError(), 429, 'TOO_MANY_REQUESTS'],
+    ['ServiceUnavailableError', new ServiceUnavailableError(), 503, 'SERVICE_UNAVAILABLE'],
+  ])('%s carries its HTTP status and code', (_name, error, status, code) => {
     expect(error).toBeInstanceOf(AppError);
     expect(error.status).toBe(status);
     expect(error.code).toBe(code);
