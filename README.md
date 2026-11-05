@@ -25,6 +25,152 @@ The system uses one order model for both service channels. A counter order is cr
 
 A user may have multiple roles. Effective permissions are the union of the permissions granted by their roles. Authorization must be enforced by the backend for every use case.
 
+## HTTP API
+
+All endpoints accept and return JSON. Identifiers are decimal strings, monetary values are integer cents, and timestamps use ISO 8601 UTC strings.
+
+### Authentication
+
+Protected endpoints require a bearer access token:
+
+```http
+Authorization: Bearer <access-token>
+```
+
+`POST /auth/login` is public and is rate limited per client IP. Successful logins return a short-lived access token and the current user profile.
+
+```json
+{
+  "accessToken": "<jwt>",
+  "expiresAt": "2026-01-01T12:15:00.000Z",
+  "user": {
+    "id": "1",
+    "name": "Ada Lovelace",
+    "email": "ada@example.com",
+    "roles": ["CASHIER"],
+    "isActive": true,
+    "createdAt": "2026-01-01T12:00:00.000Z",
+    "updatedAt": "2026-01-01T12:00:00.000Z"
+  }
+}
+```
+
+Disabled users cannot log in, and already-issued tokens stop working because the actor is reloaded from the database on every authorized operation.
+
+### Endpoints
+
+| Method | Path | Allowed roles | Description |
+|---|---|---|---|
+| `GET` | `/health` | Public | Liveness check. |
+| `GET` | `/health/ready` | Public | Readiness check that pings PostgreSQL. |
+| `POST` | `/auth/login` | Public | Authenticate and issue an access token. |
+| `POST` | `/users` | `ADMIN` | Create a user. |
+| `GET` | `/users` | `ADMIN` | List users with pagination. |
+| `GET` | `/users/:id` | `ADMIN` | Read a user. |
+| `PATCH` | `/users/:id` | `ADMIN` | Update name, email, password, or roles. |
+| `DELETE` | `/users/:id` | `ADMIN` | Deactivate a user (soft delete). |
+| `POST` | `/items` | `ADMIN` | Create a catalog item. |
+| `GET` | `/items` | Authenticated | List the active catalog. |
+| `GET` | `/items/:id` | Authenticated | Read an active item. |
+| `PATCH` | `/items/:id` | `ADMIN` | Update an item. |
+| `DELETE` | `/items/:id` | `ADMIN` | Remove an item from the active catalog. |
+| `POST` | `/orders/counter` | `CASHIER` | Create a completed counter order. |
+| `POST` | `/orders/table` | `SERVER` | Open a table order. |
+| `GET` | `/orders` | `CASHIER` | List order history with filters. |
+| `GET` | `/orders/:id` | `CASHIER` | Read an order. |
+| `POST` | `/orders/:id/items` | `SERVER` | Add items, incrementing existing lines. |
+| `PATCH` | `/orders/:id/items/:itemId` | `SERVER` | Set an absolute line quantity. |
+| `POST` | `/orders/:id/close` | `CASHIER`, `SERVER` | Close an open table order. |
+| `POST` | `/orders/:id/cancel` | `CASHIER`, `SERVER` | Cancel an open table order. |
+
+### Request examples
+
+Create a counter order:
+
+```json
+{
+  "items": [
+    { "itemId": "1", "quantity": 2 },
+    { "itemId": "2", "quantity": 1 }
+  ],
+  "payments": [
+    { "method": "CASH", "amountCents": 1000 },
+    { "method": "CREDIT_CARD", "amountCents": 1550 }
+  ]
+}
+```
+
+Open a table order:
+
+```json
+{ "tableCode": "T-01" }
+```
+
+Add items to an open table order:
+
+```json
+{ "items": [{ "itemId": "1", "quantity": 2 }] }
+```
+
+Change a line quantity:
+
+```json
+{ "quantity": 5 }
+```
+
+Close an order:
+
+```json
+{
+  "payments": [
+    { "method": "CASH", "amountCents": 1000 },
+    { "method": "PIX", "amountCents": 2750 }
+  ]
+}
+```
+
+Payment methods are `CASH`, `DEBIT_CARD`, `CREDIT_CARD`, `PIX`, and `OTHER`.
+
+### Pagination and history filters
+
+List endpoints accept `page` (default `1`) and `pageSize` (default `20`, maximum `100`) and return:
+
+```json
+{
+  "data": [],
+  "pagination": {
+    "page": 1,
+    "pageSize": 20,
+    "total": 0,
+    "totalPages": 0
+  }
+}
+```
+
+`GET /items` accepts `includeRemoved=true`. Only `ADMIN` sees removed items; the flag is ignored for other roles.
+
+`GET /orders` accepts optional `status` (`OPEN`, `CLOSED`, `CANCELED`), `type` (`COUNTER`, `TABLE`), `from`, and `to` filters. Results are newest first.
+
+### Errors
+
+Errors use a stable shape:
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid request",
+    "details": [{ "path": "items", "message": "At least one item is required" }],
+    "requestId": "..."
+  }
+}
+```
+
+Common statuses are `400` for validation, `401` for missing or invalid authentication, `403` for insufficient permissions, `404` for missing resources, `409` for invalid state transitions or conflicts, `413` for payloads above `BODY_LIMIT_BYTES`, and `429` when the login rate limit is exceeded.
+
+CORS is controlled by `CORS_ORIGIN`, request payloads by `BODY_LIMIT_BYTES`, and login attempts by `LOGIN_RATE_LIMIT_MAX` and `LOGIN_RATE_LIMIT_WINDOW_SECONDS`.
+
+
 ## Order lifecycle
 
 `Order` is a single domain concept. `OrderType` identifies the service channel and `OrderStatus` identifies the lifecycle state.
@@ -177,3 +323,14 @@ Use transactions for counter-order creation, table-order creation, line changes,
 - Test repository mappings, constraints, migrations, and transaction rollback.
 - Test all role permissions and order state transitions.
 - Keep API errors stable and avoid exposing internal exception details.
+
+Run the checks with:
+
+```bash
+bun run format:check
+bun run lint
+bun run typecheck
+bun test tests/unit
+TEST_DATABASE_URL=postgres://comando:comando@localhost:55432/comando_test?sslmode=disable bun test tests/integration
+TEST_DATABASE_URL=postgres://comando:comando@localhost:55432/comando_test?sslmode=disable bun test tests/e2e
+```
