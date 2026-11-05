@@ -24,7 +24,7 @@ export class OrderPaymentRepository implements OrderPaymentRepositoryContract {
 
   async findByOrderId(orderId: OrderID): Promise<readonly OrderPayment[]> {
     const sql = this.database.readSql();
-    const rows = await sql<OrderPaymentRow[]>`
+    const rows = await sql.query<OrderPaymentRow[]>`
       SELECT
         method::text AS method,
         amount_cents::text AS amount_cents
@@ -38,10 +38,10 @@ export class OrderPaymentRepository implements OrderPaymentRepositoryContract {
 
   async replace(orderId: OrderID, payments: readonly OrderPayment[]): Promise<void> {
     const sql = this.database.writeSql();
-    await sql`DELETE FROM order_payments WHERE order_id = ${orderId.value}`;
+    await sql.query`DELETE FROM order_payments WHERE order_id = ${orderId.value}`;
 
     for (const payment of payments) {
-      await sql`
+      await sql.query`
         INSERT INTO order_payments (order_id, method, amount_cents)
         VALUES (${orderId.value}, ${payment.method}::payment_method, ${payment.amountCents})
       `;

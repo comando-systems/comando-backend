@@ -63,7 +63,7 @@ export class OrderRepository implements OrderRepositoryContract {
 
   async create(order: Order): Promise<void> {
     const sql = this.database.writeSql();
-    await sql`
+    await sql.query`
       INSERT INTO orders (
         id,
         order_type,
@@ -107,9 +107,8 @@ export class OrderRepository implements OrderRepositoryContract {
 
   async findById(id: OrderID, options?: FindOrderOptions): Promise<Order | null> {
     const sql = options?.forUpdate === true ? this.database.writeSql() : this.database.readSql();
-    const lock = options?.forUpdate === true ? sql`FOR UPDATE` : sql``;
-    const rows = await sql<OrderRow[]>`
-      SELECT
+    const rows = await sql.unsafe<OrderRow[]>(
+      `SELECT
         id::text AS id,
         order_type,
         status,
@@ -124,9 +123,10 @@ export class OrderRepository implements OrderRepositoryContract {
         updated_at,
         version
       FROM orders
-      WHERE id = ${id.value}
-      ${lock}
-    `;
+      WHERE id = $1
+      ${options?.forUpdate === true ? 'FOR UPDATE' : ''}`,
+      [id.value],
+    );
 
     const row = rows[0];
     if (row === undefined) {
@@ -140,7 +140,7 @@ export class OrderRepository implements OrderRepositoryContract {
 
   async save(order: Order): Promise<void> {
     const sql = this.database.writeSql();
-    const rows = await sql<{ id: string }[]>`
+    const rows = await sql.query<{ id: string }[]>`
       UPDATE orders
       SET
         order_type = ${order.type},
@@ -178,7 +178,7 @@ export class OrderRepository implements OrderRepositoryContract {
     const from = filters.from ?? null;
     const to = filters.to ?? null;
 
-    const countRows = await sql<{ count: string }[]>`
+    const countRows = await sql.query<{ count: string }[]>`
       SELECT COUNT(*)::text AS count
       FROM orders
       WHERE (${status}::order_status IS NULL OR status = ${status}::order_status)
@@ -187,7 +187,7 @@ export class OrderRepository implements OrderRepositoryContract {
         AND (${to}::timestamptz IS NULL OR created_at <= ${to}::timestamptz)
     `;
 
-    const rows = await sql<OrderRow[]>`
+    const rows = await sql.query<OrderRow[]>`
       SELECT
         id::text AS id,
         order_type,

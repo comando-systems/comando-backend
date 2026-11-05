@@ -18,7 +18,7 @@ services:
 
   migrate:
     image: migrate/migrate:v4.18.3
-    volumes: [./docker/database/migrations:/migrations:ro]
+    volumes: [./migrations:/migrations:ro]
     command:
       - -path
       - /migrations

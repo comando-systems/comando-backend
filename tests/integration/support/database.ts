@@ -15,7 +15,7 @@ export function createTestDatabase(): DatabaseConnections {
 }
 
 export async function resetDatabase(database: DatabaseConnections): Promise<void> {
-  await database.write`
+  await database.write.query`
     TRUNCATE TABLE
       audit_logs,
       refresh_tokens,

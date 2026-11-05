@@ -1,5 +1,5 @@
 import type { IdGenerator } from '@/app/ports/id-generator';
-import type { Sql } from '@/infrastructure/database/postgres';
+import type { SqlClient } from '@/infrastructure/database/sql-client';
 
 /**
  * Uses the identity sequence of a table so explicit inserts keep the sequence
@@ -7,12 +7,12 @@ import type { Sql } from '@/infrastructure/database/postgres';
  */
 export class SequenceIdGenerator implements IdGenerator {
   constructor(
-    private readonly sql: Sql,
+    private readonly sql: SqlClient,
     private readonly sequenceName: string,
   ) {}
 
   async next(): Promise<string> {
-    const rows = await this.sql<{ id: string }[]>`
+    const rows = await this.sql.query<{ id: string }[]>`
       SELECT nextval(${this.sequenceName})::text AS id
     `;
     const row = rows[0];

@@ -1,12 +1,12 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { Logger } from '@/app/ports/logger';
-import { createSqlClient, type Sql } from '@/infrastructure/database/postgres';
+import { SqlClient } from '@/infrastructure/database/sql-client';
 
 export interface DatabaseConnections {
-  readonly read: Sql;
-  readonly write: Sql;
-  readSql(): Sql;
-  writeSql(): Sql;
+  readonly read: SqlClient;
+  readonly write: SqlClient;
+  readSql(): SqlClient;
+  writeSql(): SqlClient;
   transaction<T>(work: () => Promise<T>): Promise<T>;
   readOnly<T>(work: () => Promise<T>): Promise<T>;
   ping(): Promise<void>;
@@ -23,24 +23,29 @@ export function createDatabaseConnections(
   writeUrl: string,
   logger: Logger,
 ): DatabaseConnections {
-  const read = createSqlClient(readUrl);
-  const write = createSqlClient(writeUrl);
-  const transactionStorage = new AsyncLocalStorage<Sql>();
+  const read = SqlClient.connect(readUrl, {
+    max: 10,
+    idleTimeout: 20,
+    connectionTimeout: 10,
+  });
+  const write = SqlClient.connect(writeUrl, {
+    max: 10,
+    idleTimeout: 20,
+    connectionTimeout: 10,
+  });
+  const transactionStorage = new AsyncLocalStorage<SqlClient>();
 
   return {
     read,
     write,
-    readSql(): Sql {
+    readSql(): SqlClient {
       return transactionStorage.getStore() ?? read;
     },
-    writeSql(): Sql {
+    writeSql(): SqlClient {
       return transactionStorage.getStore() ?? write;
     },
     async transaction<T>(work: () => Promise<T>): Promise<T> {
-      const result = await write.begin(async (transaction) => {
-        return transactionStorage.run(transaction as unknown as Sql, work);
-      });
-      return result as T;
+      return write.transaction((transaction) => transactionStorage.run(transaction, work));
     },
     async readOnly<T>(work: () => Promise<T>): Promise<T> {
       if (transactionStorage.getStore() !== undefined) {
@@ -49,10 +54,10 @@ export function createDatabaseConnections(
       return transactionStorage.run(read, work);
     },
     async ping(): Promise<void> {
-      await Promise.all([read`SELECT 1`, write`SELECT 1`]);
+      await Promise.all([read.ping(), write.ping()]);
     },
     async close(): Promise<void> {
-      await Promise.all([read.end({ timeout: 5 }), write.end({ timeout: 5 })]);
+      await Promise.all([read.close(5), write.close(5)]);
       logger.debug('database connections closed');
     },
   };
