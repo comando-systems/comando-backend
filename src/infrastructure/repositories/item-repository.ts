@@ -1,4 +1,4 @@
-import { Item } from '@/domain/entity/item';
+import { DEFAULT_ITEM_CATEGORY, Item } from '@/domain/entity/item';
 import type {
   CreateItemRecord,
   ItemPage,
@@ -14,8 +14,10 @@ interface ItemRow {
   id: string;
   name: string;
   description: string | null;
+  category: string;
   price_cents: string;
   image_url: string | null;
+  active: boolean;
   deleted_at: Date | string | null;
   created_at: Date | string;
   updated_at: Date | string;
@@ -26,8 +28,10 @@ function mapItem(row: ItemRow): Item {
     id: new ItemID(row.id),
     name: row.name,
     description: row.description,
+    category: row.category,
     price: Money.fromCents(Number(row.price_cents)),
     imageUrl: row.image_url,
+    active: row.active,
     deletedAt: toNullableDate(row.deleted_at),
     createdAt: toDate(row.created_at),
     updatedAt: toDate(row.updated_at),
@@ -44,8 +48,10 @@ export class ItemRepository implements ItemRepositoryContract {
         id::text AS id,
         name,
         description,
+        category,
         price_cents::text AS price_cents,
         image_url,
+        active,
         deleted_at,
         created_at,
         updated_at
@@ -57,7 +63,7 @@ export class ItemRepository implements ItemRepositoryContract {
     return row === undefined ? null : mapItem(row);
   }
 
-  async findActiveByIds(ids: readonly ItemID[]): Promise<readonly Item[]> {
+  async findSellableByIds(ids: readonly ItemID[]): Promise<readonly Item[]> {
     if (ids.length === 0) {
       return [];
     }
@@ -68,8 +74,10 @@ export class ItemRepository implements ItemRepositoryContract {
         id::text AS id,
         name,
         description,
+        category,
         price_cents::text AS price_cents,
         image_url,
+        active,
         deleted_at,
         created_at,
         updated_at
@@ -79,6 +87,7 @@ export class ItemRepository implements ItemRepositoryContract {
         'BIGINT',
       )})
         AND deleted_at IS NULL
+        AND active
       ORDER BY id
     `;
 
@@ -87,13 +96,19 @@ export class ItemRepository implements ItemRepositoryContract {
 
   async create(record: CreateItemRecord): Promise<Item> {
     const sql = this.database.writeSql();
+    const category = record.category ?? DEFAULT_ITEM_CATEGORY;
+    const active = record.active ?? true;
     const rows = await sql.query<{ id: string }[]>`
-      INSERT INTO items (name, description, price_cents, image_url, created_at, updated_at)
+      INSERT INTO items (
+        name, description, category, price_cents, image_url, active, created_at, updated_at
+      )
       VALUES (
         ${record.name},
         ${record.description},
+        ${category},
         ${record.priceCents},
         ${record.imageUrl},
+        ${active},
         ${record.now},
         ${record.now}
       )
@@ -110,8 +125,10 @@ export class ItemRepository implements ItemRepositoryContract {
       id: new ItemID(id),
       name: record.name,
       description: record.description,
+      category,
       priceCents: record.priceCents,
       imageUrl: record.imageUrl,
+      active,
       now: record.now,
     });
   }
@@ -123,8 +140,10 @@ export class ItemRepository implements ItemRepositoryContract {
       SET
         name = ${item.name},
         description = ${item.description},
+        category = ${item.category},
         price_cents = ${item.price.cents},
         image_url = ${item.imageUrl},
+        active = ${item.isEnabled},
         deleted_at = ${item.deletedAt},
         updated_at = ${item.updatedAt}
       WHERE id = ${item.id.value}
@@ -135,24 +154,29 @@ export class ItemRepository implements ItemRepositoryContract {
     const sql = this.database.readSql();
     const offset = (options.page - 1) * options.pageSize;
     const includeRemoved = options.includeRemoved === true;
+    const sellableOnly = options.sellableOnly === true;
     const countRows = await sql.query<{ count: string }[]>`
       SELECT COUNT(*)::text AS count
       FROM items
       WHERE (${includeRemoved}::boolean OR deleted_at IS NULL)
+        AND (NOT ${sellableOnly}::boolean OR (deleted_at IS NULL AND active))
     `;
     const rows = await sql.query<ItemRow[]>`
       SELECT
         id::text AS id,
         name,
         description,
+        category,
         price_cents::text AS price_cents,
         image_url,
+        active,
         deleted_at,
         created_at,
         updated_at
       FROM items
       WHERE (${includeRemoved}::boolean OR deleted_at IS NULL)
-      ORDER BY name, id
+        AND (NOT ${sellableOnly}::boolean OR (deleted_at IS NULL AND active))
+      ORDER BY category, name, id
       LIMIT ${options.pageSize}
       OFFSET ${offset}
     `;

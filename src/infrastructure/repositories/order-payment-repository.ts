@@ -6,6 +6,7 @@ import type { DatabaseConnections } from '@/infrastructure/database/connections'
 interface OrderPaymentRow {
   method: string;
   amount_cents: string;
+  received_cents: string | null;
 }
 
 function mapOrderPayment(row: OrderPaymentRow): OrderPayment {
@@ -16,6 +17,7 @@ function mapOrderPayment(row: OrderPaymentRow): OrderPayment {
   return OrderPayment.create({
     method: row.method,
     amountCents: Number(row.amount_cents),
+    receivedCents: row.received_cents === null ? null : Number(row.received_cents),
   });
 }
 
@@ -27,7 +29,8 @@ export class OrderPaymentRepository implements OrderPaymentRepositoryContract {
     const rows = await sql.query<OrderPaymentRow[]>`
       SELECT
         method::text AS method,
-        amount_cents::text AS amount_cents
+        amount_cents::text AS amount_cents,
+        received_cents::text AS received_cents
       FROM order_payments
       WHERE order_id = ${orderId.value}
       ORDER BY id
@@ -42,8 +45,14 @@ export class OrderPaymentRepository implements OrderPaymentRepositoryContract {
 
     for (const payment of payments) {
       await sql.query`
-        INSERT INTO order_payments (order_id, method, amount_cents)
-        VALUES (${orderId.value}, ${payment.method}::payment_method, ${payment.amountCents})
+        INSERT INTO order_payments (order_id, method, amount_cents, received_cents, change_cents)
+        VALUES (
+          ${orderId.value},
+          ${payment.method}::payment_method,
+          ${payment.amountCents},
+          ${payment.receivedCents},
+          ${payment.changeCents}
+        )
       `;
     }
   }

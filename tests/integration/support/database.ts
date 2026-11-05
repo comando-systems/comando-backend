@@ -27,4 +27,6 @@ export async function resetDatabase(database: DatabaseConnections): Promise<void
       users
     RESTART IDENTITY CASCADE
   `;
+  // The migration seeds the singleton settings row; the cascade from users wipes it.
+  await database.write.query`INSERT INTO settings (id) VALUES (1)`;
 }

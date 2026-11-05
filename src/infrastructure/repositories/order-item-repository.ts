@@ -84,4 +84,22 @@ export class OrderItemRepository implements OrderItemRepositoryContract {
       WHERE order_id = ${orderId.value} AND item_id = ${itemId.value}
     `;
   }
+
+  async deleteExcept(orderId: OrderID, keep: readonly ItemID[]): Promise<void> {
+    const sql = this.database.writeSql();
+
+    if (keep.length === 0) {
+      await sql.query`DELETE FROM order_items WHERE order_id = ${orderId.value}`;
+      return;
+    }
+
+    await sql.query`
+      DELETE FROM order_items
+      WHERE order_id = ${orderId.value}
+        AND item_id <> ALL(${sql.array(
+          keep.map((itemId) => itemId.value),
+          'BIGINT',
+        )})
+    `;
+  }
 }
