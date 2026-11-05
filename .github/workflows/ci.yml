@@ -240,11 +240,26 @@ jobs:
             nohup bun dist/index.js > server.log 2>&1 &
       - run: scripts/smoke-test.sh http://127.0.0.1:3100
       - name: Run k6
+        # Runs as the runner's user: the image's default user cannot write the summary to the workspace.
         run: >-
-          docker run --rm --network host
+          docker run --rm --network host --user "$(id -u):$(id -g)"
           -v "$PWD/k6:/k6:ro" -v "$PWD:/out"
           -e BASE_URL=http://127.0.0.1:3100 -e LOAD_EMAIL -e LOAD_PASSWORD
           grafana/k6:2.2.0 run --summary-export=/out/k6-summary.json /k6/load-test.js
+      - name: Report the percentiles
+        if: ${{ !cancelled() && hashFiles('k6-summary.json') != '' }}
+        run: |
+          {
+            echo "### Load test latency (ms)"
+            echo
+            echo "| Metric | avg | p90 | p95 | p99 | max |"
+            echo "|---|---|---|---|---|---|"
+            jq -r '.metrics | to_entries[]
+              | select(.key | startswith("http_req_duration"))
+              | "| \(.key) | \(.value.avg // "-" | tostring | .[0:7]) | \(.value["p(90)"] // "-" | tostring | .[0:7]) | \(.value["p(95)"] // "-" | tostring | .[0:7]) | \(.value["p(99)"] // "-" | tostring | .[0:7]) | \(.value.max // "-" | tostring | .[0:7]) |"' k6-summary.json
+            echo
+            echo "Requests: $(jq -r '.metrics.http_reqs.count' k6-summary.json), failed rate: $(jq -r '.metrics.http_req_failed.value // .metrics.http_req_failed.rate // "-"' k6-summary.json)"
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload the k6 summary
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
