@@ -14,6 +14,7 @@ export function requestLoggerMiddleware(logger: Logger): MiddlewareHandler<AppEn
     } finally {
       requestLogger.info('request completed', {
         method: context.req.method,
+        route: context.req.routePath,
         path: context.req.path,
         status: context.res.status,
         durationMs: Math.round(performance.now() - startedAt),

@@ -9,6 +9,16 @@ const LEVEL_PRIORITY: Record<LogLevel, number> = {
 };
 
 const SENSITIVE_KEY_PATTERN = /password|passwd|secret|token|authorization|cookie|jwt|credential/i;
+const JWT_PATTERN = /eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g;
+const BEARER_PATTERN = /Bearer\s+[A-Za-z0-9._~+/-]+=*/gi;
+const ARGON2_HASH_PATTERN = /\$argon2(?:id|i|d)\$[^\s"']+/g;
+
+function redactString(value: string): string {
+  return value
+    .replace(JWT_PATTERN, '[redacted-jwt]')
+    .replace(BEARER_PATTERN, 'Bearer [redacted]')
+    .replace(ARGON2_HASH_PATTERN, '[redacted-hash]');
+}
 
 function redactValue(value: unknown, seen: WeakSet<object>): unknown {
   if (value === null || value === undefined) {
@@ -22,8 +32,8 @@ function redactValue(value: unknown, seen: WeakSet<object>): unknown {
   if (value instanceof Error) {
     return {
       name: value.name,
-      message: value.message,
-      stack: value.stack,
+      message: redactString(value.message),
+      stack: value.stack === undefined ? undefined : redactString(value.stack),
     };
   }
 
@@ -44,7 +54,7 @@ function redactValue(value: unknown, seen: WeakSet<object>): unknown {
     return redacted;
   }
 
-  return value;
+  return typeof value === 'string' ? redactString(value) : value;
 }
 
 function redact(context: LogContext): LogContext {
