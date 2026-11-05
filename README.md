@@ -145,6 +145,10 @@ The migration includes foreign keys, checks, indexes, role seeds, soft-delete co
 
 The API receives separate `DATABASE_READ_URL` and `DATABASE_WRITE_URL` connections. Both currently point to the same PostgreSQL instance; repositories use the read connection for queries and the write connection for mutations and transactions.
 
+All SQL runs through the first-party `SqlClient` adapter in `src/infrastructure/database`, which wraps Bun's native SQL client. Repositories do not import or depend on a third-party database driver. Transactions are scoped with `AsyncLocalStorage`, so singleton repositories automatically use the active transaction.
+
+Apply migrations from the root `migrations/` directory in ascending order. Do not execute schema changes ad hoc during application startup. The `docker-compose.yml` migration service mounts that directory.
+
 ## Configuration
 
 Validate the environment at startup. Required variables include `DATABASE_READ_URL`, `DATABASE_WRITE_URL`, and a `JWT_SECRET` with at least 32 characters. See `.env.example` for the complete list and defaults. Secrets must never be committed or logged.
