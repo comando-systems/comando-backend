@@ -18,13 +18,26 @@ export type Permission =
   | 'orders:history'
   | 'orders:open'
   | 'orders:update'
+  | 'orders:request-payment'
   | 'orders:cancel'
   | 'orders:close';
 
 const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
   ADMIN: ['users:manage', 'items:manage', 'settings:manage'],
-  CASHIER: ['orders:counter', 'orders:history', 'orders:close', 'orders:cancel'],
-  SERVER: ['orders:open', 'orders:update', 'orders:close', 'orders:cancel'],
+  CASHIER: [
+    'orders:counter',
+    'orders:history',
+    'orders:request-payment',
+    'orders:close',
+    'orders:cancel',
+  ],
+  SERVER: [
+    'orders:open',
+    'orders:update',
+    'orders:request-payment',
+    'orders:close',
+    'orders:cancel',
+  ],
 };
 
 export function isRole(value: string): value is Role {

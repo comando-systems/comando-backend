@@ -44,6 +44,14 @@ export {
   type OpenTableOrderInput,
   OpenTableOrderUseCase,
   type OrdersUseCases,
+  type RemoveOrderItemInput,
+  RemoveOrderItemUseCase,
+  type ReopenOrderInput,
+  ReopenOrderUseCase,
+  type RequestOrderPaymentInput,
+  RequestOrderPaymentUseCase,
+  type SetOrderPricingInput,
+  SetOrderPricingUseCase,
 } from '@/app/use-cases/orders';
 export {
   type GetSettingsInput,

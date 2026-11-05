@@ -1,3 +1,4 @@
+import { Scalar } from '@scalar/hono-api-reference';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
@@ -7,6 +8,7 @@ import { PayloadTooLargeError, ServiceUnavailableError } from '@/app/errors';
 import { toErrorResponse } from '@/app/http/error-handler';
 import { requestIdMiddleware } from '@/app/http/middleware/request-id';
 import { requestLoggerMiddleware } from '@/app/http/middleware/request-logger';
+import { buildOpenApiDocument } from '@/app/http/openapi/document';
 import { authRoutes } from '@/app/http/routes/auth';
 import { itemRoutes } from '@/app/http/routes/items';
 import { orderRoutes } from '@/app/http/routes/orders';
@@ -51,6 +53,12 @@ export function createApp(container: AppContainer): Hono<AppEnv> {
       throw new ServiceUnavailableError();
     }
   });
+
+  if (container.config.docsEnabled) {
+    const document = buildOpenApiDocument();
+    app.get('/openapi.json', (context) => context.json(document));
+    app.get('/docs', Scalar({ url: '/openapi.json', pageTitle: 'Comandô API' }));
+  }
 
   app.route('/auth', authRoutes(container));
   app.route('/users', userRoutes(container));

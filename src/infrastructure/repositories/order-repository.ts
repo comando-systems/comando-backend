@@ -267,7 +267,10 @@ export class OrderRepository implements OrderRepositoryContract {
     const sql = this.database.readSql();
     const offset = (filters.page - 1) * filters.pageSize;
     const status = filters.status ?? null;
+    // A comma-joined list avoids array parameters; statuses never contain commas.
+    const statuses = filters.statuses === undefined ? null : filters.statuses.join(',');
     const type = filters.type ?? null;
+    const tableCode = filters.tableCode ?? null;
     const from = filters.from ?? null;
     const to = filters.to ?? null;
 
@@ -275,7 +278,9 @@ export class OrderRepository implements OrderRepositoryContract {
       SELECT COUNT(*)::text AS count
       FROM orders
       WHERE (${status}::order_status IS NULL OR status = ${status}::order_status)
+        AND (${statuses}::text IS NULL OR status::text = ANY(string_to_array(${statuses}::text, ',')))
         AND (${type}::order_type IS NULL OR order_type = ${type}::order_type)
+        AND (${tableCode}::text IS NULL OR table_code = ${tableCode}::text)
         AND (${from}::timestamptz IS NULL OR created_at >= ${from}::timestamptz)
         AND (${to}::timestamptz IS NULL OR created_at <= ${to}::timestamptz)
     `;
@@ -287,10 +292,12 @@ export class OrderRepository implements OrderRepositoryContract {
         AND ($2::order_type IS NULL OR order_type = $2::order_type)
         AND ($3::timestamptz IS NULL OR created_at >= $3::timestamptz)
         AND ($4::timestamptz IS NULL OR created_at <= $4::timestamptz)
+        AND ($5::text IS NULL OR status::text = ANY(string_to_array($5::text, ',')))
+        AND ($6::text IS NULL OR table_code = $6::text)
       ORDER BY created_at DESC, id DESC
-      LIMIT $5
-      OFFSET $6`,
-      [status, type, from, to, filters.pageSize, offset],
+      LIMIT $7
+      OFFSET $8`,
+      [status, type, from, to, statuses, tableCode, filters.pageSize, offset],
     );
 
     const orders = await Promise.all(rows.map((row) => this.hydrate(row) as Promise<Order>));

@@ -57,6 +57,19 @@ Authorization: Bearer <access-token>
 
 Disabled users cannot log in, and already-issued tokens stop working because the actor is reloaded from the database on every authorized operation.
 
+### API reference
+
+The contract is an OpenAPI 3.1 document and the interactive reference is rendered with [Scalar](https://scalar.com):
+
+| Path | What it serves |
+|---|---|
+| `GET /openapi.json` | The OpenAPI document. Import it into any client generator or API tool. |
+| `GET /docs` | The interactive reference. Use **Authorize** with the `accessToken` from `POST /auth/login`. |
+
+Both are public. They are on by default outside production and off in production; set `API_DOCS_ENABLED=true` or `false` to override.
+
+The document is built in code (`src/app/http/openapi/`). Request bodies reuse the same `zod` schemas the API validates with, response schemas are checked against the real serializers in the tests, and a test fails when a registered route is missing from the document or the document lists a route that does not exist. When you add or change an endpoint, update `src/app/http/openapi/document.ts` in the same change.
+
 ### Endpoints
 
 | Method | Path | Allowed roles | Description |
@@ -67,8 +80,10 @@ Disabled users cannot log in, and already-issued tokens stop working because the
 | `POST` | `/users` | `ADMIN` | Create a user. |
 | `GET` | `/users` | `ADMIN` | List users with pagination. |
 | `GET` | `/users/:id` | `ADMIN` | Read a user. |
-| `PATCH` | `/users/:id` | `ADMIN` | Update name, email, password, or roles. |
+| `PATCH` | `/users/:id` | `ADMIN` | Update name, email, password, or roles; `isActive: true` reactivates a user. |
 | `DELETE` | `/users/:id` | `ADMIN` | Deactivate a user (soft delete). |
+| `GET` | `/settings` | Authenticated | Read the service fee settings. |
+| `PUT` | `/settings` | `ADMIN` | Turn the service fee on or off and set its rate. |
 | `POST` | `/items` | `ADMIN` | Create a catalog item. |
 | `GET` | `/items` | Authenticated | List the active catalog. |
 | `GET` | `/items/:id` | Authenticated | Read an active item. |
@@ -76,11 +91,15 @@ Disabled users cannot log in, and already-issued tokens stop working because the
 | `DELETE` | `/items/:id` | `ADMIN` | Remove an item from the active catalog. |
 | `POST` | `/orders/counter` | `CASHIER` | Create a completed counter order. |
 | `POST` | `/orders/table` | `SERVER` | Open a table order. |
-| `GET` | `/orders` | `CASHIER` | List order history with filters. |
-| `GET` | `/orders/:id` | `CASHIER` | Read an order. |
+| `GET` | `/orders` | `CASHIER` (history); `CASHIER`, `SERVER` (open orders) | List orders with filters. |
+| `GET` | `/orders/:id` | `CASHIER`; `SERVER` while the order is open | Read an order. |
 | `POST` | `/orders/:id/items` | `SERVER` | Add items, incrementing existing lines. |
 | `PATCH` | `/orders/:id/items/:itemId` | `SERVER` | Set an absolute line quantity. |
-| `POST` | `/orders/:id/close` | `CASHIER`, `SERVER` | Close an open table order. |
+| `DELETE` | `/orders/:id/items/:itemId` | `SERVER` | Remove a line from an open table order. |
+| `PATCH` | `/orders/:id/pricing` | `CASHIER`, `SERVER` | Set or clear the adjustment, or switch the service fee. |
+| `POST` | `/orders/:id/request-payment` | `CASHIER`, `SERVER` | Hand an open table order to the cashier (`AWAITING_PAYMENT`). |
+| `POST` | `/orders/:id/reopen` | `CASHIER`, `SERVER` | Return an order awaiting payment to `OPEN`. |
+| `POST` | `/orders/:id/close` | `CASHIER`, `SERVER` | Close a table order that is open or awaiting payment. |
 | `POST` | `/orders/:id/cancel` | `CASHIER`, `SERVER` | Cancel an open table order. |
 
 ### Request examples
@@ -130,6 +149,38 @@ Close an order:
 ```
 
 Payment methods are `CASH`, `DEBIT_CARD`, `CREDIT_CARD`, `PIX`, and `OTHER`.
+
+### Catalog, settings, and users
+
+Items have a `category` (default `Uncategorized`) and an `enabled` switch. A disabled item stays editable and visible to administrators, but cannot be sold: it is hidden from everyone else and cannot be added to an order. `isActive` still means "not removed from the catalog". The catalog is ordered by category, then name.
+
+`GET /settings` and `PUT /settings` manage the service fee. It starts off, `serviceFeeBasisPoints` is 1000 (10%) by default, and an order keeps the rate it snapshotted, so changing the settings never alters existing orders.
+
+Passwords need 8 to 128 characters. A deactivated user can only be edited by sending `isActive: true`. To avoid locking everyone out, an administrator cannot deactivate or demote themselves (`CANNOT_DEACTIVATE_SELF`, `CANNOT_REMOVE_OWN_ADMIN`) and the last active administrator cannot be removed (`LAST_ADMIN`); concurrent changes are serialized with a database lock.
+
+### Order workflow
+
+A table order goes `OPEN` to `AWAITING_PAYMENT` when the server hands it to the cashier, who closes it with the payments. While it awaits payment the lines are locked and only the pricing can change; `reopen` returns it to `OPEN`. A table stays occupied while its order is open or awaiting payment, and opening it again answers `409 TABLE_OCCUPIED` with the existing order in `error.details.orderId`.
+
+The server calculates every amount in integer cents: the subtotal, then an optional adjustment (a discount or surcharge, as basis points or cents), then the service fee on the adjusted amount, rounding half up. `totalCents` is the sum, and the fee rate is a snapshot taken when the order is opened or the fee is switched, so changing the settings later does not alter existing orders. The service fee starts switched off in the settings.
+
+Request examples:
+
+```json
+{ "adjustment": { "type": "DISCOUNT", "mode": "PERCENT", "value": 1000 }, "applyServiceFee": true }
+```
+
+`PATCH /orders/:id/pricing`: `value` is basis points for `PERCENT` (1000 is 10%) and cents for `FIXED`; `"adjustment": null` clears it.
+
+```json
+{ "payments": [{ "method": "CASH", "amountCents": 2000, "receivedCents": 5000 }] }
+```
+
+`POST /orders/:id/close`: for cash the server derives the change (`changeCents`).
+
+`POST /orders/counter` also accepts `label` (the customer name), `adjustment`, and `applyServiceFee`.
+
+`GET /orders` accepts `statuses` (comma separated, such as `OPEN,AWAITING_PAYMENT`) and `tableCode`. Servers and cashiers may list orders that are still being served; anything that can include a closed or canceled order needs the history permission.
 
 ### Pagination and history filters
 
