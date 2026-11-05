@@ -27,6 +27,7 @@ Persistence:
 - `settings`: a single row with `service_fee_enabled` and `service_fee_basis_points`.
 - `order_payments`: `received_cents` and `change_cents` for cash, so a receipt can show them. The payment amount still counts toward the exact-sum rule.
 - `apply_service_fee` defaults to true for `TABLE` orders and false for `COUNTER` orders, matching the app.
+- The service fee is off in the settings until an administrator enables it (default rate 10%), so deploying this change does not alter any existing total. An order snapshots the rate when it is opened or when its fee is toggled; with the fee off that rate is zero.
 
 ## Consequences
 

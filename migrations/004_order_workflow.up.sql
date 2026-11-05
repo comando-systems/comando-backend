@@ -93,10 +93,11 @@ ALTER TABLE order_payments
         OR (received_cents >= amount_cents AND change_cents = received_cents - amount_cents)
     );
 
--- Application settings (ADR-05). Singleton row: id is fixed, not a surrogate key.
+-- Application settings (ADR-04). Singleton row: id is fixed, not a surrogate key.
+-- The service fee starts off, so enabling it is a deliberate choice of the administrator.
 CREATE TABLE settings (
     id SMALLINT PRIMARY KEY DEFAULT 1,
-    service_fee_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    service_fee_enabled BOOLEAN NOT NULL DEFAULT FALSE,
     service_fee_basis_points INTEGER NOT NULL DEFAULT 1000,
     updated_by_user_id BIGINT NULL,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,

@@ -290,8 +290,9 @@ describe.skipIf(!TEST_DATABASE_URL)('order workflow persistence', () => {
     test('reads the seeded defaults', async () => {
       const settings = await unitOfWork.run((repos) => repos.settings.get());
 
-      expect(settings.serviceFeeEnabled).toBe(true);
+      expect(settings.serviceFeeEnabled).toBe(false);
       expect(settings.serviceFeeBasisPoints).toBe(1000);
+      expect(settings.effectiveServiceFeeBasisPoints).toBe(0);
       expect(settings.updatedByUserId).toBeNull();
     });
 
