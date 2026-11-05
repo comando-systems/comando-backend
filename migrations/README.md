@@ -30,3 +30,5 @@ The application must still enforce role permissions, state transitions, price sn
 `orders.version` is available for optimistic concurrency control. The application may instead use row-level locking, but it must prevent lost updates.
 
 `refresh_tokens` is included as a persistence foundation. Implement refresh-token flows only with an explicit rotation, expiry, and revocation policy.
+
+`audit_logs` stores persistent administrative and order-lifecycle audit events, separate from operational request logs. Application code writes audit rows in the same transaction as the change they describe.

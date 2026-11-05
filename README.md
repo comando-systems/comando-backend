@@ -25,6 +25,51 @@ The system uses one order model for both service channels. A counter order is cr
 
 A user may have multiple roles. Effective permissions are the union of the permissions granted by their roles. Authorization must be enforced by the backend for every use case.
 
+## Getting started
+
+Prerequisites:
+
+- Bun `>= 1.3.0`.
+- PostgreSQL 16 or newer, or Docker with Compose for the bundled database.
+
+Create an environment file from the example and replace `JWT_SECRET` with a random value of at least 32 characters:
+
+```bash
+cp .env.example .env
+```
+
+Start PostgreSQL and apply migrations:
+
+```bash
+docker compose up -d postgres
+docker compose run --rm migrate
+```
+
+Run the API in watch mode:
+
+```bash
+bun install
+bun run dev
+```
+
+`bun run start` runs the API without watch mode. `docker compose up --build` starts PostgreSQL, applies migrations, starts the API, and exposes it through nginx on `NGINX_PORT` (default `80`). The API serves liveness on `GET /health` and readiness, including a database ping, on `GET /health/ready`.
+
+### Database setup and migrations
+
+Migrations live in the root `migrations/` directory and are paired as `*.up.sql` and `*.down.sql`. Apply them in ascending order with the configured migration runner:
+
+```bash
+bun run db:migrate:up
+```
+
+Roll back the latest migration with:
+
+```bash
+bun run db:migrate:down
+```
+
+These scripts require `DATABASE_WRITE_URL` to be exported. Do not run migrations automatically during application startup.
+
 ## HTTP API
 
 All endpoints accept and return JSON. Identifiers are decimal strings, monetary values are integer cents, and timestamps use ISO 8601 UTC strings.
@@ -297,19 +342,51 @@ Apply migrations from the root `migrations/` directory in ascending order. Do no
 
 ## Configuration
 
-Validate the environment at startup. Required variables include `DATABASE_READ_URL`, `DATABASE_WRITE_URL`, and a `JWT_SECRET` with at least 32 characters. See `.env.example` for the complete list and defaults. Secrets must never be committed or logged.
+Configuration is validated at startup and the process exits with a clear error when a value is invalid. Secrets must never be committed or logged.
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `NODE_ENV` | No | `development` | `development`, `test`, or `production`. |
+| `HOST` | No | `0.0.0.0` | Interface the HTTP server binds to. |
+| `PORT` | No | `3000` | HTTP server port. |
+| `DATABASE_READ_URL` | Yes | - | PostgreSQL connection string used for reads. |
+| `DATABASE_WRITE_URL` | Yes | - | PostgreSQL connection string used for writes and transactions. |
+| `JWT_SECRET` | Yes | - | Access-token signing secret with at least 32 characters. |
+| `JWT_ISSUER` | No | `comando` | Expected and issued JWT issuer. |
+| `JWT_AUDIENCE` | No | `comando-api` | Expected and issued JWT audience. |
+| `JWT_EXPIRES_IN_SECONDS` | No | `900` | Access-token lifetime, between 60 and 86400 seconds. |
+| `CORS_ORIGIN` | No | `*` | Allowed CORS origin, or `*` for any origin. |
+| `BODY_LIMIT_BYTES` | No | `1048576` | Maximum request body size in bytes. |
+| `LOGIN_RATE_LIMIT_MAX` | No | `10` | Login attempts allowed per client within the window. |
+| `LOGIN_RATE_LIMIT_WINDOW_SECONDS` | No | `60` | Login rate-limit window in seconds. |
+| `LOG_LEVEL` | No | `info` | `debug`, `info`, `warn`, or `error`. |
+
+See `.env.example` for a ready-to-copy template.
 
 ## Authentication, security, and logging
 
-- Store password hashes only; never store plaintext passwords.
-- Use a modern password hashing algorithm such as Argon2id. Check the current Bun API and library support before implementation.
+- Store password hashes only; never store plaintext passwords. Passwords use Argon2id through Bun's password API.
 - Use short-lived signed JWT access tokens. Validate signature, expiry, issuer/audience when configured, and required claims.
 - Keep signing secrets in validated environment configuration, never in source control.
-- If refresh tokens are used, store only their hashes and support rotation and revocation.
 - Never log passwords, hashes, JWTs, refresh tokens, authorization headers, or secrets.
 - Use structured logs with request/correlation IDs.
 - Keep technical logs separate from persistent audit events.
 - Apply authorization in use cases, not only in HTTP handlers.
+- Disabled users cannot log in, and already-issued access tokens stop working because the actor is reloaded from the database on every authorized operation.
+
+## Observability and audit
+
+Operational logs are JSON lines written to stdout, with errors written to stderr. Every request is assigned an `X-Request-Id` header, accepted from the client when it matches a safe pattern. Request logs include the request ID, method, matched route, raw path, response status, and duration. The logger redacts sensitive keys such as passwords, secrets, tokens, authorization headers, cookies, hashes, and credentials. It also redacts JWT, bearer-token, and Argon2 hash values that appear inside log messages.
+
+Persistent audit events are stored in `audit_logs` and are separate from operational logs. The following actions are recorded inside the same transaction as the change:
+
+- `user.create`, `user.update`, `user.deactivate`
+- `item.create`, `item.update`, `item.remove`
+- `order.counter.create`, `order.table.open`
+- `order.items.add`, `order.item.quantity.change`
+- `order.close`, `order.cancel`
+
+Each event stores the actor user ID, action, target type and ID, request ID, a JSON metadata object, and the creation timestamp. Failed operations do not create audit events. Metadata includes only operational details such as prices, quantities, totals, roles, and table codes; it never contains passwords, password hashes, or tokens.
 
 ## Transactions and consistency
 
