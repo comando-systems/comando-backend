@@ -13,6 +13,7 @@ import {
   DeactivateUserUseCase,
   GetItemUseCase,
   GetOrderUseCase,
+  GetSettingsUseCase,
   GetUserUseCase,
   ListItemsUseCase,
   ListOrdersUseCase,
@@ -21,6 +22,7 @@ import {
   OpenTableOrderUseCase,
   RemoveItemUseCase,
   UpdateItemUseCase,
+  UpdateSettingsUseCase,
   UpdateUserUseCase,
 } from '@/app/use-cases';
 import { BunPasswordHasher, JwtTokenService } from '@/infrastructure/authentication';
@@ -78,6 +80,10 @@ function createUseCases(container: {
       cancel: new CancelOrderUseCase(container.unitOfWork, container.clock),
       list: new ListOrdersUseCase(container.unitOfWork),
       get: new GetOrderUseCase(container.unitOfWork),
+    },
+    settings: {
+      get: new GetSettingsUseCase(container.unitOfWork),
+      update: new UpdateSettingsUseCase(container.unitOfWork, container.clock),
     },
   };
 }

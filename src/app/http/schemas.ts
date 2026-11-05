@@ -9,10 +9,15 @@ export const loginBodySchema = z.object({
 
 const roleSchema = z.enum(['ADMIN', 'CASHIER', 'SERVER']);
 
+const passwordSchema = z
+  .string()
+  .min(8, 'Password must have at least 8 characters')
+  .max(128, 'Password must have at most 128 characters');
+
 export const createUserBodySchema = z.object({
   name: z.string().min(1, 'Name is required'),
   email: z.string().min(1, 'Email is required'),
-  password: z.string().min(1, 'Password is required'),
+  password: passwordSchema,
   roles: z.array(roleSchema).min(1, 'At least one role is required'),
 });
 
@@ -20,8 +25,9 @@ export const updateUserBodySchema = z
   .object({
     name: z.string().min(1).optional(),
     email: z.string().min(1).optional(),
-    password: z.string().min(1).optional(),
+    password: passwordSchema.optional(),
     roles: z.array(roleSchema).min(1).optional(),
+    isActive: z.boolean().optional(),
   })
   .refine((value) => Object.values(value).some((field) => field !== undefined), {
     message: 'At least one field is required',
@@ -30,6 +36,8 @@ export const updateUserBodySchema = z
 export const createItemBodySchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.string().nullable().optional(),
+  category: z.string().trim().min(1, 'Category cannot be empty').max(80).optional(),
+  enabled: z.boolean().optional(),
   priceCents: z.number().int().min(0, 'Price cannot be negative'),
   imageUrl: z.string().nullable().optional(),
 });
@@ -38,6 +46,8 @@ export const updateItemBodySchema = z
   .object({
     name: z.string().min(1).optional(),
     description: z.string().nullable().optional(),
+    category: z.string().trim().min(1, 'Category cannot be empty').max(80).optional(),
+    enabled: z.boolean().optional(),
     priceCents: z.number().int().min(0, 'Price cannot be negative').optional(),
     imageUrl: z.string().nullable().optional(),
   })
@@ -77,6 +87,16 @@ export const changeOrderItemQuantityBodySchema = z.object({
 export const closeOrderBodySchema = z.object({
   payments: z.array(paymentSchema).default([]),
 });
+
+export const updateSettingsBodySchema = z
+  .object({
+    serviceFeeEnabled: z.boolean().optional(),
+    // 10% is 1000.
+    serviceFeeBasisPoints: z.number().int().min(0).max(10_000).optional(),
+  })
+  .refine((value) => Object.values(value).some((field) => field !== undefined), {
+    message: 'At least one field is required',
+  });
 
 const paginationQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),

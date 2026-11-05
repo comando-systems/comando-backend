@@ -12,6 +12,8 @@ export interface UpdateItemInput {
   readonly name?: string;
   readonly description?: string | null;
   readonly priceCents?: number;
+  readonly category?: string;
+  readonly enabled?: boolean;
   readonly imageUrl?: string | null;
 }
 
@@ -38,8 +40,10 @@ export class UpdateItemUseCase {
       item.update({
         name: input.name,
         description: input.description,
+        category: input.category,
         priceCents: input.priceCents,
         imageUrl: input.imageUrl,
+        active: input.enabled,
         now: this.clock.now(),
       });
 

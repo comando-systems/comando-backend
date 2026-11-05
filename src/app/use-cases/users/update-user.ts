@@ -3,6 +3,7 @@ import { ConflictError, NotFoundError, ValidationError } from '@/app/errors';
 import type { Clock } from '@/app/ports/clock';
 import type { PasswordHasher } from '@/app/ports/password-hasher';
 import type { UnitOfWork } from '@/app/ports/unit-of-work';
+import { assertCanRemoveAdministrator } from '@/app/use-cases/users/admin-safeguards';
 import type { Role, User } from '@/domain/entity/user';
 import type { Repositories } from '@/domain/repository';
 import type { UserID } from '@/domain/value-objects/ids';
@@ -14,6 +15,8 @@ export interface UpdateUserInput {
   readonly email?: string;
   readonly password?: string;
   readonly roles?: readonly Role[];
+  // `true` reactivates a deactivated user; `false` deactivates one.
+  readonly isActive?: boolean;
 }
 
 export class UpdateUserUseCase {
@@ -32,7 +35,8 @@ export class UpdateUserUseCase {
       input.password === undefined ? undefined : await this.passwordHasher.hash(input.password);
 
     return this.unitOfWork.run(async (repositories) => {
-      await requireActor(repositories, input.actorUserId, 'users:manage');
+      const actor = await requireActor(repositories, input.actorUserId, 'users:manage');
+      await repositories.users.lockAdministration();
 
       const user = await repositories.users.findById(input.userId);
 
@@ -40,8 +44,23 @@ export class UpdateUserUseCase {
         throw new NotFoundError('User not found');
       }
 
+      const now = this.clock.now();
+
+      // Reactivation is the one edit a deactivated user accepts, and it comes first so the other
+      // fields of the same request apply to an active user.
       if (!user.isActive) {
-        throw new ConflictError('Deactivated users cannot be edited');
+        if (input.isActive !== true) {
+          throw new ConflictError('Deactivated users cannot be edited');
+        }
+
+        user.activate(now);
+      } else if (input.isActive === false) {
+        await assertCanRemoveAdministrator(repositories, actor, user, 'deactivate');
+        user.deactivate(now);
+      }
+
+      if (input.roles !== undefined && !input.roles.includes('ADMIN')) {
+        await assertCanRemoveAdministrator(repositories, actor, user, 'demote');
       }
 
       if (input.email !== undefined) {
@@ -53,7 +72,6 @@ export class UpdateUserUseCase {
         }
       }
 
-      const now = this.clock.now();
       user.update({
         name: input.name,
         email: input.email,
