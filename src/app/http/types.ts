@@ -3,7 +3,10 @@ import type { AppConfig } from '@/app/config';
 import type { Clock } from '@/app/ports/clock';
 import type { IdGenerator } from '@/app/ports/id-generator';
 import type { Logger } from '@/app/ports/logger';
+import type { PasswordHasher } from '@/app/ports/password-hasher';
+import type { TokenService } from '@/app/ports/token-service';
 import type { UnitOfWork } from '@/app/ports/unit-of-work';
+import type { UseCases } from '@/app/use-cases';
 import type { Repositories } from '@/domain/repository';
 import type { DatabaseConnections } from '@/infrastructure/database/connections';
 
@@ -21,6 +24,9 @@ export interface AppContainer {
   readonly repositories: Repositories;
   readonly unitOfWork: UnitOfWork<Repositories>;
   readonly ids: IdGenerators;
+  readonly passwordHasher: PasswordHasher;
+  readonly tokenService: TokenService;
+  readonly useCases: UseCases;
   close(): Promise<void>;
 }
 
