@@ -38,7 +38,7 @@ export class ItemRepository implements ItemRepositoryContract {
 
   async findById(id: ItemID): Promise<Item | null> {
     const sql = this.database.readSql();
-    const rows = await sql<ItemRow[]>`
+    const rows = await sql.query<ItemRow[]>`
       SELECT
         id::text AS id,
         name,
@@ -62,7 +62,7 @@ export class ItemRepository implements ItemRepositoryContract {
     }
 
     const sql = this.database.readSql();
-    const rows = await sql<ItemRow[]>`
+    const rows = await sql.query<ItemRow[]>`
       SELECT
         id::text AS id,
         name,
@@ -73,7 +73,10 @@ export class ItemRepository implements ItemRepositoryContract {
         created_at,
         updated_at
       FROM items
-      WHERE id IN ${sql(ids.map((id) => id.value))}
+      WHERE id = ANY(${sql.array(
+        ids.map((id) => id.value),
+        'BIGINT',
+      )})
         AND deleted_at IS NULL
       ORDER BY id
     `;
@@ -83,7 +86,7 @@ export class ItemRepository implements ItemRepositoryContract {
 
   async create(item: Item): Promise<void> {
     const sql = this.database.writeSql();
-    await sql`
+    await sql.query`
       INSERT INTO items (
         id, name, description, price_cents, image_url, deleted_at, created_at, updated_at
       )
@@ -102,7 +105,7 @@ export class ItemRepository implements ItemRepositoryContract {
 
   async update(item: Item): Promise<void> {
     const sql = this.database.writeSql();
-    await sql`
+    await sql.query`
       UPDATE items
       SET
         name = ${item.name},
@@ -119,12 +122,12 @@ export class ItemRepository implements ItemRepositoryContract {
     const sql = this.database.readSql();
     const offset = (options.page - 1) * options.pageSize;
     const includeRemoved = options.includeRemoved === true;
-    const countRows = await sql<{ count: string }[]>`
+    const countRows = await sql.query<{ count: string }[]>`
       SELECT COUNT(*)::text AS count
       FROM items
       WHERE (${includeRemoved}::boolean OR deleted_at IS NULL)
     `;
-    const rows = await sql<ItemRow[]>`
+    const rows = await sql.query<ItemRow[]>`
       SELECT
         id::text AS id,
         name,

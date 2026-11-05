@@ -267,7 +267,7 @@ describe.skipIf(!TEST_DATABASE_URL)('PostgreSQL repositories', () => {
     await unitOfWork.run((repos) => repos.orders.create(order));
 
     await expect(
-      database.write`
+      database.write.query`
         INSERT INTO order_items (
           order_id, item_id, item_name_snapshot, quantity, unit_price_cents
         ) VALUES (${order.id.value}, ${item.id.value}, 'Coffee', 1, 750)
@@ -275,14 +275,14 @@ describe.skipIf(!TEST_DATABASE_URL)('PostgreSQL repositories', () => {
     ).rejects.toThrow();
 
     await expect(
-      database.write`
+      database.write.query`
         INSERT INTO orders (order_type, status, opened_by_user_id)
         VALUES ('COUNTER', 'OPEN', ${user.id.value})
       `,
     ).rejects.toThrow();
 
     await expect(
-      database.write`
+      database.write.query`
         INSERT INTO items (name, price_cents)
         VALUES ('Invalid', -1)
       `,
@@ -290,7 +290,7 @@ describe.skipIf(!TEST_DATABASE_URL)('PostgreSQL repositories', () => {
 
     const zeroItem = await createItem('Zero', 100);
     await expect(
-      database.write`
+      database.write.query`
         INSERT INTO order_items (
           order_id, item_id, item_name_snapshot, quantity, unit_price_cents
         ) VALUES (${order.id.value}, ${zeroItem.id.value}, 'Zero', 0, 100)
@@ -298,12 +298,14 @@ describe.skipIf(!TEST_DATABASE_URL)('PostgreSQL repositories', () => {
     ).rejects.toThrow();
 
     await expect(
-      database.write`
+      database.write.query`
         INSERT INTO order_payments (order_id, method, amount_cents)
         VALUES (${order.id.value}, 'CASH', 0)
       `,
     ).rejects.toThrow();
 
-    await expect(database.write`DELETE FROM users WHERE id = ${user.id.value}`).rejects.toThrow();
+    await expect(
+      database.write.query`DELETE FROM users WHERE id = ${user.id.value}`,
+    ).rejects.toThrow();
   });
 });

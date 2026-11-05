@@ -32,7 +32,7 @@ export class OrderItemRepository implements OrderItemRepositoryContract {
 
   async findByOrderId(orderId: OrderID): Promise<readonly OrderItem[]> {
     const sql = this.database.readSql();
-    const rows = await sql<OrderItemRow[]>`
+    const rows = await sql.query<OrderItemRow[]>`
       SELECT
         order_id::text AS order_id,
         item_id::text AS item_id,
@@ -51,7 +51,7 @@ export class OrderItemRepository implements OrderItemRepositoryContract {
 
   async upsert(orderId: OrderID, item: OrderItem): Promise<void> {
     const sql = this.database.writeSql();
-    await sql`
+    await sql.query`
       INSERT INTO order_items (
         order_id,
         item_id,
@@ -79,7 +79,7 @@ export class OrderItemRepository implements OrderItemRepositoryContract {
 
   async delete(orderId: OrderID, itemId: ItemID): Promise<void> {
     const sql = this.database.writeSql();
-    await sql`
+    await sql.query`
       DELETE FROM order_items
       WHERE order_id = ${orderId.value} AND item_id = ${itemId.value}
     `;

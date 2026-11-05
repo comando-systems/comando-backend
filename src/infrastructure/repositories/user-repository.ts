@@ -6,7 +6,7 @@ import type {
 } from '@/domain/repository/user-repository';
 import { UserID } from '@/domain/value-objects/ids';
 import type { DatabaseConnections } from '@/infrastructure/database/connections';
-import type { Sql } from '@/infrastructure/database/postgres';
+import type { SqlClient } from '@/infrastructure/database/sql-client';
 import { toDate, toNullableDate } from '@/infrastructure/repositories/mapping';
 
 interface UserRow {
@@ -44,7 +44,7 @@ export class UserRepository implements UserRepositoryContract {
 
   async findById(id: UserID): Promise<User | null> {
     const sql = this.database.readSql();
-    const rows = await sql<UserRow[]>`
+    const rows = await sql.query<UserRow[]>`
       SELECT
         u.id::text AS id,
         u.name,
@@ -70,7 +70,7 @@ export class UserRepository implements UserRepositoryContract {
 
   async findByEmail(email: string): Promise<User | null> {
     const sql = this.database.readSql();
-    const rows = await sql<UserRow[]>`
+    const rows = await sql.query<UserRow[]>`
       SELECT
         u.id::text AS id,
         u.name,
@@ -96,7 +96,7 @@ export class UserRepository implements UserRepositoryContract {
 
   async create(user: User): Promise<void> {
     const sql = this.database.writeSql();
-    await sql`
+    await sql.query`
       INSERT INTO users (id, name, email, password_hash, deleted_at, created_at, updated_at)
       VALUES (
         ${user.id.value},
@@ -114,7 +114,7 @@ export class UserRepository implements UserRepositoryContract {
 
   async update(user: User): Promise<void> {
     const sql = this.database.writeSql();
-    await sql`
+    await sql.query`
       UPDATE users
       SET
         name = ${user.name},
@@ -131,10 +131,10 @@ export class UserRepository implements UserRepositoryContract {
   async list(options: UserPageOptions): Promise<UserPage> {
     const sql = this.database.readSql();
     const offset = (options.page - 1) * options.pageSize;
-    const countRows = await sql<{ count: string }[]>`
+    const countRows = await sql.query<{ count: string }[]>`
       SELECT COUNT(*)::text AS count FROM users
     `;
-    const rows = await sql<UserRow[]>`
+    const rows = await sql.query<UserRow[]>`
       SELECT
         u.id::text AS id,
         u.name,
@@ -162,11 +162,11 @@ export class UserRepository implements UserRepositoryContract {
     };
   }
 
-  private async replaceRoles(sql: Sql, user: User): Promise<void> {
-    await sql`DELETE FROM user_roles WHERE user_id = ${user.id.value}`;
+  private async replaceRoles(sql: SqlClient, user: User): Promise<void> {
+    await sql.query`DELETE FROM user_roles WHERE user_id = ${user.id.value}`;
 
     for (const role of user.roles) {
-      await sql`
+      await sql.query`
         INSERT INTO user_roles (user_id, role_id)
         SELECT ${user.id.value}, id FROM roles WHERE code = ${role}
       `;
