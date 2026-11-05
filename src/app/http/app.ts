@@ -7,6 +7,10 @@ import { PayloadTooLargeError, ServiceUnavailableError } from '@/app/errors';
 import { toErrorResponse } from '@/app/http/error-handler';
 import { requestIdMiddleware } from '@/app/http/middleware/request-id';
 import { requestLoggerMiddleware } from '@/app/http/middleware/request-logger';
+import { authRoutes } from '@/app/http/routes/auth';
+import { itemRoutes } from '@/app/http/routes/items';
+import { orderRoutes } from '@/app/http/routes/orders';
+import { userRoutes } from '@/app/http/routes/users';
 import type { AppContainer, AppEnv } from '@/app/http/types';
 
 export function createApp(container: AppContainer): Hono<AppEnv> {
@@ -46,6 +50,11 @@ export function createApp(container: AppContainer): Hono<AppEnv> {
       throw new ServiceUnavailableError();
     }
   });
+
+  app.route('/auth', authRoutes(container));
+  app.route('/users', userRoutes(container));
+  app.route('/items', itemRoutes(container));
+  app.route('/orders', orderRoutes(container));
 
   app.notFound((context) =>
     context.json(
