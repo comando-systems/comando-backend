@@ -43,9 +43,18 @@ export class NotFoundError extends AppError {
   }
 }
 
+export interface ConflictErrorOptions {
+  // A more specific code than CONFLICT, for conflicts a client can act on.
+  readonly code?: string;
+  readonly details?: unknown;
+}
+
 export class ConflictError extends AppError {
-  constructor(message = 'The resource cannot be changed in its current state') {
-    super({ status: 409, code: 'CONFLICT', message });
+  constructor(
+    message = 'The resource cannot be changed in its current state',
+    options: ConflictErrorOptions = {},
+  ) {
+    super({ status: 409, code: options.code ?? 'CONFLICT', message, details: options.details });
   }
 }
 

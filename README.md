@@ -76,11 +76,15 @@ Disabled users cannot log in, and already-issued tokens stop working because the
 | `DELETE` | `/items/:id` | `ADMIN` | Remove an item from the active catalog. |
 | `POST` | `/orders/counter` | `CASHIER` | Create a completed counter order. |
 | `POST` | `/orders/table` | `SERVER` | Open a table order. |
-| `GET` | `/orders` | `CASHIER` | List order history with filters. |
-| `GET` | `/orders/:id` | `CASHIER` | Read an order. |
+| `GET` | `/orders` | `CASHIER` (history); `CASHIER`, `SERVER` (open orders) | List orders with filters. |
+| `GET` | `/orders/:id` | `CASHIER`; `SERVER` while the order is open | Read an order. |
 | `POST` | `/orders/:id/items` | `SERVER` | Add items, incrementing existing lines. |
 | `PATCH` | `/orders/:id/items/:itemId` | `SERVER` | Set an absolute line quantity. |
-| `POST` | `/orders/:id/close` | `CASHIER`, `SERVER` | Close an open table order. |
+| `DELETE` | `/orders/:id/items/:itemId` | `SERVER` | Remove a line from an open table order. |
+| `PATCH` | `/orders/:id/pricing` | `CASHIER`, `SERVER` | Set or clear the adjustment, or switch the service fee. |
+| `POST` | `/orders/:id/request-payment` | `CASHIER`, `SERVER` | Hand an open table order to the cashier (`AWAITING_PAYMENT`). |
+| `POST` | `/orders/:id/reopen` | `CASHIER`, `SERVER` | Return an order awaiting payment to `OPEN`. |
+| `POST` | `/orders/:id/close` | `CASHIER`, `SERVER` | Close a table order that is open or awaiting payment. |
 | `POST` | `/orders/:id/cancel` | `CASHIER`, `SERVER` | Cancel an open table order. |
 
 ### Request examples
@@ -130,6 +134,30 @@ Close an order:
 ```
 
 Payment methods are `CASH`, `DEBIT_CARD`, `CREDIT_CARD`, `PIX`, and `OTHER`.
+
+### Order workflow
+
+A table order goes `OPEN` to `AWAITING_PAYMENT` when the server hands it to the cashier, who closes it with the payments. While it awaits payment the lines are locked and only the pricing can change; `reopen` returns it to `OPEN`. A table stays occupied while its order is open or awaiting payment, and opening it again answers `409 TABLE_OCCUPIED` with the existing order in `error.details.orderId`.
+
+The server calculates every amount in integer cents: the subtotal, then an optional adjustment (a discount or surcharge, as basis points or cents), then the service fee on the adjusted amount, rounding half up. `totalCents` is the sum, and the fee rate is a snapshot taken when the order is opened or the fee is switched, so changing the settings later does not alter existing orders. The service fee starts switched off in the settings.
+
+Request examples:
+
+```json
+{ "adjustment": { "type": "DISCOUNT", "mode": "PERCENT", "value": 1000 }, "applyServiceFee": true }
+```
+
+`PATCH /orders/:id/pricing`: `value` is basis points for `PERCENT` (1000 is 10%) and cents for `FIXED`; `"adjustment": null` clears it.
+
+```json
+{ "payments": [{ "method": "CASH", "amountCents": 2000, "receivedCents": 5000 }] }
+```
+
+`POST /orders/:id/close`: for cash the server derives the change (`changeCents`).
+
+`POST /orders/counter` also accepts `label` (the customer name), `adjustment`, and `applyServiceFee`.
+
+`GET /orders` accepts `statuses` (comma separated, such as `OPEN,AWAITING_PAYMENT`) and `tableCode`. Servers and cashiers may list orders that are still being served; anything that can include a closed or canceled order needs the history permission.
 
 ### Pagination and history filters
 

@@ -7,6 +7,7 @@ import {
   createCounterOrderBodySchema,
   openTableOrderBodySchema,
   orderListQuerySchema,
+  setOrderPricingBodySchema,
 } from '@/app/http/schemas';
 import { toOrderResponse, toPageResponse } from '@/app/http/serializers';
 import type { AppContainer, AppEnv } from '@/app/http/types';
@@ -26,6 +27,9 @@ export function orderRoutes(container: AppContainer): Hono<AppEnv> {
         quantity: line.quantity,
       })),
       payments: body.payments,
+      label: body.label,
+      adjustment: body.adjustment,
+      applyServiceFee: body.applyServiceFee,
     });
 
     return context.json(toOrderResponse(order), 201);
@@ -101,6 +105,46 @@ export function orderRoutes(container: AppContainer): Hono<AppEnv> {
 
   routes.post('/:id/cancel', async (context) => {
     const order = await container.useCases.orders.cancel.execute({
+      actorUserId: context.get('actorUserId'),
+      orderId: new OrderID(context.req.param('id')),
+    });
+
+    return context.json(toOrderResponse(order));
+  });
+
+  routes.delete('/:id/items/:itemId', async (context) => {
+    const order = await container.useCases.orders.removeItem.execute({
+      actorUserId: context.get('actorUserId'),
+      orderId: new OrderID(context.req.param('id')),
+      itemId: new ItemID(context.req.param('itemId')),
+    });
+
+    return context.json(toOrderResponse(order));
+  });
+
+  routes.patch('/:id/pricing', async (context) => {
+    const body = await parseJson(context, setOrderPricingBodySchema);
+    const order = await container.useCases.orders.setPricing.execute({
+      actorUserId: context.get('actorUserId'),
+      orderId: new OrderID(context.req.param('id')),
+      adjustment: body.adjustment,
+      applyServiceFee: body.applyServiceFee,
+    });
+
+    return context.json(toOrderResponse(order));
+  });
+
+  routes.post('/:id/request-payment', async (context) => {
+    const order = await container.useCases.orders.requestPayment.execute({
+      actorUserId: context.get('actorUserId'),
+      orderId: new OrderID(context.req.param('id')),
+    });
+
+    return context.json(toOrderResponse(order));
+  });
+
+  routes.post('/:id/reopen', async (context) => {
+    const order = await container.useCases.orders.reopen.execute({
       actorUserId: context.get('actorUserId'),
       orderId: new OrderID(context.req.param('id')),
     });

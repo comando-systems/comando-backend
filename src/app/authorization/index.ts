@@ -25,3 +25,20 @@ export async function requireActor(
 
   return user;
 }
+
+/**
+ * Like `requireActor`, but any one of the permissions is enough.
+ */
+export async function requireActorAny(
+  repositories: Repositories,
+  userId: UserID,
+  permissions: readonly Permission[],
+): Promise<User> {
+  const user = await requireActor(repositories, userId);
+
+  if (!permissions.some((permission) => user.hasPermission(permission))) {
+    throw new ForbiddenError();
+  }
+
+  return user;
+}

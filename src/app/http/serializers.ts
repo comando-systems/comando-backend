@@ -1,5 +1,12 @@
 import type { Item } from '@/domain/entity/item';
-import type { Order, OrderStatus, OrderType, PaymentMethod } from '@/domain/entity/order';
+import type {
+  AdjustmentMode,
+  AdjustmentType,
+  Order,
+  OrderStatus,
+  OrderType,
+  PaymentMethod,
+} from '@/domain/entity/order';
 import type { Role, User } from '@/domain/entity/user';
 
 export interface UserResponse {
@@ -34,6 +41,14 @@ export interface OrderItemResponse {
 export interface OrderPaymentResponse {
   readonly method: PaymentMethod;
   readonly amountCents: number;
+  readonly receivedCents: number | null;
+  readonly changeCents: number | null;
+}
+
+export interface OrderAdjustmentResponse {
+  readonly type: AdjustmentType;
+  readonly mode: AdjustmentMode;
+  readonly value: number;
 }
 
 export interface OrderResponse {
@@ -41,15 +56,24 @@ export interface OrderResponse {
   readonly type: OrderType;
   readonly status: OrderStatus;
   readonly tableCode: string | null;
+  readonly label: string | null;
   readonly openedByUserId: string;
   readonly closedByUserId: string | null;
   readonly canceledByUserId: string | null;
+  readonly paymentRequestedByUserId: string | null;
+  readonly paymentRequestedAt: string | null;
   readonly openedAt: string;
   readonly closedAt: string | null;
   readonly canceledAt: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly version: number;
+  readonly adjustment: OrderAdjustmentResponse | null;
+  readonly applyServiceFee: boolean;
+  readonly serviceFeeBasisPoints: number;
+  readonly subtotalCents: number;
+  readonly adjustmentCents: number;
+  readonly serviceFeeCents: number;
   readonly totalCents: number;
   readonly items: readonly OrderItemResponse[];
   readonly payments: readonly OrderPaymentResponse[];
@@ -99,21 +123,32 @@ export function toItemResponse(item: Item): ItemResponse {
 }
 
 export function toOrderResponse(order: Order): OrderResponse {
+  const pricing = order.pricing;
+
   return {
     id: order.id.value,
     type: order.type,
     status: order.status,
     tableCode: order.tableCode,
+    label: order.label,
     openedByUserId: order.openedByUserId.value,
     closedByUserId: order.closedByUserId?.value ?? null,
     canceledByUserId: order.canceledByUserId?.value ?? null,
+    paymentRequestedByUserId: order.paymentRequestedByUserId?.value ?? null,
+    paymentRequestedAt: toNullableIsoString(order.paymentRequestedAt),
     openedAt: toIsoString(order.openedAt),
     closedAt: toNullableIsoString(order.closedAt),
     canceledAt: toNullableIsoString(order.canceledAt),
     createdAt: toIsoString(order.createdAt),
     updatedAt: toIsoString(order.updatedAt),
     version: order.version,
-    totalCents: order.total.cents,
+    adjustment: order.adjustment === null ? null : { ...order.adjustment },
+    applyServiceFee: order.applyServiceFee,
+    serviceFeeBasisPoints: order.serviceFeeBasisPoints,
+    subtotalCents: pricing.subtotal.cents,
+    adjustmentCents: pricing.adjustment.cents,
+    serviceFeeCents: pricing.serviceFee.cents,
+    totalCents: pricing.total.cents,
     items: order.items.map((item) => ({
       itemId: item.itemId.value,
       itemName: item.itemName,
@@ -124,6 +159,8 @@ export function toOrderResponse(order: Order): OrderResponse {
     payments: order.payments.map((payment) => ({
       method: payment.method,
       amountCents: payment.amountCents,
+      receivedCents: payment.receivedCents,
+      changeCents: payment.changeCents,
     })),
   };
 }
