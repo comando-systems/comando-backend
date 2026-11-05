@@ -1,6 +1,6 @@
 # PostgreSQL migrations
 
-Files are paired by version:
+Files live in the repository root `migrations/` directory and are paired by version:
 
 - `001_initial_schema.up.sql`: creates the initial schema.
 - `001_initial_schema.down.sql`: removes the schema created by that migration.
