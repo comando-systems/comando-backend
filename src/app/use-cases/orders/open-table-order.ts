@@ -29,13 +29,19 @@ export class OpenTableOrderUseCase {
       const openOrder = await repositories.orders.findActiveTableByCode(tableCode);
 
       if (openOrder !== null) {
-        throw new ConflictError('Table already has an open order');
+        throw new ConflictError('Table already has an open order', {
+          code: 'TABLE_OCCUPIED',
+          details: { orderId: openOrder.id.value },
+        });
       }
+
+      const settings = await repositories.settings.get();
 
       const order = Order.openTable({
         id: new OrderID(await this.ids.next()),
         openedByUserId: input.actorUserId,
         tableCode,
+        serviceFeeBasisPoints: settings.effectiveServiceFeeBasisPoints,
         now: this.clock.now(),
       });
 

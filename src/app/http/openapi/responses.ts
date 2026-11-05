@@ -44,23 +44,43 @@ export const orderItemResponseSchema = z.object({
 export const orderPaymentResponseSchema = z.object({
   method: paymentMethodSchema,
   amountCents: cents,
+  receivedCents: cents.nullable().describe('Cash handed over; only for CASH payments.'),
+  changeCents: cents.nullable().describe('Derived by the server: received minus the amount.'),
+});
+
+export const orderAdjustmentResponseSchema = z.object({
+  type: z.enum(['DISCOUNT', 'SURCHARGE']),
+  mode: z.enum(['PERCENT', 'FIXED']),
+  value: z.number().int().describe('Basis points for PERCENT (1000 is 10%), cents for FIXED.'),
 });
 
 export const orderResponseSchema = z.object({
   id: identifier,
   type: z.enum(['COUNTER', 'TABLE']),
-  status: z.enum(['OPEN', 'CLOSED', 'CANCELED']),
+  status: z.enum(['OPEN', 'AWAITING_PAYMENT', 'CLOSED', 'CANCELED']),
   tableCode: z.string().nullable(),
+  label: z.string().nullable().describe('Customer name of a counter sale.'),
   openedByUserId: identifier,
   closedByUserId: identifier.nullable(),
   canceledByUserId: identifier.nullable(),
+  paymentRequestedByUserId: identifier.nullable(),
+  paymentRequestedAt: timestamp.nullable(),
   openedAt: timestamp,
   closedAt: timestamp.nullable(),
   canceledAt: timestamp.nullable(),
   createdAt: timestamp,
   updatedAt: timestamp,
   version: z.number().int().describe('Increments on every change to the order.'),
-  totalCents: cents.describe('Calculated by the server from the line snapshots.'),
+  adjustment: orderAdjustmentResponseSchema.nullable(),
+  applyServiceFee: z.boolean(),
+  serviceFeeBasisPoints: z
+    .number()
+    .int()
+    .describe('Rate snapshot taken for this order; 1000 is 10%.'),
+  subtotalCents: cents.describe('Sum of the lines.'),
+  adjustmentCents: cents.describe('Signed: negative for a discount.'),
+  serviceFeeCents: cents,
+  totalCents: cents.describe('Calculated by the server: subtotal, adjustment, then service fee.'),
   items: z.array(orderItemResponseSchema),
   payments: z.array(orderPaymentResponseSchema),
 });

@@ -55,12 +55,33 @@ const paymentMethodSchema = z.enum(['CASH', 'DEBIT_CARD', 'CREDIT_CARD', 'PIX', 
 const paymentSchema = z.object({
   method: paymentMethodSchema,
   amountCents: z.number().int().positive('Payment amount must be positive'),
+  // Cash handed over; the server derives the change.
+  receivedCents: z.number().int().positive('Amount received must be positive').optional(),
+});
+
+// PERCENT values are basis points (10% is 1000); FIXED values are cents.
+const adjustmentSchema = z.object({
+  type: z.enum(['DISCOUNT', 'SURCHARGE']),
+  mode: z.enum(['PERCENT', 'FIXED']),
+  value: z.number().int().min(0, 'Adjustment value cannot be negative'),
 });
 
 export const createCounterOrderBodySchema = z.object({
   items: z.array(orderLineSchema).min(1, 'At least one item is required'),
   payments: z.array(paymentSchema).default([]),
+  label: z.string().max(160).nullable().optional(),
+  adjustment: adjustmentSchema.nullable().optional(),
+  applyServiceFee: z.boolean().optional(),
 });
+
+export const setOrderPricingBodySchema = z
+  .object({
+    adjustment: adjustmentSchema.nullable().optional(),
+    applyServiceFee: z.boolean().optional(),
+  })
+  .refine((value) => value.adjustment !== undefined || value.applyServiceFee !== undefined, {
+    message: 'Provide an adjustment or applyServiceFee',
+  });
 
 export const openTableOrderBodySchema = z.object({
   tableCode: z.string().min(1, 'Table code is required'),
@@ -92,8 +113,24 @@ export const itemListQuerySchema = paginationQuerySchema.extend({
     .transform((value) => value === 'true'),
 });
 
+const orderStatusSchema = z.enum(['OPEN', 'AWAITING_PAYMENT', 'CLOSED', 'CANCELED']);
+
 export const orderListQuerySchema = paginationQuerySchema.extend({
-  status: z.enum(['OPEN', 'CLOSED', 'CANCELED']).optional(),
+  status: orderStatusSchema.optional(),
+  // Comma-separated, such as `OPEN,AWAITING_PAYMENT` for the orders still being served.
+  statuses: z
+    .string()
+    .optional()
+    .transform((value) =>
+      value === undefined
+        ? undefined
+        : value
+            .split(',')
+            .map((entry) => entry.trim())
+            .filter((entry) => entry.length > 0),
+    )
+    .pipe(z.array(orderStatusSchema).min(1).optional()),
+  tableCode: z.string().min(1).max(64).optional(),
   type: z.enum(['COUNTER', 'TABLE']).optional(),
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),

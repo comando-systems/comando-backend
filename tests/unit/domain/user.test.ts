@@ -38,10 +38,22 @@ describe('User', () => {
 
   test('grants closing and cancellation to cashiers and servers', () => {
     expect(permissionsForRoles(['CASHIER'])).toEqual(
-      new Set(['orders:counter', 'orders:history', 'orders:close', 'orders:cancel']),
+      new Set([
+        'orders:counter',
+        'orders:history',
+        'orders:request-payment',
+        'orders:close',
+        'orders:cancel',
+      ]),
     );
     expect(permissionsForRoles(['SERVER'])).toEqual(
-      new Set(['orders:open', 'orders:update', 'orders:close', 'orders:cancel']),
+      new Set([
+        'orders:open',
+        'orders:update',
+        'orders:request-payment',
+        'orders:close',
+        'orders:cancel',
+      ]),
     );
   });
 

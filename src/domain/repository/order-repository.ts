@@ -3,7 +3,10 @@ import type { OrderID } from '@/domain/value-objects/ids';
 
 export interface OrderFilters {
   readonly status?: OrderStatus;
+  // Matches any of the given statuses; combined with `status` it must satisfy both.
+  readonly statuses?: readonly OrderStatus[];
   readonly type?: OrderType;
+  readonly tableCode?: string;
   readonly from?: Date;
   readonly to?: Date;
   readonly page: number;
