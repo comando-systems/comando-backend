@@ -8,6 +8,7 @@ import type { TokenService } from '@/app/ports/token-service';
 import type { UnitOfWork } from '@/app/ports/unit-of-work';
 import type { UseCases } from '@/app/use-cases';
 import type { Repositories } from '@/domain/repository';
+import type { UserID } from '@/domain/value-objects/ids';
 import type { DatabaseConnections } from '@/infrastructure/database/connections';
 
 export interface IdGenerators {
@@ -32,6 +33,7 @@ export interface AppEnv {
   Variables: {
     requestId: string;
     logger: Logger;
+    actorUserId: UserID;
   };
 }
 
