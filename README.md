@@ -334,3 +334,32 @@ bun test tests/unit
 TEST_DATABASE_URL=postgres://comando:comando@localhost:55432/comando_test?sslmode=disable bun test tests/integration
 TEST_DATABASE_URL=postgres://comando:comando@localhost:55432/comando_test?sslmode=disable bun test tests/e2e
 ```
+
+## Local development and Docker
+
+All Docker files live in `infra/` (see `infra/README.md`). Copy `.env.example` to `.env`, then:
+
+```bash
+bun install
+bun run docker:db        # PostgreSQL
+bun run docker:migrate   # apply migrations
+bun run db:create-admin  # first administrator (ADMIN_EMAIL, ADMIN_PASSWORD)
+bun run dev              # API with hot reload
+```
+
+`bun run docker:up` starts the whole stack (PostgreSQL, migrations, API, nginx) the way it runs in deployment.
+
+## Testing and CI
+
+| Command | What it runs |
+|---|---|
+| `bun run test` | Unit tests |
+| `bun run test:integration` | Repositories, constraints, and use cases (needs `TEST_DATABASE_URL`) |
+| `bun run test:e2e` | API tests against the real app and database (needs `TEST_DATABASE_URL`) |
+| `bun run test:coverage` | Everything, with the 95% minimum for lines and functions |
+| `bun run lint`, `bun run typecheck` | Biome and TypeScript |
+
+Use a separate database for tests; the helpers truncate tables. Heavy tests, such as the k6 load test (`k6/load-test.js`, budget p95 < 500 ms and p99 < 1 s), run only on GitHub Actions.
+
+GitHub Actions runs every check on each pull request and reports them through the single `CI Gate` job: lint and types, commit messages, PR title, unit, integration, API tests, coverage, migrations up/down, production build and smoke test, Docker image, load test, and secret and dependency scans. Commit messages and PR titles follow Conventional Commits, enforced locally by Husky and commitlint.
+

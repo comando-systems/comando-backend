@@ -1,0 +1,5 @@
+# Fix only the staged files and re-stage them, so the commit keeps the formatted version.
+bunx biome check --staged --write --no-errors-on-unmatched
+git update-index --again
+
+bun run typecheck
