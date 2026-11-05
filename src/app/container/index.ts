@@ -21,7 +21,6 @@ function createUseCases(container: {
   unitOfWork: AppContainer['unitOfWork'];
   passwordHasher: AppContainer['passwordHasher'];
   tokenService: AppContainer['tokenService'];
-  ids: IdGenerators;
   clock: AppContainer['clock'];
 }): UseCases {
   return {
@@ -30,7 +29,6 @@ function createUseCases(container: {
       create: new CreateUserUseCase(
         container.unitOfWork,
         container.passwordHasher,
-        container.ids.users,
         container.clock,
       ),
       update: new UpdateUserUseCase(
@@ -65,8 +63,6 @@ export function createContainer(config: AppConfig): AppContainer {
   });
 
   const ids: IdGenerators = {
-    users: new SequenceIdGenerator(database.write, 'users_id_seq'),
-    items: new SequenceIdGenerator(database.write, 'items_id_seq'),
     orders: new SequenceIdGenerator(database.write, 'orders_id_seq'),
   };
 
@@ -74,7 +70,6 @@ export function createContainer(config: AppConfig): AppContainer {
     unitOfWork,
     passwordHasher,
     tokenService,
-    ids,
     clock,
   });
 

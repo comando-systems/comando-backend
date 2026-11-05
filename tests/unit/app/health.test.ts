@@ -41,8 +41,6 @@ function createTestContainer(): AppContainer {
       },
     },
     ids: {
-      users: { next: async () => '1' },
-      items: { next: async () => '1' },
       orders: { next: async () => '1' },
     },
     passwordHasher: {

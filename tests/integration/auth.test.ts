@@ -10,12 +10,10 @@ import {
   LoginUseCase,
   UpdateUserUseCase,
 } from '@/app/use-cases';
-import { User } from '@/domain/entity/user';
+import type { User } from '@/domain/entity/user';
 import type { Repositories } from '@/domain/repository';
-import { UserID } from '@/domain/value-objects/ids';
 import { BunPasswordHasher, JwtTokenService } from '@/infrastructure/authentication';
 import type { DatabaseConnections } from '@/infrastructure/database/connections';
-import { SequenceIdGenerator } from '@/infrastructure/database/sequence-id-generator';
 import { DatabaseUnitOfWork } from '@/infrastructure/database/unit-of-work';
 import { createRepositories } from '@/infrastructure/repositories';
 import { createTestDatabase, resetDatabase, TEST_DATABASE_URL } from './support/database';
@@ -47,7 +45,6 @@ describe.skipIf(!TEST_DATABASE_URL)('authentication and user administration', ()
   let deactivateUser: DeactivateUserUseCase;
   let listUsers: ListUsersUseCase;
   let getUser: GetUserUseCase;
-  let userIds: SequenceIdGenerator;
 
   beforeAll(() => {
     database = createTestDatabase();
@@ -63,8 +60,7 @@ describe.skipIf(!TEST_DATABASE_URL)('authentication and user administration', ()
       clock,
     });
     login = new LoginUseCase(unitOfWork, passwordHasher, tokenService);
-    userIds = new SequenceIdGenerator(database.write, 'users_id_seq');
-    createUser = new CreateUserUseCase(unitOfWork, passwordHasher, userIds, clock);
+    createUser = new CreateUserUseCase(unitOfWork, passwordHasher, clock);
     updateUser = new UpdateUserUseCase(unitOfWork, passwordHasher, clock);
     deactivateUser = new DeactivateUserUseCase(unitOfWork, clock);
     listUsers = new ListUsersUseCase(unitOfWork);
@@ -80,16 +76,15 @@ describe.skipIf(!TEST_DATABASE_URL)('authentication and user administration', ()
   });
 
   async function createAdmin(password = 'admin-password'): Promise<User> {
-    const admin = User.create({
-      id: new UserID(await userIds.next()),
-      name: 'Admin',
-      email: `admin-${crypto.randomUUID()}@example.com`,
-      passwordHash: await passwordHasher.hash(password),
-      roles: ['ADMIN'],
-      now,
-    });
-    await unitOfWork.run((repos) => repos.users.create(admin));
-    return admin;
+    return unitOfWork.run(async (repos) =>
+      repos.users.create({
+        name: 'Admin',
+        email: `admin-${crypto.randomUUID()}@example.com`,
+        passwordHash: await passwordHasher.hash(password),
+        roles: ['ADMIN'],
+        now,
+      }),
+    );
   }
 
   test('creates a user and authenticates with a JWT access token', async () => {

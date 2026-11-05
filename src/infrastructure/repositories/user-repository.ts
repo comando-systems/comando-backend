@@ -1,5 +1,6 @@
 import { isRole, User } from '@/domain/entity/user';
 import type {
+  CreateUserRecord,
   UserPage,
   UserPageOptions,
   UserRepository as UserRepositoryContract,
@@ -94,22 +95,37 @@ export class UserRepository implements UserRepositoryContract {
     return row === undefined ? null : mapUser(row);
   }
 
-  async create(user: User): Promise<void> {
+  async create(record: CreateUserRecord): Promise<User> {
     const sql = this.database.writeSql();
-    await sql.query`
-      INSERT INTO users (id, name, email, password_hash, deleted_at, created_at, updated_at)
+    const rows = await sql.query<{ id: string }[]>`
+      INSERT INTO users (name, email, password_hash, created_at, updated_at)
       VALUES (
-        ${user.id.value},
-        ${user.name},
-        ${user.email},
-        ${user.passwordHash},
-        ${user.deletedAt},
-        ${user.createdAt},
-        ${user.updatedAt}
+        ${record.name},
+        ${record.email},
+        ${record.passwordHash},
+        ${record.now},
+        ${record.now}
       )
+      RETURNING id::text AS id
     `;
 
+    const id = rows[0]?.id;
+
+    if (id === undefined) {
+      throw new Error('Failed to create user');
+    }
+
+    const user = User.create({
+      id: new UserID(id),
+      name: record.name,
+      email: record.email,
+      passwordHash: record.passwordHash,
+      roles: record.roles,
+      now: record.now,
+    });
+
     await this.replaceRoles(sql, user);
+    return user;
   }
 
   async update(user: User): Promise<void> {
