@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
-import { Item } from '@/domain/entity/item';
+import type { Item } from '@/domain/entity/item';
 import { Order } from '@/domain/entity/order';
-import { User } from '@/domain/entity/user';
+import type { User } from '@/domain/entity/user';
 import type { Repositories } from '@/domain/repository';
-import { ItemID, OrderID, UserID } from '@/domain/value-objects/ids';
+import { OrderID, type UserID } from '@/domain/value-objects/ids';
 import type { DatabaseConnections } from '@/infrastructure/database/connections';
 import { SequenceIdGenerator } from '@/infrastructure/database/sequence-id-generator';
 import { DatabaseUnitOfWork } from '@/infrastructure/database/unit-of-work';
@@ -32,32 +32,30 @@ describe.skipIf(!TEST_DATABASE_URL)('PostgreSQL repositories', () => {
     await database.close();
   });
 
-  const userIds = () => new SequenceIdGenerator(database.write, 'users_id_seq');
-  const itemIds = () => new SequenceIdGenerator(database.write, 'items_id_seq');
   const orderIds = () => new SequenceIdGenerator(database.write, 'orders_id_seq');
 
   async function createUser(roles: Array<'ADMIN' | 'CASHIER' | 'SERVER'> = ['ADMIN']) {
-    const user = User.create({
-      id: new UserID(await userIds().next()),
-      name: 'Ada Lovelace',
-      email: `ada-${crypto.randomUUID()}@example.com`,
-      passwordHash: 'hash',
-      roles,
-      now,
-    });
-    await unitOfWork.run((repos) => repos.users.create(user));
-    return user;
+    return unitOfWork.run((repos) =>
+      repos.users.create({
+        name: 'Ada Lovelace',
+        email: `ada-${crypto.randomUUID()}@example.com`,
+        passwordHash: 'hash',
+        roles,
+        now,
+      }),
+    );
   }
 
   async function createItem(name = 'Coffee', priceCents = 750) {
-    const item = Item.create({
-      id: new ItemID(await itemIds().next()),
-      name,
-      priceCents,
-      now,
-    });
-    await unitOfWork.run((repos) => repos.items.create(item));
-    return item;
+    return unitOfWork.run((repos) =>
+      repos.items.create({
+        name,
+        description: null,
+        priceCents,
+        imageUrl: null,
+        now,
+      }),
+    );
   }
 
   test('maps users, roles, updates, deactivation, and pagination', async () => {
@@ -233,24 +231,28 @@ describe.skipIf(!TEST_DATABASE_URL)('PostgreSQL repositories', () => {
   });
 
   test('rolls back the whole transaction on failure', async () => {
-    const id = await userIds().next();
-    const user = User.create({
-      id: new UserID(id),
-      name: 'Rollback User',
-      email: `rollback-${crypto.randomUUID()}@example.com`,
-      passwordHash: 'hash',
-      roles: ['ADMIN'],
-      now,
-    });
+    let createdId: UserID | null = null;
 
     await expect(
       unitOfWork.run(async (repos) => {
-        await repos.users.create(user);
+        const user = await repos.users.create({
+          name: 'Rollback User',
+          email: `rollback-${crypto.randomUUID()}@example.com`,
+          passwordHash: 'hash',
+          roles: ['ADMIN'],
+          now,
+        });
+        createdId = user.id;
         throw new Error('forced rollback');
       }),
     ).rejects.toThrow('forced rollback');
 
-    const found = await unitOfWork.run((repos) => repos.users.findById(new UserID(id)));
+    const rollbackId = createdId;
+    if (rollbackId === null) {
+      throw new Error('Expected the user to be created before the forced rollback');
+    }
+
+    const found = await unitOfWork.run((repos) => repos.users.findById(rollbackId));
     expect(found).toBeNull();
   });
 

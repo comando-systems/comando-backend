@@ -11,8 +11,6 @@ import type { Repositories } from '@/domain/repository';
 import type { DatabaseConnections } from '@/infrastructure/database/connections';
 
 export interface IdGenerators {
-  readonly users: IdGenerator;
-  readonly items: IdGenerator;
   readonly orders: IdGenerator;
 }
 

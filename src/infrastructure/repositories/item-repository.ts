@@ -1,5 +1,6 @@
 import { Item } from '@/domain/entity/item';
 import type {
+  CreateItemRecord,
   ItemPage,
   ItemPageOptions,
   ItemRepository as ItemRepositoryContract,
@@ -84,23 +85,35 @@ export class ItemRepository implements ItemRepositoryContract {
     return rows.map(mapItem);
   }
 
-  async create(item: Item): Promise<void> {
+  async create(record: CreateItemRecord): Promise<Item> {
     const sql = this.database.writeSql();
-    await sql.query`
-      INSERT INTO items (
-        id, name, description, price_cents, image_url, deleted_at, created_at, updated_at
-      )
+    const rows = await sql.query<{ id: string }[]>`
+      INSERT INTO items (name, description, price_cents, image_url, created_at, updated_at)
       VALUES (
-        ${item.id.value},
-        ${item.name},
-        ${item.description},
-        ${item.price.cents},
-        ${item.imageUrl},
-        ${item.deletedAt},
-        ${item.createdAt},
-        ${item.updatedAt}
+        ${record.name},
+        ${record.description},
+        ${record.priceCents},
+        ${record.imageUrl},
+        ${record.now},
+        ${record.now}
       )
+      RETURNING id::text AS id
     `;
+
+    const id = rows[0]?.id;
+
+    if (id === undefined) {
+      throw new Error('Failed to create item');
+    }
+
+    return Item.create({
+      id: new ItemID(id),
+      name: record.name,
+      description: record.description,
+      priceCents: record.priceCents,
+      imageUrl: record.imageUrl,
+      now: record.now,
+    });
   }
 
   async update(item: Item): Promise<void> {

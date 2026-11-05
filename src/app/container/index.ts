@@ -3,11 +3,16 @@ import type { AppContainer, IdGenerators } from '@/app/http/types';
 import { systemClock } from '@/app/ports/clock';
 import type { UseCases } from '@/app/use-cases';
 import {
+  CreateItemUseCase,
   CreateUserUseCase,
   DeactivateUserUseCase,
+  GetItemUseCase,
   GetUserUseCase,
+  ListItemsUseCase,
   ListUsersUseCase,
   LoginUseCase,
+  RemoveItemUseCase,
+  UpdateItemUseCase,
   UpdateUserUseCase,
 } from '@/app/use-cases';
 import { BunPasswordHasher, JwtTokenService } from '@/infrastructure/authentication';
@@ -21,7 +26,6 @@ function createUseCases(container: {
   unitOfWork: AppContainer['unitOfWork'];
   passwordHasher: AppContainer['passwordHasher'];
   tokenService: AppContainer['tokenService'];
-  ids: IdGenerators;
   clock: AppContainer['clock'];
 }): UseCases {
   return {
@@ -30,7 +34,6 @@ function createUseCases(container: {
       create: new CreateUserUseCase(
         container.unitOfWork,
         container.passwordHasher,
-        container.ids.users,
         container.clock,
       ),
       update: new UpdateUserUseCase(
@@ -41,6 +44,13 @@ function createUseCases(container: {
       deactivate: new DeactivateUserUseCase(container.unitOfWork, container.clock),
       list: new ListUsersUseCase(container.unitOfWork),
       get: new GetUserUseCase(container.unitOfWork),
+    },
+    items: {
+      create: new CreateItemUseCase(container.unitOfWork, container.clock),
+      update: new UpdateItemUseCase(container.unitOfWork, container.clock),
+      remove: new RemoveItemUseCase(container.unitOfWork, container.clock),
+      list: new ListItemsUseCase(container.unitOfWork),
+      get: new GetItemUseCase(container.unitOfWork),
     },
   };
 }
@@ -65,8 +75,6 @@ export function createContainer(config: AppConfig): AppContainer {
   });
 
   const ids: IdGenerators = {
-    users: new SequenceIdGenerator(database.write, 'users_id_seq'),
-    items: new SequenceIdGenerator(database.write, 'items_id_seq'),
     orders: new SequenceIdGenerator(database.write, 'orders_id_seq'),
   };
 
@@ -74,7 +82,6 @@ export function createContainer(config: AppConfig): AppContainer {
     unitOfWork,
     passwordHasher,
     tokenService,
-    ids,
     clock,
   });
 
