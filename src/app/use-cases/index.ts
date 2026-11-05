@@ -1,5 +1,6 @@
 import type { LoginUseCase } from '@/app/use-cases/auth';
 import type { ItemsUseCases } from '@/app/use-cases/items';
+import type { OrdersUseCases } from '@/app/use-cases/orders';
 import type {
   CreateUserUseCase,
   DeactivateUserUseCase,
@@ -23,6 +24,26 @@ export {
   type UpdateItemInput,
   UpdateItemUseCase,
 } from '@/app/use-cases/items';
+export {
+  type AddOrderItemsInput,
+  AddOrderItemsUseCase,
+  type CancelOrderInput,
+  CancelOrderUseCase,
+  type ChangeOrderItemQuantityInput,
+  ChangeOrderItemQuantityUseCase,
+  type CloseOrderInput,
+  CloseOrderUseCase,
+  type CreateCounterOrderInput,
+  CreateCounterOrderUseCase,
+  type GetOrderInput,
+  GetOrderUseCase,
+  type ListOrdersInput,
+  type ListOrdersResult,
+  ListOrdersUseCase,
+  type OpenTableOrderInput,
+  OpenTableOrderUseCase,
+  type OrdersUseCases,
+} from '@/app/use-cases/orders';
 export {
   type CreateUserInput,
   CreateUserUseCase,
@@ -49,4 +70,5 @@ export interface UseCases {
   readonly login: LoginUseCase;
   readonly users: UsersUseCases;
   readonly items: ItemsUseCases;
+  readonly orders: OrdersUseCases;
 }

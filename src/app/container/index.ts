@@ -3,14 +3,22 @@ import type { AppContainer, IdGenerators } from '@/app/http/types';
 import { systemClock } from '@/app/ports/clock';
 import type { UseCases } from '@/app/use-cases';
 import {
+  AddOrderItemsUseCase,
+  CancelOrderUseCase,
+  ChangeOrderItemQuantityUseCase,
+  CloseOrderUseCase,
+  CreateCounterOrderUseCase,
   CreateItemUseCase,
   CreateUserUseCase,
   DeactivateUserUseCase,
   GetItemUseCase,
+  GetOrderUseCase,
   GetUserUseCase,
   ListItemsUseCase,
+  ListOrdersUseCase,
   ListUsersUseCase,
   LoginUseCase,
+  OpenTableOrderUseCase,
   RemoveItemUseCase,
   UpdateItemUseCase,
   UpdateUserUseCase,
@@ -26,6 +34,7 @@ function createUseCases(container: {
   unitOfWork: AppContainer['unitOfWork'];
   passwordHasher: AppContainer['passwordHasher'];
   tokenService: AppContainer['tokenService'];
+  ids: IdGenerators;
   clock: AppContainer['clock'];
 }): UseCases {
   return {
@@ -51,6 +60,24 @@ function createUseCases(container: {
       remove: new RemoveItemUseCase(container.unitOfWork, container.clock),
       list: new ListItemsUseCase(container.unitOfWork),
       get: new GetItemUseCase(container.unitOfWork),
+    },
+    orders: {
+      createCounter: new CreateCounterOrderUseCase(
+        container.unitOfWork,
+        container.ids.orders,
+        container.clock,
+      ),
+      openTable: new OpenTableOrderUseCase(
+        container.unitOfWork,
+        container.ids.orders,
+        container.clock,
+      ),
+      addItems: new AddOrderItemsUseCase(container.unitOfWork, container.clock),
+      changeItemQuantity: new ChangeOrderItemQuantityUseCase(container.unitOfWork, container.clock),
+      close: new CloseOrderUseCase(container.unitOfWork, container.clock),
+      cancel: new CancelOrderUseCase(container.unitOfWork, container.clock),
+      list: new ListOrdersUseCase(container.unitOfWork),
+      get: new GetOrderUseCase(container.unitOfWork),
     },
   };
 }
@@ -82,6 +109,7 @@ export function createContainer(config: AppConfig): AppContainer {
     unitOfWork,
     passwordHasher,
     tokenService,
+    ids,
     clock,
   });
 
