@@ -1,3 +1,4 @@
+import { recordAudit } from '@/app/audit';
 import { requireActor } from '@/app/authorization';
 import { ConflictError } from '@/app/errors';
 import type { Clock } from '@/app/ports/clock';
@@ -11,6 +12,7 @@ import { OrderID, type UserID } from '@/domain/value-objects/ids';
 export interface OpenTableOrderInput {
   readonly actorUserId: UserID;
   readonly tableCode: string;
+  readonly requestId?: string;
 }
 
 export class OpenTableOrderUseCase {
@@ -24,7 +26,7 @@ export class OpenTableOrderUseCase {
     const tableCode = requireNonEmptyString(input.tableCode, 'Table code', 64);
 
     return this.unitOfWork.run(async (repositories) => {
-      await requireActor(repositories, input.actorUserId, 'orders:open');
+      const actor = await requireActor(repositories, input.actorUserId, 'orders:open');
 
       const openOrder = await repositories.orders.findOpenTableByCode(tableCode);
 
@@ -32,14 +34,25 @@ export class OpenTableOrderUseCase {
         throw new ConflictError('Table already has an open order');
       }
 
+      const now = this.clock.now();
       const order = Order.openTable({
         id: new OrderID(await this.ids.next()),
         openedByUserId: input.actorUserId,
         tableCode,
-        now: this.clock.now(),
+        now,
       });
 
       await repositories.orders.create(order);
+      await recordAudit(repositories, {
+        actorUserId: actor.id,
+        action: 'order.table.open',
+        targetType: 'ORDER',
+        targetId: order.id.value,
+        requestId: input.requestId,
+        metadata: { tableCode: order.tableCode },
+        now,
+      });
+
       return order;
     });
   }

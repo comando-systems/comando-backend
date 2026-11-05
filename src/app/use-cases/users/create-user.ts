@@ -1,3 +1,4 @@
+import { recordAudit } from '@/app/audit';
 import { requireActor } from '@/app/authorization';
 import { ConflictError, ValidationError } from '@/app/errors';
 import type { Clock } from '@/app/ports/clock';
@@ -13,6 +14,7 @@ export interface CreateUserInput {
   readonly email: string;
   readonly password: string;
   readonly roles: readonly Role[];
+  readonly requestId?: string;
 }
 
 export class CreateUserUseCase {
@@ -30,7 +32,7 @@ export class CreateUserUseCase {
     const passwordHash = await this.passwordHasher.hash(input.password);
 
     return this.unitOfWork.run(async (repositories) => {
-      await requireActor(repositories, input.actorUserId, 'users:manage');
+      const actor = await requireActor(repositories, input.actorUserId, 'users:manage');
 
       const email = input.email.trim().toLowerCase();
       const existing = await repositories.users.findByEmail(email);
@@ -39,13 +41,26 @@ export class CreateUserUseCase {
         throw new ConflictError('Email is already registered');
       }
 
-      return repositories.users.create({
+      const now = this.clock.now();
+      const user = await repositories.users.create({
         name: input.name,
         email,
         passwordHash,
         roles: input.roles,
-        now: this.clock.now(),
+        now,
       });
+
+      await recordAudit(repositories, {
+        actorUserId: actor.id,
+        action: 'user.create',
+        targetType: 'USER',
+        targetId: user.id.value,
+        requestId: input.requestId,
+        metadata: { roles: user.roles },
+        now,
+      });
+
+      return user;
     });
   }
 }

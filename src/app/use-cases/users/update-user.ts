@@ -1,3 +1,4 @@
+import { recordAudit } from '@/app/audit';
 import { requireActor } from '@/app/authorization';
 import { ConflictError, NotFoundError, ValidationError } from '@/app/errors';
 import type { Clock } from '@/app/ports/clock';
@@ -14,6 +15,7 @@ export interface UpdateUserInput {
   readonly email?: string;
   readonly password?: string;
   readonly roles?: readonly Role[];
+  readonly requestId?: string;
 }
 
 export class UpdateUserUseCase {
@@ -32,7 +34,7 @@ export class UpdateUserUseCase {
       input.password === undefined ? undefined : await this.passwordHasher.hash(input.password);
 
     return this.unitOfWork.run(async (repositories) => {
-      await requireActor(repositories, input.actorUserId, 'users:manage');
+      const actor = await requireActor(repositories, input.actorUserId, 'users:manage');
 
       const user = await repositories.users.findById(input.userId);
 
@@ -66,6 +68,24 @@ export class UpdateUserUseCase {
       }
 
       await repositories.users.update(user);
+      await recordAudit(repositories, {
+        actorUserId: actor.id,
+        action: 'user.update',
+        targetType: 'USER',
+        targetId: user.id.value,
+        requestId: input.requestId,
+        metadata: {
+          changed: {
+            name: input.name !== undefined,
+            email: input.email !== undefined,
+            password: passwordHash !== undefined,
+            roles: input.roles !== undefined,
+          },
+          roles: user.roles,
+        },
+        now,
+      });
+
       return user;
     });
   }

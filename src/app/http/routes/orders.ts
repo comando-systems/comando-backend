@@ -21,6 +21,7 @@ export function orderRoutes(container: AppContainer): Hono<AppEnv> {
     const body = await parseJson(context, createCounterOrderBodySchema);
     const order = await container.useCases.orders.createCounter.execute({
       actorUserId: context.get('actorUserId'),
+      requestId: context.get('requestId'),
       lines: body.items.map((line) => ({
         itemId: new ItemID(line.itemId),
         quantity: line.quantity,
@@ -35,6 +36,7 @@ export function orderRoutes(container: AppContainer): Hono<AppEnv> {
     const body = await parseJson(context, openTableOrderBodySchema);
     const order = await container.useCases.orders.openTable.execute({
       actorUserId: context.get('actorUserId'),
+      requestId: context.get('requestId'),
       tableCode: body.tableCode,
     });
 
@@ -67,6 +69,7 @@ export function orderRoutes(container: AppContainer): Hono<AppEnv> {
     const order = await container.useCases.orders.addItems.execute({
       actorUserId: context.get('actorUserId'),
       orderId: new OrderID(context.req.param('id')),
+      requestId: context.get('requestId'),
       lines: body.items.map((line) => ({
         itemId: new ItemID(line.itemId),
         quantity: line.quantity,
@@ -82,6 +85,7 @@ export function orderRoutes(container: AppContainer): Hono<AppEnv> {
       actorUserId: context.get('actorUserId'),
       orderId: new OrderID(context.req.param('id')),
       itemId: new ItemID(context.req.param('itemId')),
+      requestId: context.get('requestId'),
       quantity: body.quantity,
     });
 
@@ -93,6 +97,7 @@ export function orderRoutes(container: AppContainer): Hono<AppEnv> {
     const order = await container.useCases.orders.close.execute({
       actorUserId: context.get('actorUserId'),
       orderId: new OrderID(context.req.param('id')),
+      requestId: context.get('requestId'),
       payments: body.payments,
     });
 
@@ -103,6 +108,7 @@ export function orderRoutes(container: AppContainer): Hono<AppEnv> {
     const order = await container.useCases.orders.cancel.execute({
       actorUserId: context.get('actorUserId'),
       orderId: new OrderID(context.req.param('id')),
+      requestId: context.get('requestId'),
     });
 
     return context.json(toOrderResponse(order));

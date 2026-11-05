@@ -1,3 +1,4 @@
+import { recordAudit } from '@/app/audit';
 import { requireActor } from '@/app/authorization';
 import type { Clock } from '@/app/ports/clock';
 import type { UnitOfWork } from '@/app/ports/unit-of-work';
@@ -11,6 +12,7 @@ export interface CreateItemInput {
   readonly description?: string | null;
   readonly priceCents: number;
   readonly imageUrl?: string | null;
+  readonly requestId?: string;
 }
 
 export class CreateItemUseCase {
@@ -21,15 +23,27 @@ export class CreateItemUseCase {
 
   async execute(input: CreateItemInput): Promise<Item> {
     return this.unitOfWork.run(async (repositories) => {
-      await requireActor(repositories, input.actorUserId, 'items:manage');
-
-      return repositories.items.create({
+      const actor = await requireActor(repositories, input.actorUserId, 'items:manage');
+      const now = this.clock.now();
+      const item = await repositories.items.create({
         name: input.name,
         description: input.description ?? null,
         priceCents: input.priceCents,
         imageUrl: input.imageUrl ?? null,
-        now: this.clock.now(),
+        now,
       });
+
+      await recordAudit(repositories, {
+        actorUserId: actor.id,
+        action: 'item.create',
+        targetType: 'ITEM',
+        targetId: item.id.value,
+        requestId: input.requestId,
+        metadata: { priceCents: item.price.cents },
+        now,
+      });
+
+      return item;
     });
   }
 }

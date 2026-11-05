@@ -18,6 +18,7 @@ export function itemRoutes(container: AppContainer): Hono<AppEnv> {
     const body = await parseJson(context, createItemBodySchema);
     const item = await container.useCases.items.create.execute({
       actorUserId: context.get('actorUserId'),
+      requestId: context.get('requestId'),
       ...body,
     });
 
@@ -50,6 +51,7 @@ export function itemRoutes(container: AppContainer): Hono<AppEnv> {
     const item = await container.useCases.items.update.execute({
       actorUserId: context.get('actorUserId'),
       itemId: new ItemID(context.req.param('id')),
+      requestId: context.get('requestId'),
       ...body,
     });
 
@@ -60,6 +62,7 @@ export function itemRoutes(container: AppContainer): Hono<AppEnv> {
     const item = await container.useCases.items.remove.execute({
       actorUserId: context.get('actorUserId'),
       itemId: new ItemID(context.req.param('id')),
+      requestId: context.get('requestId'),
     });
 
     return context.json(toItemResponse(item));

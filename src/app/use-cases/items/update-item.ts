@@ -1,3 +1,4 @@
+import { recordAudit } from '@/app/audit';
 import { requireActor } from '@/app/authorization';
 import { ConflictError, NotFoundError } from '@/app/errors';
 import type { Clock } from '@/app/ports/clock';
@@ -13,6 +14,7 @@ export interface UpdateItemInput {
   readonly description?: string | null;
   readonly priceCents?: number;
   readonly imageUrl?: string | null;
+  readonly requestId?: string;
 }
 
 export class UpdateItemUseCase {
@@ -23,7 +25,7 @@ export class UpdateItemUseCase {
 
   async execute(input: UpdateItemInput): Promise<Item> {
     return this.unitOfWork.run(async (repositories) => {
-      await requireActor(repositories, input.actorUserId, 'items:manage');
+      const actor = await requireActor(repositories, input.actorUserId, 'items:manage');
 
       const item = await repositories.items.findById(input.itemId);
 
@@ -35,15 +37,26 @@ export class UpdateItemUseCase {
         throw new ConflictError('Removed items cannot be edited');
       }
 
+      const now = this.clock.now();
       item.update({
         name: input.name,
         description: input.description,
         priceCents: input.priceCents,
         imageUrl: input.imageUrl,
-        now: this.clock.now(),
+        now,
       });
 
       await repositories.items.update(item);
+      await recordAudit(repositories, {
+        actorUserId: actor.id,
+        action: 'item.update',
+        targetType: 'ITEM',
+        targetId: item.id.value,
+        requestId: input.requestId,
+        metadata: { priceCents: item.price.cents },
+        now,
+      });
+
       return item;
     });
   }

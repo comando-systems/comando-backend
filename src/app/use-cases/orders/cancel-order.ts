@@ -1,3 +1,4 @@
+import { recordAudit } from '@/app/audit';
 import { requireActor } from '@/app/authorization';
 import type { Clock } from '@/app/ports/clock';
 import type { UnitOfWork } from '@/app/ports/unit-of-work';
@@ -9,6 +10,7 @@ import type { OrderID, UserID } from '@/domain/value-objects/ids';
 export interface CancelOrderInput {
   readonly actorUserId: UserID;
   readonly orderId: OrderID;
+  readonly requestId?: string;
 }
 
 export class CancelOrderUseCase {
@@ -21,10 +23,21 @@ export class CancelOrderUseCase {
     return this.unitOfWork.run(async (repositories) => {
       const actor = await requireActor(repositories, input.actorUserId, 'orders:cancel');
       const order = await findOrderForUpdate(repositories, input.orderId);
+      const now = this.clock.now();
 
-      order.cancel(actor.id, this.clock.now());
+      order.cancel(actor.id, now);
 
       await repositories.orders.save(order);
+      await recordAudit(repositories, {
+        actorUserId: actor.id,
+        action: 'order.cancel',
+        targetType: 'ORDER',
+        targetId: order.id.value,
+        requestId: input.requestId,
+        metadata: { totalCents: order.total.cents },
+        now,
+      });
+
       return order;
     });
   }

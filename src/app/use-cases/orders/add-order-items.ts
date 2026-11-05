@@ -1,3 +1,4 @@
+import { recordAudit } from '@/app/audit';
 import { requireActor } from '@/app/authorization';
 import { ValidationError } from '@/app/errors';
 import type { Clock } from '@/app/ports/clock';
@@ -15,6 +16,7 @@ export interface AddOrderItemsInput {
   readonly actorUserId: UserID;
   readonly orderId: OrderID;
   readonly lines: readonly OrderLineInput[];
+  readonly requestId?: string;
 }
 
 export class AddOrderItemsUseCase {
@@ -29,7 +31,7 @@ export class AddOrderItemsUseCase {
     }
 
     return this.unitOfWork.run(async (repositories) => {
-      await requireActor(repositories, input.actorUserId, 'orders:update');
+      const actor = await requireActor(repositories, input.actorUserId, 'orders:update');
 
       const order = await findTableOrderForUpdate(repositories, input.orderId);
       const lines = await resolveActiveOrderLines(repositories, input.lines);
@@ -40,6 +42,22 @@ export class AddOrderItemsUseCase {
       }
 
       await repositories.orders.save(order);
+      await recordAudit(repositories, {
+        actorUserId: actor.id,
+        action: 'order.items.add',
+        targetType: 'ORDER',
+        targetId: order.id.value,
+        requestId: input.requestId,
+        metadata: {
+          items: lines.map((line) => ({
+            itemId: line.item.id.value,
+            quantity: line.quantity,
+          })),
+          totalCents: order.total.cents,
+        },
+        now,
+      });
+
       return order;
     });
   }

@@ -1,3 +1,4 @@
+import { recordAudit } from '@/app/audit';
 import { requireActor } from '@/app/authorization';
 import { ConflictError, NotFoundError } from '@/app/errors';
 import type { Clock } from '@/app/ports/clock';
@@ -9,6 +10,7 @@ import type { ItemID, UserID } from '@/domain/value-objects/ids';
 export interface RemoveItemInput {
   readonly actorUserId: UserID;
   readonly itemId: ItemID;
+  readonly requestId?: string;
 }
 
 export class RemoveItemUseCase {
@@ -19,7 +21,7 @@ export class RemoveItemUseCase {
 
   async execute(input: RemoveItemInput): Promise<Item> {
     return this.unitOfWork.run(async (repositories) => {
-      await requireActor(repositories, input.actorUserId, 'items:manage');
+      const actor = await requireActor(repositories, input.actorUserId, 'items:manage');
 
       const item = await repositories.items.findById(input.itemId);
 
@@ -31,8 +33,18 @@ export class RemoveItemUseCase {
         throw new ConflictError('Item is already removed');
       }
 
-      item.remove(this.clock.now());
+      const now = this.clock.now();
+      item.remove(now);
       await repositories.items.update(item);
+      await recordAudit(repositories, {
+        actorUserId: actor.id,
+        action: 'item.remove',
+        targetType: 'ITEM',
+        targetId: item.id.value,
+        requestId: input.requestId,
+        now,
+      });
+
       return item;
     });
   }

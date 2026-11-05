@@ -1,3 +1,4 @@
+import { recordAudit } from '@/app/audit';
 import { requireActor } from '@/app/authorization';
 import type { Clock } from '@/app/ports/clock';
 import type { UnitOfWork } from '@/app/ports/unit-of-work';
@@ -11,6 +12,7 @@ export interface ChangeOrderItemQuantityInput {
   readonly orderId: OrderID;
   readonly itemId: ItemID;
   readonly quantity: number;
+  readonly requestId?: string;
 }
 
 export class ChangeOrderItemQuantityUseCase {
@@ -21,12 +23,27 @@ export class ChangeOrderItemQuantityUseCase {
 
   async execute(input: ChangeOrderItemQuantityInput): Promise<Order> {
     return this.unitOfWork.run(async (repositories) => {
-      await requireActor(repositories, input.actorUserId, 'orders:update');
+      const actor = await requireActor(repositories, input.actorUserId, 'orders:update');
 
       const order = await findTableOrderForUpdate(repositories, input.orderId);
-      order.changeItemQuantity(input.itemId, input.quantity, this.clock.now());
+      const now = this.clock.now();
+      order.changeItemQuantity(input.itemId, input.quantity, now);
 
       await repositories.orders.save(order);
+      await recordAudit(repositories, {
+        actorUserId: actor.id,
+        action: 'order.item.quantity.change',
+        targetType: 'ORDER',
+        targetId: order.id.value,
+        requestId: input.requestId,
+        metadata: {
+          itemId: input.itemId.value,
+          quantity: input.quantity,
+          totalCents: order.total.cents,
+        },
+        now,
+      });
+
       return order;
     });
   }

@@ -1,3 +1,4 @@
+import { recordAudit } from '@/app/audit';
 import { requireActor } from '@/app/authorization';
 import { ConflictError, NotFoundError } from '@/app/errors';
 import type { Clock } from '@/app/ports/clock';
@@ -9,6 +10,7 @@ import type { UserID } from '@/domain/value-objects/ids';
 export interface DeactivateUserInput {
   readonly actorUserId: UserID;
   readonly userId: UserID;
+  readonly requestId?: string;
 }
 
 export class DeactivateUserUseCase {
@@ -19,7 +21,7 @@ export class DeactivateUserUseCase {
 
   async execute(input: DeactivateUserInput): Promise<User> {
     return this.unitOfWork.run(async (repositories) => {
-      await requireActor(repositories, input.actorUserId, 'users:manage');
+      const actor = await requireActor(repositories, input.actorUserId, 'users:manage');
 
       const user = await repositories.users.findById(input.userId);
 
@@ -31,8 +33,18 @@ export class DeactivateUserUseCase {
         throw new ConflictError('User is already deactivated');
       }
 
-      user.deactivate(this.clock.now());
+      const now = this.clock.now();
+      user.deactivate(now);
       await repositories.users.update(user);
+      await recordAudit(repositories, {
+        actorUserId: actor.id,
+        action: 'user.deactivate',
+        targetType: 'USER',
+        targetId: user.id.value,
+        requestId: input.requestId,
+        now,
+      });
+
       return user;
     });
   }
