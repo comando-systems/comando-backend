@@ -655,6 +655,41 @@ describe.skipIf(!TEST_DATABASE_URL)('HTTP API', () => {
     expect((await readJson<OrderDto>(closedEmpty)).totalCents).toBe(0);
   });
 
+  test('persists audit events with the request id from the HTTP request', async () => {
+    await createAdmin();
+    const adminToken = await loginToken('admin@example.com', ADMIN_PASSWORD);
+    await createUserViaApi(adminToken, {
+      name: 'Cashier',
+      email: 'cashier@example.com',
+      password: CASHIER_PASSWORD,
+      roles: ['CASHIER'],
+    });
+    const cashierToken = await loginToken('cashier@example.com', CASHIER_PASSWORD);
+
+    const item = await createItemViaApi(adminToken, { name: 'Coffee', priceCents: 750 });
+
+    const response = await request('/orders/counter', {
+      method: 'POST',
+      token: cashierToken,
+      headers: { 'x-request-id': 'audit-request-1' },
+      body: {
+        items: [{ itemId: item.id, quantity: 1 }],
+        payments: [{ method: 'CASH', amountCents: 750 }],
+      },
+    });
+    expect(response.status).toBe(201);
+    expect(response.headers.get('x-request-id')).toBe('audit-request-1');
+
+    const events = await container.repositories.audit.listRecent(20);
+    const orderEvent = events.find((event) => event.action === 'order.counter.create');
+    const itemEvent = events.find((event) => event.action === 'item.create');
+
+    expect(orderEvent?.requestId).toBe('audit-request-1');
+    expect(orderEvent?.targetType).toBe('ORDER');
+    expect(itemEvent?.targetId).toBe(item.id);
+    expect(JSON.stringify(events)).not.toContain(cashierToken);
+  });
+
   test('applies payload limits, CORS, rate limiting, and unknown-route handling', async () => {
     const payload = await app.request('/auth/login', {
       method: 'POST',
