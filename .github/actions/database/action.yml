@@ -1,0 +1,39 @@
+name: Database
+description: Start a disposable PostgreSQL and optionally apply every migration
+
+inputs:
+  name:
+    description: Database name to create
+    default: comando_test
+  migrate:
+    description: Apply all UP migrations after the database is ready
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Start PostgreSQL
+      shell: bash
+      env:
+        DB_NAME: ${{ inputs.name }}
+      run: |
+        docker run -d --name postgres -p 5432:5432 \
+          -e POSTGRES_USER=comando -e POSTGRES_PASSWORD=comando -e POSTGRES_DB="$DB_NAME" \
+          postgres:18-alpine
+        # The official image restarts the server after init; checking TCP (not the socket)
+        # only succeeds once the final server is up.
+        for _ in $(seq 1 30); do
+          docker exec postgres pg_isready -h 127.0.0.1 -U comando -d "$DB_NAME" && exit 0
+          sleep 2
+        done
+        echo "PostgreSQL did not become ready" >&2
+        exit 1
+    - name: Apply migrations
+      if: inputs.migrate == 'true'
+      shell: bash
+      env:
+        DB_NAME: ${{ inputs.name }}
+      run: |
+        docker run --rm --network host -v "$GITHUB_WORKSPACE/migrations:/migrations:ro" \
+          migrate/migrate:v4.18.3 -path /migrations \
+          -database "postgres://comando:comando@localhost:5432/${DB_NAME}?sslmode=disable" up

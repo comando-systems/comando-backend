@@ -23,6 +23,7 @@
     "test:coverage": "bun test --coverage --coverage-reporter=text --coverage-reporter=lcov --coverage-dir=coverage",
     "db:migrate:up": "migrate -path migrations -database \"$DATABASE_WRITE_URL\" up",
     "db:migrate:down": "migrate -path migrations -database \"$DATABASE_WRITE_URL\" down 1",
+    "db:create-admin": "bun scripts/create-admin.ts",
     "docker:build": "docker build -f infra/api/Dockerfile -t comando-backend .",
     "docker:db": "docker compose -f infra/docker-compose.yml --env-file .env up -d postgres",
     "docker:migrate": "docker compose -f infra/docker-compose.yml --env-file .env run --rm migrate",

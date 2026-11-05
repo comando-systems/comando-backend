@@ -1,0 +1,10 @@
+[extend]
+useDefault = true
+
+# Disposable values used only by tests and CI. They never reach a real environment.
+[[allowlists]]
+description = "Test fixtures and CI environment"
+paths = [
+  '''(^|/)tests/''',
+  '''(^|/)\.github/workflows/ci\.yml$''',
+]

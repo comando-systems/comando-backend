@@ -1,0 +1,302 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  HUSKY: "0"
+  # Disposable CI values, not real credentials.
+  TEST_DATABASE_URL: postgres://comando:comando@localhost:5432/comando_test?sslmode=disable
+  DATABASE_READ_URL: postgres://comando:comando@localhost:5432/comando_test?sslmode=disable
+  DATABASE_WRITE_URL: postgres://comando:comando@localhost:5432/comando_test?sslmode=disable
+  JWT_SECRET: ci-disposable-value-for-tests-only-0123456789
+  JWT_ISSUER: comando
+  JWT_AUDIENCE: comando-api
+
+jobs:
+  # Format, lint, import order, and types.
+  lint:
+    name: Lint and Types
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ./.github/actions/setup
+      - run: bun run lint
+      - run: bun run typecheck
+
+  # Pull request hygiene: conventional commits and PR title.
+  commits:
+    name: Commit Messages
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+      - run: >-
+          bunx commitlint
+          --from ${{ github.event.pull_request.base.sha }}
+          --to ${{ github.event.pull_request.head.sha }}
+
+  pr-title:
+    name: PR Title
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: amannn/action-semantic-pull-request@e32d7e603df1aa1ba07e981f2a23455dee596825 # v5
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+            revert
+          # Titles are lower-case and imperative, like the commit subjects.
+          subjectPattern: ^(?![A-Z]).+$
+          subjectPatternError: The PR title subject must not start with an upper-case letter.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  unit:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ./.github/actions/setup
+      - run: bun test tests/unit
+
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/database
+      - run: bun test tests/integration
+
+  # API tests: login, disabled users, roles, order lifecycle, history, forbidden actions.
+  e2e:
+    name: API Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Check for API tests
+        id: has-tests
+        run: |
+          if compgen -G "tests/e2e/*.test.ts" >/dev/null; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No tests in tests/e2e yet; skipping."
+          fi
+      - if: steps.has-tests.outputs.found == 'true'
+        uses: ./.github/actions/setup
+      - if: steps.has-tests.outputs.found == 'true'
+        uses: ./.github/actions/database
+      - if: steps.has-tests.outputs.found == 'true'
+        run: bun run test:e2e
+
+  # Every test together, with the 95% coverage gate from bunfig.toml.
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/database
+      - run: bun run test:coverage
+      - name: Upload coverage to Codecov
+        if: ${{ !cancelled() && hashFiles('coverage/lcov.info') != '' }}
+        uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage/lcov.info
+          fail_ci_if_error: false
+
+  # Migrations apply to a clean database, revert completely, and re-apply to the same schema.
+  migrations:
+    name: Migrations Up/Down
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      MIGRATE_URL: postgres://comando:comando@localhost:5432/comando_roundtrip?sslmode=disable
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ./.github/actions/database
+        with:
+          name: comando_roundtrip
+          migrate: "false"
+      - name: Round trip
+        run: |
+          migrate() {
+            docker run --rm --network host -v "$GITHUB_WORKSPACE/migrations:/migrations:ro" \
+              migrate/migrate:v4.18.3 -path /migrations -database "$MIGRATE_URL" "$@"
+          }
+          # pg_dump prints a random \restrict token on every run.
+          dump() {
+            docker exec postgres pg_dump -U comando -d comando_roundtrip --schema-only --no-owner \
+              | grep -vE '^\\(un)?restrict '
+          }
+          psql() { docker exec postgres psql -U comando -d comando_roundtrip -tA -c "$1"; }
+
+          migrate up
+          dump > after-first-up.sql
+
+          migrate down -all
+          tables="$(psql "SELECT string_agg(table_name, ',') FROM information_schema.tables WHERE table_schema = 'public'")"
+          enums="$(psql "SELECT count(*) FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE n.nspname = 'public' AND t.typtype = 'e'")"
+          if [ "$tables" != "schema_migrations" ] || [ "$enums" != "0" ]; then
+            echo "DOWN left objects behind: tables=$tables enums=$enums" >&2
+            exit 1
+          fi
+
+          migrate up
+          dump > after-second-up.sql
+          diff after-first-up.sql after-second-up.sql
+
+  # Production build and startup smoke test, then the same inside the Docker image.
+  build:
+    name: Build and Smoke Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/database
+      - run: bun run build
+      - name: Start the production build
+        run: |
+          NODE_ENV=production HOST=127.0.0.1 PORT=3100 nohup bun dist/index.js > server.log 2>&1 &
+      - run: scripts/smoke-test.sh http://127.0.0.1:3100
+      - name: Server log on failure
+        if: failure()
+        run: cat server.log
+
+  docker:
+    name: Docker Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ./.github/actions/database
+      - run: docker build -f infra/api/Dockerfile -t comando-backend:ci .
+      - name: Start the container
+        run: |
+          docker run -d --name api --network host \
+            -e HOST=127.0.0.1 -e PORT=3200 \
+            -e DATABASE_READ_URL -e DATABASE_WRITE_URL \
+            -e JWT_SECRET -e JWT_ISSUER -e JWT_AUDIENCE \
+            comando-backend:ci
+      - run: scripts/smoke-test.sh http://127.0.0.1:3200
+      - name: Container log on failure
+        if: failure()
+        run: docker logs api
+
+  # Heavy test: runs only here, never on a developer machine.
+  # Latency budget for every endpoint: p95 < 500 ms and p99 < 1 s (see k6/load-test.js).
+  load:
+    name: Load Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      LOAD_EMAIL: load@example.com
+      LOAD_PASSWORD: ci-load-test-password-123
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/database
+      - run: bun run build
+      - name: Create the load test user
+        run: ADMIN_EMAIL="$LOAD_EMAIL" ADMIN_PASSWORD="$LOAD_PASSWORD" bun run db:create-admin
+      - name: Start the production build
+        run: |
+          NODE_ENV=production HOST=127.0.0.1 PORT=3100 \
+            LOGIN_RATE_LIMIT_MAX=10000 LOG_LEVEL=warn \
+            nohup bun dist/index.js > server.log 2>&1 &
+      - run: scripts/smoke-test.sh http://127.0.0.1:3100
+      - name: Run k6
+        run: >-
+          docker run --rm --network host
+          -v "$PWD/k6:/k6:ro" -v "$PWD:/out"
+          -e BASE_URL=http://127.0.0.1:3100 -e LOAD_EMAIL -e LOAD_PASSWORD
+          grafana/k6:2.2.0 run --summary-export=/out/k6-summary.json /k6/load-test.js
+      - name: Upload the k6 summary
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: k6-summary
+          path: k6-summary.json
+          if-no-files-found: ignore
+      - name: Server log on failure
+        if: failure()
+        run: cat server.log
+
+  # Secret handling and dependency health.
+  security:
+    name: Secrets and Dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Scan history for secrets
+        run: >-
+          docker run --rm -v "$PWD:/repo"
+          -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/repo
+          zricethezav/gitleaks:v8.30.1
+          detect --source /repo --redact --no-banner
+      - uses: ./.github/actions/setup
+      - run: bun audit --audit-level=high
+
+  # Single required check for branch protection.
+  gate:
+    name: CI Gate
+    needs:
+      - lint
+      - commits
+      - pr-title
+      - unit
+      - integration
+      - e2e
+      - coverage
+      - migrations
+      - build
+      - docker
+      - load
+      - security
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any job failed or was cancelled
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          echo "Jobs that did not pass:"
+          echo '${{ toJSON(needs) }}'
+          exit 1
+      - run: echo "CI gate green."

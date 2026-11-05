@@ -1,0 +1,8 @@
+[test]
+# Applies to `bun test --coverage` (the `test:coverage` script and CI).
+coverageThreshold = { lines = 0.95, functions = 0.95 }
+coveragePathIgnorePatterns = [
+  "tests/**",
+  "scripts/**",
+  "src/index.ts",
+]
