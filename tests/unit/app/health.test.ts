@@ -45,6 +45,17 @@ function createTestContainer(): AppContainer {
       items: { next: async () => '1' },
       orders: { next: async () => '1' },
     },
+    passwordHasher: {
+      hash: async () => 'hash',
+      verify: async () => false,
+    },
+    tokenService: {
+      issue: async () => ({ token: 'token', expiresAt: new Date() }),
+      verify: async () => {
+        throw new Error('not used by health tests');
+      },
+    },
+    useCases: {} as AppContainer['useCases'],
     async close() {},
   };
 }
