@@ -3,11 +3,16 @@ import type { AppContainer, IdGenerators } from '@/app/http/types';
 import { systemClock } from '@/app/ports/clock';
 import type { UseCases } from '@/app/use-cases';
 import {
+  CreateItemUseCase,
   CreateUserUseCase,
   DeactivateUserUseCase,
+  GetItemUseCase,
   GetUserUseCase,
+  ListItemsUseCase,
   ListUsersUseCase,
   LoginUseCase,
+  RemoveItemUseCase,
+  UpdateItemUseCase,
   UpdateUserUseCase,
 } from '@/app/use-cases';
 import { BunPasswordHasher, JwtTokenService } from '@/infrastructure/authentication';
@@ -39,6 +44,13 @@ function createUseCases(container: {
       deactivate: new DeactivateUserUseCase(container.unitOfWork, container.clock),
       list: new ListUsersUseCase(container.unitOfWork),
       get: new GetUserUseCase(container.unitOfWork),
+    },
+    items: {
+      create: new CreateItemUseCase(container.unitOfWork, container.clock),
+      update: new UpdateItemUseCase(container.unitOfWork, container.clock),
+      remove: new RemoveItemUseCase(container.unitOfWork, container.clock),
+      list: new ListItemsUseCase(container.unitOfWork),
+      get: new GetItemUseCase(container.unitOfWork),
     },
   };
 }
