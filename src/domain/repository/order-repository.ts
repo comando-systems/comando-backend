@@ -22,6 +22,7 @@ export interface FindOrderOptions {
 export interface OrderRepository {
   create(order: Order): Promise<void>;
   findById(id: OrderID, options?: FindOrderOptions): Promise<Order | null>;
+  findOpenTableByCode(tableCode: string): Promise<Order | null>;
   save(order: Order): Promise<void>;
   list(filters: OrderFilters): Promise<OrderPage>;
 }

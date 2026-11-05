@@ -15,3 +15,15 @@ export function requirePageSize(value: number): number {
 
   return value;
 }
+
+export function requireOptionalDate(value: Date | undefined, field: string): Date | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
+    throw new ValidationError(`${field} must be a valid date`);
+  }
+
+  return new Date(value.getTime());
+}

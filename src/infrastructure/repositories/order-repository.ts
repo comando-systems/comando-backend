@@ -138,6 +138,40 @@ export class OrderRepository implements OrderRepositoryContract {
     return mapOrderRow(row, items, payments);
   }
 
+  async findOpenTableByCode(tableCode: string): Promise<Order | null> {
+    const sql = this.database.readSql();
+    const rows = await sql.query<OrderRow[]>`
+      SELECT
+        id::text AS id,
+        order_type,
+        status,
+        table_code,
+        opened_by_user_id::text AS opened_by_user_id,
+        closed_by_user_id::text AS closed_by_user_id,
+        canceled_by_user_id::text AS canceled_by_user_id,
+        opened_at,
+        closed_at,
+        canceled_at,
+        created_at,
+        updated_at,
+        version
+      FROM orders
+      WHERE order_type = 'TABLE'
+        AND status = 'OPEN'
+        AND table_code = ${tableCode}
+    `;
+
+    const row = rows[0];
+    if (row === undefined) {
+      return null;
+    }
+
+    const orderId = new OrderID(row.id);
+    const items = await this.orderItems.findByOrderId(orderId);
+    const payments = await this.orderPayments.findByOrderId(orderId);
+    return mapOrderRow(row, items, payments);
+  }
+
   async save(order: Order): Promise<void> {
     const sql = this.database.writeSql();
     const rows = await sql.query<{ id: string }[]>`
