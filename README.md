@@ -57,6 +57,19 @@ Authorization: Bearer <access-token>
 
 Disabled users cannot log in, and already-issued tokens stop working because the actor is reloaded from the database on every authorized operation.
 
+### API reference
+
+The contract is an OpenAPI 3.1 document and the interactive reference is rendered with [Scalar](https://scalar.com):
+
+| Path | What it serves |
+|---|---|
+| `GET /openapi.json` | The OpenAPI document. Import it into any client generator or API tool. |
+| `GET /docs` | The interactive reference. Use **Authorize** with the `accessToken` from `POST /auth/login`. |
+
+Both are public. They are on by default outside production and off in production; set `API_DOCS_ENABLED=true` or `false` to override.
+
+The document is built in code (`src/app/http/openapi/`). Request bodies reuse the same `zod` schemas the API validates with, response schemas are checked against the real serializers in the tests, and a test fails when a registered route is missing from the document or the document lists a route that does not exist. When you add or change an endpoint, update `src/app/http/openapi/document.ts` in the same change.
+
 ### Endpoints
 
 | Method | Path | Allowed roles | Description |

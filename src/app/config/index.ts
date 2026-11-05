@@ -25,6 +25,11 @@ const configSchema = z.object({
   LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(10_000).default(10),
   LOGIN_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().min(1).max(86_400).default(60),
   LOG_LEVEL: logLevelSchema.default('info'),
+  // Empty counts as unset (Compose passes an empty string). Unset means on outside production.
+  API_DOCS_ENABLED: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.enum(['true', 'false']).optional(),
+  ),
 });
 
 export type Environment = z.infer<typeof environmentSchema>;
@@ -45,6 +50,8 @@ export interface AppConfig {
   readonly loginRateLimitMax: number;
   readonly loginRateLimitWindowSeconds: number;
   readonly logLevel: LogLevel;
+  // Serves /docs and /openapi.json without authentication.
+  readonly docsEnabled: boolean;
 }
 
 export class ConfigurationError extends Error {
@@ -83,5 +90,9 @@ export function loadConfig(
     loginRateLimitMax: value.LOGIN_RATE_LIMIT_MAX,
     loginRateLimitWindowSeconds: value.LOGIN_RATE_LIMIT_WINDOW_SECONDS,
     logLevel: value.LOG_LEVEL,
+    docsEnabled:
+      value.API_DOCS_ENABLED === undefined
+        ? value.NODE_ENV !== 'production'
+        : value.API_DOCS_ENABLED === 'true',
   });
 }
