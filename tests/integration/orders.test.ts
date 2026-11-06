@@ -198,7 +198,7 @@ describe.skipIf(!TEST_DATABASE_URL)('order application use cases', () => {
 
   test('opens table orders and rejects duplicate open tables', async () => {
     const server = await createUser(['SERVER']);
-    const cashier = await createUser(['CASHIER']);
+    const admin = await createUser(['ADMIN']);
 
     const order = await openTableOrder.execute({ actorUserId: server.id, tableCode: ' T-01 ' });
 
@@ -212,7 +212,7 @@ describe.skipIf(!TEST_DATABASE_URL)('order application use cases', () => {
     ).rejects.toThrow('Table already has an open order');
 
     await expect(
-      openTableOrder.execute({ actorUserId: cashier.id, tableCode: 'T-02' }),
+      openTableOrder.execute({ actorUserId: admin.id, tableCode: 'T-02' }),
     ).rejects.toThrow('You are not allowed');
 
     const open = await unitOfWork.run((repos) => repos.orders.findActiveTableByCode('T-01'));
@@ -221,7 +221,7 @@ describe.skipIf(!TEST_DATABASE_URL)('order application use cases', () => {
 
   test('adds items, increments existing lines, and changes quantities', async () => {
     const server = await createUser(['SERVER']);
-    const cashier = await createUser(['CASHIER']);
+    const admin = await createUser(['ADMIN']);
     const coffee = await createItem('Coffee', 750);
     const cake = await createItem('Cake', 300);
 
@@ -274,7 +274,7 @@ describe.skipIf(!TEST_DATABASE_URL)('order application use cases', () => {
 
     await expect(
       addOrderItems.execute({
-        actorUserId: cashier.id,
+        actorUserId: admin.id,
         orderId: order.id,
         lines: [{ itemId: cake.id, quantity: 1 }],
       }),
@@ -371,7 +371,7 @@ describe.skipIf(!TEST_DATABASE_URL)('order application use cases', () => {
     ).rejects.toThrow('Order not found');
   });
 
-  test('allows both roles to close or cancel and closes zero-total orders', async () => {
+  test('lets the cashier close, either role cancel, and closes zero-total orders', async () => {
     const server = await createUser(['SERVER']);
     const cashier = await createUser(['CASHIER']);
     const coffee = await createItem('Coffee', 500);
@@ -383,12 +383,21 @@ describe.skipIf(!TEST_DATABASE_URL)('order application use cases', () => {
       lines: [{ itemId: coffee.id, quantity: 1 }],
     });
 
+    // The server hands the table over; taking the payment belongs to the cashier.
+    await expect(
+      closeOrder.execute({
+        actorUserId: server.id,
+        orderId: toClose.id,
+        payments: [{ method: 'CASH', amountCents: 500 }],
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+
     const closed = await closeOrder.execute({
-      actorUserId: server.id,
+      actorUserId: cashier.id,
       orderId: toClose.id,
       payments: [{ method: 'CASH', amountCents: 500 }],
     });
-    expect(closed.closedByUserId?.value).toBe(server.id.value);
+    expect(closed.closedByUserId?.value).toBe(cashier.id.value);
 
     const toCancel = await openTableOrder.execute({ actorUserId: server.id, tableCode: 'T-02' });
     const canceled = await cancelOrder.execute({
@@ -470,9 +479,13 @@ describe.skipIf(!TEST_DATABASE_URL)('order application use cases', () => {
       listOrders.execute({ actorUserId: server.id, page: 1, pageSize: 20 }),
     ).rejects.toThrow('You are not allowed');
 
-    await expect(getOrder.execute({ actorUserId: admin.id, orderId: first.id })).rejects.toThrow(
+    await expect(getOrder.execute({ actorUserId: server.id, orderId: first.id })).rejects.toThrow(
       'You are not allowed',
     );
+
+    // Administrators read the history too, so they can follow the figures they report on.
+    const adminView = await getOrder.execute({ actorUserId: admin.id, orderId: first.id });
+    expect(adminView.id.value).toBe(first.id.value);
 
     await expect(
       listOrders.execute({

@@ -2,7 +2,7 @@
 
 Comandô is a counter and table-order management backend built with TypeScript and Bun.
 
-The system uses one order model for both service channels. A counter order is created with all its items and payments and is persisted directly as `CLOSED`. A table order remains `OPEN` while the server adds or changes items, until a cashier or server closes or cancels it.
+The system uses one order model for both service channels. A counter order is created with all its items and payments and is persisted directly as `CLOSED`. A table order remains `OPEN` while the server adds or changes items, until a cashier closes it or a cashier or server cancels it.
 
 ## Main capabilities
 
@@ -19,9 +19,9 @@ The system uses one order model for both service channels. A counter order is cr
 
 | Role | Permissions |
 |---|---|
-| `ADMIN` | Create and edit users; deactivate users; create, edit, and remove items. |
-| `CASHIER` | Create counter orders; view order history; close or cancel open table orders. |
-| `SERVER` | Open table orders; add items and update quantities; close or cancel open table orders. |
+| `ADMIN` | Create and edit users; deactivate users; manage items and settings; run the till (counter orders, history, close, cancel, pricing). Cannot open or edit tables. |
+| `CASHIER` | Create counter orders; view order history; open and edit tables; hand over, close, or cancel table orders. |
+| `SERVER` | Open table orders; add items and update quantities; hand a table to the cashier; cancel table orders. Cannot close them. |
 
 A user may have multiple roles. Effective permissions are the union of the permissions granted by their roles. Authorization must be enforced by the backend for every use case.
 
@@ -89,18 +89,18 @@ The document is built in code (`src/app/http/openapi/`). Request bodies reuse th
 | `GET` | `/items/:id` | Authenticated | Read an active item. |
 | `PATCH` | `/items/:id` | `ADMIN` | Update an item. |
 | `DELETE` | `/items/:id` | `ADMIN` | Remove an item from the active catalog. |
-| `POST` | `/orders/counter` | `CASHIER` | Create a completed counter order. |
-| `POST` | `/orders/table` | `SERVER` | Open a table order. |
-| `GET` | `/orders` | `CASHIER` (history); `CASHIER`, `SERVER` (open orders) | List orders with filters. |
-| `GET` | `/orders/:id` | `CASHIER`; `SERVER` while the order is open | Read an order. |
-| `POST` | `/orders/:id/items` | `SERVER` | Add items, incrementing existing lines. |
-| `PATCH` | `/orders/:id/items/:itemId` | `SERVER` | Set an absolute line quantity. |
-| `DELETE` | `/orders/:id/items/:itemId` | `SERVER` | Remove a line from an open table order. |
-| `PATCH` | `/orders/:id/pricing` | `CASHIER`, `SERVER` | Set or clear the adjustment, or switch the service fee. |
+| `POST` | `/orders/counter` | `ADMIN`, `CASHIER` | Create a completed counter order. |
+| `POST` | `/orders/table` | `CASHIER`, `SERVER` | Open a table order. |
+| `GET` | `/orders` | `ADMIN`, `CASHIER` (history); `CASHIER`, `SERVER` (open orders) | List orders with filters. |
+| `GET` | `/orders/:id` | `ADMIN`, `CASHIER`; `SERVER` while the order is open | Read an order. |
+| `POST` | `/orders/:id/items` | `CASHIER`, `SERVER` | Add items, incrementing existing lines. |
+| `PATCH` | `/orders/:id/items/:itemId` | `CASHIER`, `SERVER` | Set an absolute line quantity. |
+| `DELETE` | `/orders/:id/items/:itemId` | `CASHIER`, `SERVER` | Remove a line from an open table order. |
+| `PATCH` | `/orders/:id/pricing` | `ADMIN`, `CASHIER`, `SERVER` | Set or clear the adjustment, or switch the service fee. |
 | `POST` | `/orders/:id/request-payment` | `CASHIER`, `SERVER` | Hand an open table order to the cashier (`AWAITING_PAYMENT`). |
 | `POST` | `/orders/:id/reopen` | `CASHIER`, `SERVER` | Return an order awaiting payment to `OPEN`. |
-| `POST` | `/orders/:id/close` | `CASHIER`, `SERVER` | Close a table order that is open or awaiting payment. |
-| `POST` | `/orders/:id/cancel` | `CASHIER`, `SERVER` | Cancel an open table order. |
+| `POST` | `/orders/:id/close` | `ADMIN`, `CASHIER` | Close a table order that is open or awaiting payment. |
+| `POST` | `/orders/:id/cancel` | `ADMIN`, `CASHIER`, `SERVER` | Cancel an open table order. |
 
 ### Request examples
 
@@ -240,7 +240,7 @@ A counter order must never be persisted as `OPEN`.
 1. A server opens an order with status `OPEN`.
 2. While open, the server can add items and change quantities.
 3. A cashier or server can cancel the order, changing its status to `CANCELED`.
-4. A cashier or server can close the order with its payment methods and amounts, changing its status to `CLOSED`.
+4. A cashier (or an administrator) can close the order with its payment methods and amounts, changing its status to `CLOSED`.
 
 `CLOSED` and `CANCELED` are terminal states in the initial scope. No edits or reopening are allowed after either state.
 

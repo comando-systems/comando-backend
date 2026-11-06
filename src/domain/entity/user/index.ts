@@ -22,22 +22,28 @@ export type Permission =
   | 'orders:cancel'
   | 'orders:close';
 
+// The table from ADR-02. A server takes the order and hands the table over; the cashier takes the
+// payment. Administrators manage the business and may also run the till.
 const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
-  ADMIN: ['users:manage', 'items:manage', 'settings:manage'],
-  CASHIER: [
+  ADMIN: [
+    'users:manage',
+    'items:manage',
+    'settings:manage',
     'orders:counter',
     'orders:history',
-    'orders:request-payment',
     'orders:close',
     'orders:cancel',
   ],
-  SERVER: [
+  CASHIER: [
+    'orders:counter',
+    'orders:history',
     'orders:open',
     'orders:update',
     'orders:request-payment',
     'orders:close',
     'orders:cancel',
   ],
+  SERVER: ['orders:open', 'orders:update', 'orders:request-payment', 'orders:cancel'],
 };
 
 export function isRole(value: string): value is Role {
