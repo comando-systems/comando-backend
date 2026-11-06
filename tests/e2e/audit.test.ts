@@ -1,11 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
-import { loadConfig } from '@/app/config';
-import { createContainer } from '@/app/container';
-import { createApp } from '@/app/http/app';
 import type { AppContainer } from '@/app/http/types';
 import { resetDatabase, TEST_DATABASE_URL } from '../integration/support/database';
-
-const PASSWORD = 'a-long-enough-password';
+import { createHarness, PASSWORD } from './support/harness';
 
 interface AuditRow {
   action: string;
@@ -16,36 +12,20 @@ interface AuditRow {
   metadata: Record<string, unknown>;
 }
 
+const { start, request, createUser } = createHarness();
+
 describe.skipIf(!TEST_DATABASE_URL)('audit events', () => {
   let container: AppContainer;
-  let app: ReturnType<typeof createApp>;
   let adminToken: string;
   let adminId: string;
 
   beforeAll(() => {
-    container = createContainer(
-      loadConfig({
-        NODE_ENV: 'test',
-        DATABASE_READ_URL: TEST_DATABASE_URL,
-        DATABASE_WRITE_URL: TEST_DATABASE_URL,
-        JWT_SECRET: 'a'.repeat(32),
-        LOGIN_RATE_LIMIT_MAX: '1000',
-        LOG_LEVEL: 'error',
-      }),
-    );
-    app = createApp(container);
+    container = start();
   });
 
   beforeEach(async () => {
     await resetDatabase(container.database);
-    const admin = await container.repositories.users.create({
-      name: 'Admin',
-      email: 'admin@example.com',
-      passwordHash: await container.passwordHasher.hash(PASSWORD),
-      roles: ['ADMIN', 'CASHIER'],
-      now: new Date(),
-    });
-    adminId = admin.id.value;
+    adminId = await createUser('admin', ['ADMIN', 'CASHIER']);
     const login = await call('POST', '/auth/login', {
       email: 'admin@example.com',
       password: PASSWORD,
@@ -58,14 +38,7 @@ describe.skipIf(!TEST_DATABASE_URL)('audit events', () => {
   });
 
   const call = (method: string, path: string, body?: unknown, token?: string) =>
-    app.request(path, {
-      method,
-      headers: {
-        ...(body === undefined ? {} : { 'content-type': 'application/json' }),
-        ...(token === undefined ? {} : { authorization: `Bearer ${token}` }),
-      },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
+    request(path, { method, body, token });
 
   const asAdmin = (method: string, path: string, body?: unknown) =>
     call(method, path, body, adminToken);

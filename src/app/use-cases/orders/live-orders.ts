@@ -3,7 +3,7 @@ import type { Permission } from '@/domain/entity/user';
 
 // Orders still being served. Everyone who works the floor or the till needs to see them, while the
 // closed and canceled history is for whoever holds `orders:history`.
-export const LIVE_STATUSES: readonly OrderStatus[] = ['OPEN', 'AWAITING_PAYMENT'];
+const LIVE_STATUSES: readonly OrderStatus[] = ['OPEN', 'AWAITING_PAYMENT'];
 
 export const LIVE_VIEW_PERMISSIONS: readonly Permission[] = [
   'orders:history',

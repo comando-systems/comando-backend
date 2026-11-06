@@ -1,14 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
-import { loadConfig } from '@/app/config';
-import { createContainer } from '@/app/container';
-import { createApp } from '@/app/http/app';
 import type { AppContainer } from '@/app/http/types';
 import type { Role } from '@/domain/entity/user';
 import { resetDatabase, TEST_DATABASE_URL } from '../integration/support/database';
+import { createHarness } from './support/harness';
 
 type Actor = 'ADMIN' | 'CASHIER' | 'SERVER';
-
-const PASSWORD = 'a-long-enough-password';
 
 // The table from ADR-02, as seen from the HTTP API.
 const POLICY: ReadonlyArray<{ operation: string; ADMIN: number; CASHIER: number; SERVER: number }> =
@@ -26,25 +22,16 @@ const POLICY: ReadonlyArray<{ operation: string; ADMIN: number; CASHIER: number;
     { operation: 'read a closed order', ADMIN: 200, CASHIER: 200, SERVER: 403 },
   ];
 
+const { start, request, createUser, login } = createHarness();
+
 describe.skipIf(!TEST_DATABASE_URL)('role policy over HTTP', () => {
   let container: AppContainer;
-  let app: ReturnType<typeof createApp>;
   let tokens: Record<Actor, string>;
   let itemId: string;
   let tableNumber = 0;
 
   beforeAll(() => {
-    container = createContainer(
-      loadConfig({
-        NODE_ENV: 'test',
-        DATABASE_READ_URL: TEST_DATABASE_URL,
-        DATABASE_WRITE_URL: TEST_DATABASE_URL,
-        JWT_SECRET: 'a'.repeat(32),
-        LOGIN_RATE_LIMIT_MAX: '1000',
-        LOG_LEVEL: 'error',
-      }),
-    );
-    app = createApp(container);
+    container = start();
   });
 
   beforeEach(async () => {
@@ -52,13 +39,7 @@ describe.skipIf(!TEST_DATABASE_URL)('role policy over HTTP', () => {
     tableNumber = 0;
 
     for (const role of ['ADMIN', 'CASHIER', 'SERVER'] as Role[]) {
-      await container.repositories.users.create({
-        name: role,
-        email: `${role.toLowerCase()}@example.com`,
-        passwordHash: await container.passwordHasher.hash(PASSWORD),
-        roles: [role],
-        now: new Date(),
-      });
+      await createUser(role.toLowerCase(), [role]);
     }
 
     tokens = {
@@ -78,29 +59,6 @@ describe.skipIf(!TEST_DATABASE_URL)('role policy over HTTP', () => {
   afterAll(async () => {
     await container.close();
   });
-
-  async function login(name: string): Promise<string> {
-    const response = await request('/auth/login', {
-      method: 'POST',
-      body: { email: `${name}@example.com`, password: PASSWORD },
-    });
-    return ((await response.json()) as { accessToken: string }).accessToken;
-  }
-
-  async function request(
-    path: string,
-    options: { method?: string; token?: string; body?: unknown } = {},
-  ): Promise<Response> {
-    const headers: Record<string, string> = {};
-    if (options.token !== undefined) headers.authorization = `Bearer ${options.token}`;
-    if (options.body !== undefined) headers['content-type'] = 'application/json';
-
-    return app.request(path, {
-      method: options.method ?? 'GET',
-      headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    });
-  }
 
   // A server opens a table with one coffee on it, so every probe starts from a known order.
   async function openTableWithCoffee(): Promise<string> {

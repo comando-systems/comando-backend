@@ -1,10 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
-import { loadConfig } from '@/app/config';
-import { createContainer } from '@/app/container';
-import { createApp } from '@/app/http/app';
 import type { AppContainer } from '@/app/http/types';
 import type { Role } from '@/domain/entity/user';
 import { resetDatabase, TEST_DATABASE_URL } from '../integration/support/database';
+import { createHarness } from './support/harness';
 
 interface SummaryDto {
   from: string;
@@ -17,29 +15,19 @@ interface SummaryDto {
   byMethod: Array<{ method: string; amountCents: number }>;
 }
 
-const PASSWORD = 'a-long-enough-password';
 const HOUR_MS = 60 * 60 * 1000;
+
+const { start, request, createUser, login } = createHarness();
 
 describe.skipIf(!TEST_DATABASE_URL)('sales summary API', () => {
   let container: AppContainer;
-  let app: ReturnType<typeof createApp>;
   let adminToken: string;
   let cashierToken: string;
   let serverToken: string;
   let itemId: string;
 
   beforeAll(() => {
-    container = createContainer(
-      loadConfig({
-        NODE_ENV: 'test',
-        DATABASE_READ_URL: TEST_DATABASE_URL,
-        DATABASE_WRITE_URL: TEST_DATABASE_URL,
-        JWT_SECRET: 'a'.repeat(32),
-        LOGIN_RATE_LIMIT_MAX: '1000',
-        LOG_LEVEL: 'error',
-      }),
-    );
-    app = createApp(container);
+    container = start();
   });
 
   beforeEach(async () => {
@@ -49,13 +37,7 @@ describe.skipIf(!TEST_DATABASE_URL)('sales summary API', () => {
       ['cashier', ['CASHIER']],
       ['server', ['SERVER']],
     ] as Array<[string, Role[]]>) {
-      await container.repositories.users.create({
-        name,
-        email: `${name}@example.com`,
-        passwordHash: await container.passwordHasher.hash(PASSWORD),
-        roles,
-        now: new Date(),
-      });
+      await createUser(name, roles);
     }
     adminToken = await login('admin');
     cashierToken = await login('cashier');
@@ -72,29 +54,6 @@ describe.skipIf(!TEST_DATABASE_URL)('sales summary API', () => {
   afterAll(async () => {
     await container.close();
   });
-
-  async function login(name: string): Promise<string> {
-    const response = await request('/auth/login', {
-      method: 'POST',
-      body: { email: `${name}@example.com`, password: PASSWORD },
-    });
-    return ((await response.json()) as { accessToken: string }).accessToken;
-  }
-
-  async function request(
-    path: string,
-    options: { method?: string; token?: string; body?: unknown } = {},
-  ): Promise<Response> {
-    const headers: Record<string, string> = {};
-    if (options.token !== undefined) headers.authorization = `Bearer ${options.token}`;
-    if (options.body !== undefined) headers['content-type'] = 'application/json';
-
-    return app.request(path, {
-      method: options.method ?? 'GET',
-      headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    });
-  }
 
   async function counterSale(
     quantity: number,

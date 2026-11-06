@@ -1,9 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
-import { loadConfig } from '@/app/config';
-import { createContainer } from '@/app/container';
-import { createApp } from '@/app/http/app';
 import type { AppContainer } from '@/app/http/types';
 import { resetDatabase, TEST_DATABASE_URL } from '../integration/support/database';
+import { createHarness, PASSWORD } from './support/harness';
 
 interface Session {
   accessToken: string;
@@ -11,33 +9,18 @@ interface Session {
   refreshExpiresAt: string;
 }
 
+const { start, request, createUser } = createHarness();
+
 describe.skipIf(!TEST_DATABASE_URL)('refresh tokens over HTTP', () => {
   let container: AppContainer;
-  let app: ReturnType<typeof createApp>;
 
   beforeAll(() => {
-    container = createContainer(
-      loadConfig({
-        NODE_ENV: 'test',
-        DATABASE_READ_URL: TEST_DATABASE_URL,
-        DATABASE_WRITE_URL: TEST_DATABASE_URL,
-        JWT_SECRET: 'a'.repeat(32),
-        LOGIN_RATE_LIMIT_MAX: '1000',
-        LOG_LEVEL: 'error',
-      }),
-    );
-    app = createApp(container);
+    container = start();
   });
 
   beforeEach(async () => {
     await resetDatabase(container.database);
-    await container.repositories.users.create({
-      name: 'Admin',
-      email: 'admin@example.com',
-      passwordHash: await container.passwordHasher.hash('a-long-enough-password'),
-      roles: ['ADMIN'],
-      now: new Date(),
-    });
+    await createUser('admin', ['ADMIN']);
   });
 
   afterAll(async () => {
@@ -45,19 +28,12 @@ describe.skipIf(!TEST_DATABASE_URL)('refresh tokens over HTTP', () => {
   });
 
   const post = (path: string, body: unknown, token?: string) =>
-    app.request(path, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        ...(token === undefined ? {} : { authorization: `Bearer ${token}` }),
-      },
-      body: JSON.stringify(body),
-    });
+    request(path, { method: 'POST', body, token });
 
   async function signIn(): Promise<Session> {
     const response = await post('/auth/login', {
       email: 'admin@example.com',
-      password: 'a-long-enough-password',
+      password: PASSWORD,
     });
     return (await response.json()) as Session;
   }
@@ -72,9 +48,7 @@ describe.skipIf(!TEST_DATABASE_URL)('refresh tokens over HTTP', () => {
     expect(response.status).toBe(200);
     expect(second.refreshToken).not.toBe(first.refreshToken);
 
-    const me = await app.request('/users', {
-      headers: { authorization: `Bearer ${second.accessToken}` },
-    });
+    const me = await request('/users', { token: second.accessToken });
     expect(me.status).toBe(200);
   });
 
