@@ -457,7 +457,16 @@ GitHub Actions runs every check on each pull request and reports them through th
 
 The `Capacity` workflow (Actions, manual) answers "how many people can use this at once?" with a measurement. It starts the production build and holds 25, 50, 100, 200, 400, and 800 concurrent users (editable) for 60 seconds each. A user loops through listing items, listing orders, and ringing up a counter sale, pausing about a second between actions; sign-ins run at a steady rate. Every step reports avg, p90, p95, p99, and max per endpoint, and the run stops at the first step where an endpoint breaks p95 < 500 ms, p99 < 1 s, or 1% failures. The summary names the highest step that stayed within the budget.
 
-Last measurement (2026-11-06, GitHub-hosted runner, workflow run 42207150069): 600 concurrent users (about 600 requests/s) stayed well inside the budget (`GET /orders` p95 95 ms, p99 144 ms; sale creation p95 64 ms, p99 88 ms; sign-in p99 155 ms; no failures). At 800 users the runner saturated at about 660 requests/s and `GET /orders` reached p95 517 ms, breaking the 500 ms budget. A first run exposed a connection pool deadlock under write load (fixed by drawing ids on the transaction's connection), so rerun the workflow after any change to the database layer.
+Last measurement (2026-11-06, GitHub-hosted runner, workflow run 42211539661, `WEB_CONCURRENCY=2`): **2,500 concurrent users (about 2,550 requests/s) stayed within the budget** with no failures, and 3,000 broke it.
+
+| Users | req/s | `GET /orders` p95 / p99 | `GET /items` p95 / p99 | Sale p95 / p99 | Sign-in p95 / p99 | Budget |
+|---|---|---|---|---|---|---|
+| 1,500 | 1,559 | 7 / 19 ms | 4 / 13 ms | 13 / 40 ms | 63 / 91 ms | within |
+| 2,000 | 2,073 | 20 / 48 ms | 14 / 34 ms | 46 / 113 ms | 101 / 123 ms | within |
+| 2,500 | 2,552 | 66 / 124 ms | 45 / 93 ms | 213 / 416 ms | 289 / 384 ms | within |
+| 3,000 | 2,846 | 181 / 303 ms | 139 / 241 ms | 882 / 1,112 ms | 923 / 1,123 ms | broken (sales and sign-in) |
+
+How it got there, from the earlier runs (the same workflow): 600 users at the first measurement, then 1,000 after batching the order page reads (one `GET /orders` ran about 43 queries), then 1,250 requests/s was the ceiling until the list totals were cached (`COUNT(*)` over the growing orders table ran on every page and kept PostgreSQL above 200% CPU). The first run also exposed a connection pool deadlock under write load, fixed by drawing ids on the transaction's connection. Rerun the workflow after any change to the database layer.
 
 Concurrent users are not registered users: with the think time above, a few hundred concurrent users stand for a much larger registered base. API, PostgreSQL, and the load generator share one CI runner, so the number is a conservative floor for a dedicated server.
 
