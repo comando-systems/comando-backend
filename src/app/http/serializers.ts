@@ -1,5 +1,5 @@
+import type { Session } from '@/app/use-cases';
 import type { Item } from '@/domain/entity/item';
-
 import type {
   AdjustmentMode,
   AdjustmentType,
@@ -9,7 +9,6 @@ import type {
   PaymentMethod,
 } from '@/domain/entity/order';
 import type { Settings } from '@/domain/entity/settings';
-
 import type { Role, User } from '@/domain/entity/user';
 
 export interface UserResponse {
@@ -105,6 +104,14 @@ export interface SettingsResponse {
   // 10% is 1000.
   readonly serviceFeeBasisPoints: number;
   readonly updatedAt: string;
+}
+
+export interface SessionResponse {
+  readonly accessToken: string;
+  readonly expiresAt: string;
+  readonly refreshToken: string;
+  readonly refreshExpiresAt: string;
+  readonly user: UserResponse;
 }
 
 export interface PageResponse<T> {
@@ -225,6 +232,16 @@ export function toSettingsResponse(settings: Settings): SettingsResponse {
     serviceFeeEnabled: settings.serviceFeeEnabled,
     serviceFeeBasisPoints: settings.serviceFeeBasisPoints,
     updatedAt: toIsoString(settings.updatedAt),
+  };
+}
+
+export function toSessionResponse(session: Session): SessionResponse {
+  return {
+    accessToken: session.accessToken,
+    expiresAt: toIsoString(session.expiresAt),
+    refreshToken: session.refreshToken,
+    refreshExpiresAt: toIsoString(session.refreshExpiresAt),
+    user: toUserResponse(session.user),
   };
 }
 

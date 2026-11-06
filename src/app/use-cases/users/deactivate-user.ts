@@ -35,8 +35,10 @@ export class DeactivateUserUseCase {
 
       await assertCanRemoveAdministrator(repositories, actor, user, 'deactivate');
 
-      user.deactivate(this.clock.now());
+      const now = this.clock.now();
+      user.deactivate(now);
       await repositories.users.update(user);
+      await repositories.refreshTokens.revokeAllForUser(user.id, now);
       return user;
     });
   }

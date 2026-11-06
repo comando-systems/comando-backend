@@ -19,6 +19,7 @@ import {
   createUserBodySchema,
   loginBodySchema,
   openTableOrderBodySchema,
+  refreshBodySchema,
   setOrderPricingBodySchema,
   updateItemBodySchema,
   updateSettingsBodySchema,
@@ -57,7 +58,8 @@ interface OperationSpec {
   readonly success: {
     readonly status: number;
     readonly description: string;
-    readonly schema: string;
+    // Omitted for a response without a body (204).
+    readonly schema?: string;
   };
   readonly errors: readonly number[];
 }
@@ -65,6 +67,7 @@ interface OperationSpec {
 // Request bodies reuse the schemas the API validates with, so the contract cannot drift from them.
 const requestSchemas: Readonly<Record<string, z.ZodType>> = {
   LoginRequest: loginBodySchema,
+  RefreshRequest: refreshBodySchema,
   CreateUserRequest: createUserBodySchema,
   UpdateUserRequest: updateUserBodySchema,
   UpdateSettingsRequest: updateSettingsBodySchema,
@@ -159,6 +162,32 @@ const operations: readonly OperationSpec[] = [
     request: 'LoginRequest',
     success: { status: 200, description: 'Signed in.', schema: 'LoginResponse' },
     errors: [400, 401, 429],
+  },
+  {
+    method: 'post',
+    path: '/auth/refresh',
+    operationId: 'refreshSession',
+    tag: 'Authentication',
+    summary: 'Exchange a refresh token',
+    description:
+      'Returns a new access token and a new refresh token, and revokes the one presented. Presenting a token that was already used revokes every refresh token of that user, so the app must keep only the latest one. Rate limited like login.',
+    public: true,
+    request: 'RefreshRequest',
+    success: { status: 200, description: 'A new session.', schema: 'LoginResponse' },
+    errors: [400, 401, 429],
+  },
+  {
+    method: 'post',
+    path: '/auth/logout',
+    operationId: 'logout',
+    tag: 'Authentication',
+    summary: 'Sign out',
+    description:
+      'Revokes the presented refresh token. Idempotent: an unknown or already revoked token still answers 204.',
+    public: true,
+    request: 'RefreshRequest',
+    success: { status: 204, description: 'The refresh token is no longer valid.' },
+    errors: [400],
   },
   {
     method: 'post',
@@ -558,7 +587,7 @@ function buildOperation(spec: OperationSpec): JsonObject {
   const responses: Record<string, JsonObject> = {
     [String(spec.success.status)]: {
       description: spec.success.description,
-      content: jsonContent(spec.success.schema),
+      ...(spec.success.schema === undefined ? {} : { content: jsonContent(spec.success.schema) }),
     },
   };
   for (const status of spec.errors) {

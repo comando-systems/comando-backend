@@ -37,12 +37,14 @@ Protected endpoints require a bearer access token:
 Authorization: Bearer <access-token>
 ```
 
-`POST /auth/login` is public and is rate limited per client IP. Successful logins return a short-lived access token and the current user profile.
+`POST /auth/login` is public and is rate limited per client IP. Successful logins return a short-lived access token, an opaque refresh token, and the current user profile.
 
 ```json
 {
   "accessToken": "<jwt>",
   "expiresAt": "2026-01-01T12:15:00.000Z",
+  "refreshToken": "<opaque>",
+  "refreshExpiresAt": "2026-01-31T12:00:00.000Z",
   "user": {
     "id": "1",
     "name": "Ada Lovelace",
@@ -54,6 +56,8 @@ Authorization: Bearer <access-token>
   }
 }
 ```
+
+Refresh tokens are single use. `POST /auth/refresh` returns a new access token and a new refresh token and revokes the one presented; presenting an already used token revokes every refresh token of that user, so keep only the latest one. Only a SHA-256 hash of each token is stored. Tokens expire after `REFRESH_TOKEN_TTL_SECONDS` (default 30 days, 1 hour to 90 days), end when the user is deactivated, and `POST /auth/logout` revokes one. See ADR-07.
 
 Disabled users cannot log in, and already-issued tokens stop working because the actor is reloaded from the database on every authorized operation.
 
@@ -76,7 +80,9 @@ The document is built in code (`src/app/http/openapi/`). Request bodies reuse th
 |---|---|---|---|
 | `GET` | `/health` | Public | Liveness check. |
 | `GET` | `/health/ready` | Public | Readiness check that pings PostgreSQL. |
-| `POST` | `/auth/login` | Public | Authenticate and issue an access token. |
+| `POST` | `/auth/login` | Public | Authenticate and issue an access token and a refresh token. |
+| `POST` | `/auth/refresh` | Public | Exchange a refresh token for a new session; the old token is revoked. |
+| `POST` | `/auth/logout` | Public | Revoke a refresh token (idempotent, `204`). |
 | `POST` | `/users` | `ADMIN` | Create a user. |
 | `GET` | `/users` | `ADMIN` | List users with pagination. |
 | `GET` | `/users/:id` | `ADMIN` | Read a user. |

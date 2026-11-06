@@ -95,6 +95,8 @@ describe('OpenAPI document', () => {
 
     expect(open.map(({ path }) => path).sort()).toEqual([
       '/auth/login',
+      '/auth/logout',
+      '/auth/refresh',
       '/health',
       '/health/ready',
     ]);
@@ -196,6 +198,8 @@ describe('documented responses match what the API returns', () => {
       accepts(loginResponseSchema, {
         accessToken: 'token',
         expiresAt: now.toISOString(),
+        refreshToken: 'refresh',
+        refreshExpiresAt: now.toISOString(),
         user: toUserResponse(user),
       }),
     ).toBe(true);

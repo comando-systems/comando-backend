@@ -20,6 +20,7 @@ const configSchema = z.object({
   JWT_ISSUER: z.string().min(1).default('comando'),
   JWT_AUDIENCE: z.string().min(1).default('comando-api'),
   JWT_EXPIRES_IN_SECONDS: z.coerce.number().int().min(60).max(86_400).default(900),
+  REFRESH_TOKEN_TTL_SECONDS: z.coerce.number().int().min(3_600).max(7_776_000).default(2_592_000),
   CORS_ORIGIN: z.string().min(1).default('*'),
   BODY_LIMIT_BYTES: z.coerce.number().int().min(1_024).max(10_485_760).default(1_048_576),
   LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(10_000).default(10),
@@ -45,6 +46,7 @@ export interface AppConfig {
   readonly jwtIssuer: string;
   readonly jwtAudience: string;
   readonly jwtExpiresInSeconds: number;
+  readonly refreshTokenTtlSeconds: number;
   readonly corsOrigin: string;
   readonly bodyLimitBytes: number;
   readonly loginRateLimitMax: number;
@@ -85,6 +87,7 @@ export function loadConfig(
     jwtIssuer: value.JWT_ISSUER,
     jwtAudience: value.JWT_AUDIENCE,
     jwtExpiresInSeconds: value.JWT_EXPIRES_IN_SECONDS,
+    refreshTokenTtlSeconds: value.REFRESH_TOKEN_TTL_SECONDS,
     corsOrigin: value.CORS_ORIGIN,
     bodyLimitBytes: value.BODY_LIMIT_BYTES,
     loginRateLimitMax: value.LOGIN_RATE_LIMIT_MAX,

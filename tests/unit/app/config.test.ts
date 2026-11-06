@@ -18,6 +18,7 @@ describe('loadConfig', () => {
     expect(config.jwtIssuer).toBe('comando');
     expect(config.jwtAudience).toBe('comando-api');
     expect(config.jwtExpiresInSeconds).toBe(900);
+    expect(config.refreshTokenTtlSeconds).toBe(2_592_000);
     expect(config.logLevel).toBe('info');
   });
 
@@ -60,11 +61,13 @@ describe('loadConfig', () => {
       ...validEnvironment,
       PORT: '8080',
       JWT_EXPIRES_IN_SECONDS: '120',
+      REFRESH_TOKEN_TTL_SECONDS: '7200',
       LOG_LEVEL: 'debug',
     });
 
     expect(config.port).toBe(8080);
     expect(config.jwtExpiresInSeconds).toBe(120);
+    expect(config.refreshTokenTtlSeconds).toBe(7200);
     expect(config.logLevel).toBe('debug');
   });
 

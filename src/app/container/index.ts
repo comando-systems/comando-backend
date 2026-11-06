@@ -20,17 +20,24 @@ import {
   ListOrdersUseCase,
   ListUsersUseCase,
   LoginUseCase,
+  LogoutUseCase,
   OpenTableOrderUseCase,
+  RefreshSessionUseCase,
   RemoveItemUseCase,
   RemoveOrderItemUseCase,
   ReopenOrderUseCase,
   RequestOrderPaymentUseCase,
+  SessionIssuer,
   SetOrderPricingUseCase,
   UpdateItemUseCase,
   UpdateSettingsUseCase,
   UpdateUserUseCase,
 } from '@/app/use-cases';
-import { BunPasswordHasher, JwtTokenService } from '@/infrastructure/authentication';
+import {
+  BunPasswordHasher,
+  JwtTokenService,
+  RandomRefreshTokenCodec,
+} from '@/infrastructure/authentication';
 import { createDatabaseConnections } from '@/infrastructure/database/connections';
 import { SequenceIdGenerator } from '@/infrastructure/database/sequence-id-generator';
 import { DatabaseUnitOfWork } from '@/infrastructure/database/unit-of-work';
@@ -41,11 +48,27 @@ function createUseCases(container: {
   unitOfWork: AppContainer['unitOfWork'];
   passwordHasher: AppContainer['passwordHasher'];
   tokenService: AppContainer['tokenService'];
+  refreshTokenCodec: AppContainer['refreshTokenCodec'];
+  refreshTokenTtlSeconds: number;
   ids: IdGenerators;
   clock: AppContainer['clock'];
 }): UseCases {
+  const sessions = new SessionIssuer(
+    container.tokenService,
+    container.refreshTokenCodec,
+    container.clock,
+    container.refreshTokenTtlSeconds,
+  );
+
   return {
-    login: new LoginUseCase(container.unitOfWork, container.passwordHasher, container.tokenService),
+    login: new LoginUseCase(container.unitOfWork, container.passwordHasher, sessions),
+    refresh: new RefreshSessionUseCase(
+      container.unitOfWork,
+      container.refreshTokenCodec,
+      sessions,
+      container.clock,
+    ),
+    logout: new LogoutUseCase(container.unitOfWork, container.refreshTokenCodec, container.clock),
     users: {
       create: new CreateUserUseCase(
         container.unitOfWork,
@@ -119,6 +142,8 @@ export function createContainer(config: AppConfig): AppContainer {
     clock,
   });
 
+  const refreshTokenCodec = new RandomRefreshTokenCodec();
+
   const ids: IdGenerators = {
     orders: new SequenceIdGenerator(database.write, 'orders_id_seq'),
   };
@@ -127,6 +152,8 @@ export function createContainer(config: AppConfig): AppContainer {
     unitOfWork,
     passwordHasher,
     tokenService,
+    refreshTokenCodec,
+    refreshTokenTtlSeconds: config.refreshTokenTtlSeconds,
     ids,
     clock,
   });
@@ -141,6 +168,7 @@ export function createContainer(config: AppConfig): AppContainer {
     ids,
     passwordHasher,
     tokenService,
+    refreshTokenCodec,
     useCases,
     async close(): Promise<void> {
       await database.close();

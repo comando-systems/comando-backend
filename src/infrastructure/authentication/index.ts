@@ -3,3 +3,4 @@ export {
   JwtTokenService,
   type JwtTokenServiceOptions,
 } from '@/infrastructure/authentication/jwt-token-service';
+export { RandomRefreshTokenCodec } from '@/infrastructure/authentication/refresh-token-codec';
