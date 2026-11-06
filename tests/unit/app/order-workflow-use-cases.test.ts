@@ -198,8 +198,11 @@ describe('removing a line', () => {
     const useCase = new RemoveOrderItemUseCase(unitOfWorkOf(world([tableWith(1)])), clock);
 
     await expect(
-      useCase.execute({ actorUserId: cashier.id, orderId: new OrderID('10'), itemId: coffee.id }),
+      useCase.execute({ actorUserId: admin.id, orderId: new OrderID('10'), itemId: coffee.id }),
     ).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(
+      useCase.execute({ actorUserId: cashier.id, orderId: new OrderID('10'), itemId: coffee.id }),
+    ).resolves.toBeDefined();
   });
 });
 
@@ -232,15 +235,13 @@ describe('pricing', () => {
     expect(cleared.total.cents).toBe(2000);
   });
 
-  test('both the server and the cashier may adjust, an administrator may not', async () => {
+  test('the server, the cashier, and an administrator at the till may all adjust', async () => {
     const useCase = new SetOrderPricingUseCase(unitOfWorkOf(world([tableWith(1)])), clock);
     const input = { orderId: new OrderID('10'), adjustment: ten };
 
-    await expect(useCase.execute({ ...input, actorUserId: server.id })).resolves.toBeDefined();
-    await expect(useCase.execute({ ...input, actorUserId: cashier.id })).resolves.toBeDefined();
-    await expect(useCase.execute({ ...input, actorUserId: admin.id })).rejects.toBeInstanceOf(
-      ForbiddenError,
-    );
+    for (const actor of [server, cashier, admin]) {
+      await expect(useCase.execute({ ...input, actorUserId: actor.id })).resolves.toBeDefined();
+    }
   });
 
   test('the service fee takes the current rate from the settings, and none when switched off', async () => {
@@ -309,12 +310,15 @@ describe('who can see which orders', () => {
     ).resolves.toBeDefined();
   });
 
-  test('an administrator, who neither serves nor reads history, sees nothing', async () => {
+  test('an administrator reads the history, so lists any status', async () => {
     const useCase = new ListOrdersUseCase(unitOfWorkOf(world(live)));
 
     await expect(
       useCase.execute({ actorUserId: admin.id, page: 1, pageSize: 20, statuses: ['OPEN'] }),
-    ).rejects.toBeInstanceOf(ForbiddenError);
+    ).resolves.toBeDefined();
+    await expect(
+      useCase.execute({ actorUserId: admin.id, page: 1, pageSize: 20, status: 'CLOSED' }),
+    ).resolves.toBeDefined();
   });
 
   test('rejects an unknown status in the list', async () => {
@@ -344,11 +348,14 @@ describe('who can see which orders', () => {
     ).resolves.toBeDefined();
   });
 
-  test('an administrator cannot read an order at all', async () => {
-    const useCase = new GetOrderUseCase(unitOfWorkOf(world(live)));
+  test('an administrator reads an order, live or closed', async () => {
+    const useCase = new GetOrderUseCase(unitOfWorkOf(world([tableWith(1), counterOrder()])));
 
     await expect(
       useCase.execute({ actorUserId: admin.id, orderId: new OrderID('10') }),
-    ).rejects.toBeInstanceOf(ForbiddenError);
+    ).resolves.toBeDefined();
+    await expect(
+      useCase.execute({ actorUserId: admin.id, orderId: new OrderID('20') }),
+    ).resolves.toBeDefined();
   });
 });

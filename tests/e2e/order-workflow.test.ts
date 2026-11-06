@@ -338,15 +338,17 @@ describe.skipIf(!TEST_DATABASE_URL)('order workflow API', () => {
       expect(response.status).toBe(400);
     });
 
-    test('an administrator cannot change prices', async () => {
+    test('an administrator at the till may adjust the price too', async () => {
       const order = await openTable();
+      await addCoffee(order.id, 1);
+
       const response = await request(`/orders/${order.id}/pricing`, {
         method: 'PATCH',
         token: adminToken,
-        body: { applyServiceFee: false },
+        body: { adjustment: { type: 'DISCOUNT', mode: 'FIXED', value: 100 } },
       });
 
-      expect(response.status).toBe(403);
+      expect((await json<OrderDto>(response)).totalCents).toBe(900);
     });
   });
 
@@ -424,16 +426,21 @@ describe.skipIf(!TEST_DATABASE_URL)('order workflow API', () => {
       expect(again.status).toBe(409);
     });
 
-    test('only roles that edit orders may remove a line', async () => {
+    test('the cashier may remove a line too, but an administrator may not', async () => {
       const order = await openTable();
       await addCoffee(order.id, 1);
 
-      const response = await request(`/orders/${order.id}/items/${itemId}`, {
+      const forbidden = await request(`/orders/${order.id}/items/${itemId}`, {
+        method: 'DELETE',
+        token: adminToken,
+      });
+      const allowed = await request(`/orders/${order.id}/items/${itemId}`, {
         method: 'DELETE',
         token: cashierToken,
       });
 
-      expect(response.status).toBe(403);
+      expect(forbidden.status).toBe(403);
+      expect(allowed.status).toBe(200);
     });
   });
 

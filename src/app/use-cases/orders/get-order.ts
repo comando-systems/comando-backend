@@ -1,4 +1,4 @@
-import { requireActor } from '@/app/authorization';
+import { requireActorAny } from '@/app/authorization';
 import { ForbiddenError, NotFoundError } from '@/app/errors';
 import type { UnitOfWork } from '@/app/ports/unit-of-work';
 import { isLiveStatus, LIVE_VIEW_PERMISSIONS } from '@/app/use-cases/orders/live-orders';
@@ -16,15 +16,8 @@ export class GetOrderUseCase {
 
   async execute(input: GetOrderInput): Promise<Order> {
     return this.unitOfWork.read(async (repositories) => {
-      const actor = await requireActor(repositories, input.actorUserId);
-
       // Without the history permission the actor may only follow orders that are still live.
-      if (
-        !actor.hasPermission('orders:history') &&
-        !LIVE_VIEW_PERMISSIONS.some((permission) => actor.hasPermission(permission))
-      ) {
-        throw new ForbiddenError();
-      }
+      const actor = await requireActorAny(repositories, input.actorUserId, LIVE_VIEW_PERMISSIONS);
 
       const order = await repositories.orders.findById(input.orderId);
 

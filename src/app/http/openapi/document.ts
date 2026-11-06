@@ -344,7 +344,7 @@ const operations: readonly OperationSpec[] = [
     summary: 'Create a counter order',
     description:
       'Creates the order with all its lines and persists it as `CLOSED` in one transaction. The server calculates the total, and the payments must add up to it exactly. A zero-total order needs no payments.',
-    roles: ['CASHIER'],
+    roles: ['ADMIN', 'CASHIER'],
     request: 'CreateCounterOrderRequest',
     success: { status: 201, description: 'The closed order.', schema: 'Order' },
     errors: [400, 401, 403, 404, 409],
@@ -357,7 +357,7 @@ const operations: readonly OperationSpec[] = [
     summary: 'Open a table order',
     description:
       'A table is occupied while its order is open or awaiting payment. Opening it again answers `409` with code `TABLE_OCCUPIED` and the existing order in `error.details.orderId`.',
-    roles: ['SERVER'],
+    roles: ['CASHIER', 'SERVER'],
     request: 'OpenTableOrderRequest',
     success: { status: 201, description: 'The open order.', schema: 'Order' },
     errors: [400, 401, 403, 409],
@@ -370,7 +370,7 @@ const operations: readonly OperationSpec[] = [
     summary: 'List orders',
     description:
       'Newest first. Servers and cashiers may list the orders still being served (`OPEN`, `AWAITING_PAYMENT`) by passing `status` or `statuses` with only those values. Anything that can include a closed or canceled order is history and needs the cashier role.',
-    roles: ['CASHIER', 'SERVER'],
+    roles: ['ADMIN', 'CASHIER', 'SERVER'],
     parameters: [
       ...pagination,
       {
@@ -420,7 +420,7 @@ const operations: readonly OperationSpec[] = [
     tag: 'Orders',
     summary: 'Read an order',
     description: 'Servers can read an order only while it is open or awaiting payment.',
-    roles: ['CASHIER', 'SERVER'],
+    roles: ['ADMIN', 'CASHIER', 'SERVER'],
     parameters: [idParameter('id', 'Order identifier.')],
     success: { status: 200, description: 'The order.', schema: 'Order' },
     errors: [400, 401, 403, 404],
@@ -432,7 +432,7 @@ const operations: readonly OperationSpec[] = [
     tag: 'Orders',
     summary: 'Add items to an open table order',
     description: 'Adding an item that is already on the order increases the quantity of its line.',
-    roles: ['SERVER'],
+    roles: ['CASHIER', 'SERVER'],
     parameters: [idParameter('id', 'Order identifier.')],
     request: 'AddOrderItemsRequest',
     success: { status: 200, description: 'The updated order.', schema: 'Order' },
@@ -444,7 +444,7 @@ const operations: readonly OperationSpec[] = [
     operationId: 'changeOrderItemQuantity',
     tag: 'Orders',
     summary: 'Set the quantity of a line',
-    roles: ['SERVER'],
+    roles: ['CASHIER', 'SERVER'],
     parameters: [
       idParameter('id', 'Order identifier.'),
       idParameter('itemId', 'Identifier of the item on the line.'),
@@ -459,7 +459,7 @@ const operations: readonly OperationSpec[] = [
     operationId: 'removeOrderItem',
     tag: 'Orders',
     summary: 'Remove a line from a table order',
-    roles: ['SERVER'],
+    roles: ['CASHIER', 'SERVER'],
     parameters: [
       idParameter('id', 'Order identifier.'),
       idParameter('itemId', 'Identifier of the item on the line.'),
@@ -475,7 +475,7 @@ const operations: readonly OperationSpec[] = [
     summary: 'Set the adjustment or the service fee',
     description:
       'Sets or clears (`null`) a discount or surcharge, and switches the service fee. The server calculates the total: subtotal, then the adjustment, then the fee on the adjusted amount. Allowed while the order is open or awaiting payment.',
-    roles: ['CASHIER', 'SERVER'],
+    roles: ['ADMIN', 'CASHIER', 'SERVER'],
     parameters: [idParameter('id', 'Order identifier.')],
     request: 'SetOrderPricingRequest',
     success: { status: 200, description: 'The updated order.', schema: 'Order' },
@@ -513,7 +513,7 @@ const operations: readonly OperationSpec[] = [
     summary: 'Close a table order',
     description:
       'Closes an order that is open or awaiting payment. The payments must add up to the total exactly, including the service fee. For cash, send `receivedCents` and the server derives the change. `CLOSED` is terminal.',
-    roles: ['CASHIER', 'SERVER'],
+    roles: ['ADMIN', 'CASHIER'],
     parameters: [idParameter('id', 'Order identifier.')],
     request: 'CloseOrderRequest',
     success: { status: 200, description: 'The closed order.', schema: 'Order' },
@@ -526,7 +526,7 @@ const operations: readonly OperationSpec[] = [
     tag: 'Orders',
     summary: 'Cancel a table order',
     description: 'Cancels an order that is open or awaiting payment. `CANCELED` is terminal.',
-    roles: ['CASHIER', 'SERVER'],
+    roles: ['ADMIN', 'CASHIER', 'SERVER'],
     parameters: [idParameter('id', 'Order identifier.')],
     success: { status: 200, description: 'The canceled order.', schema: 'Order' },
     errors: [400, 401, 403, 404, 409],

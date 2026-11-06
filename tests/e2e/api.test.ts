@@ -548,7 +548,7 @@ describe.skipIf(!TEST_DATABASE_URL)('HTTP API', () => {
       (
         await request('/orders/table', {
           method: 'POST',
-          token: cashierToken,
+          token: adminToken,
           body: { tableCode: 'T-02' },
         })
       ).status,
@@ -582,7 +582,7 @@ describe.skipIf(!TEST_DATABASE_URL)('HTTP API', () => {
       (
         await request(`/orders/${order.id}/items`, {
           method: 'POST',
-          token: cashierToken,
+          token: adminToken,
           body: { items: [{ itemId: coffee.id, quantity: 1 }] },
         })
       ).status,

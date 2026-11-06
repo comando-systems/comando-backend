@@ -30,33 +30,63 @@ describe('User', () => {
     const user = createUser({ roles: ['CASHIER', 'SERVER'] });
 
     expect(user.hasPermission('orders:counter')).toBe(true);
+    expect(user.hasPermission('orders:open')).toBe(true);
     expect(user.hasPermission('orders:close')).toBe(true);
-    expect(user.hasPermission('orders:cancel')).toBe(true);
     expect(user.hasPermission('users:manage')).toBe(false);
-    expect(permissionsForRoles(['ADMIN'])).toEqual(
-      new Set(['users:manage', 'items:manage', 'settings:manage', 'reports:view']),
-    );
+    expect(createUser({ roles: ['SERVER', 'ADMIN'] }).hasPermission('users:manage')).toBe(true);
   });
 
-  test('grants closing and cancellation to cashiers and servers', () => {
-    expect(permissionsForRoles(['CASHIER'])).toEqual(
-      new Set([
+  // The table from ADR-02.
+  test.each([
+    [
+      'ADMIN',
+      [
+        'users:manage',
+        'items:manage',
+        'settings:manage',
+        'reports:view',
         'orders:counter',
         'orders:history',
-        'orders:request-payment',
         'orders:close',
         'orders:cancel',
-      ]),
-    );
-    expect(permissionsForRoles(['SERVER'])).toEqual(
-      new Set([
+      ],
+    ],
+    [
+      'CASHIER',
+      [
+        'orders:counter',
+        'orders:history',
         'orders:open',
         'orders:update',
         'orders:request-payment',
         'orders:close',
         'orders:cancel',
-      ]),
-    );
+      ],
+    ],
+    ['SERVER', ['orders:open', 'orders:update', 'orders:request-payment', 'orders:cancel']],
+  ] as const)('grants %s exactly its permissions', (role, permissions) => {
+    expect(permissionsForRoles([role])).toEqual(new Set(permissions));
+  });
+
+  test('a server hands tables over but cannot take payment', () => {
+    const server = createUser({ roles: ['SERVER'] });
+
+    expect(server.hasPermission('orders:request-payment')).toBe(true);
+    expect(server.hasPermission('orders:close')).toBe(false);
+    expect(server.hasPermission('orders:counter')).toBe(false);
+    expect(server.hasPermission('orders:history')).toBe(false);
+  });
+
+  test('a cashier also opens and edits tables, and an administrator can run the till', () => {
+    const cashier = createUser({ roles: ['CASHIER'] });
+    const admin = createUser({ roles: ['ADMIN'] });
+
+    expect(cashier.hasPermission('orders:open')).toBe(true);
+    expect(cashier.hasPermission('orders:update')).toBe(true);
+    expect(admin.hasPermission('orders:counter')).toBe(true);
+    expect(admin.hasPermission('orders:close')).toBe(true);
+    expect(admin.hasPermission('orders:open')).toBe(false);
+    expect(admin.hasPermission('orders:request-payment')).toBe(false);
   });
 
   test('rejects invalid data', () => {
