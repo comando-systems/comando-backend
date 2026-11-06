@@ -13,6 +13,7 @@ export const ROLES: readonly Role[] = Object.freeze(['ADMIN', 'CASHIER', 'SERVER
 export type Permission =
   | 'users:manage'
   | 'items:manage'
+  | 'settings:manage'
   | 'orders:counter'
   | 'orders:history'
   | 'orders:open'
@@ -22,7 +23,7 @@ export type Permission =
   | 'orders:close';
 
 const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
-  ADMIN: ['users:manage', 'items:manage'],
+  ADMIN: ['users:manage', 'items:manage', 'settings:manage'],
   CASHIER: [
     'orders:counter',
     'orders:history',
@@ -201,6 +202,15 @@ export class User {
     const timestamp = requireValidDate(now, 'Now');
     this.props.deletedAt = timestamp;
     this.props.updatedAt = timestamp;
+  }
+
+  activate(now: Date): void {
+    if (this.isActive) {
+      throw new InvariantViolationError('User is already active');
+    }
+
+    this.props.deletedAt = null;
+    this.props.updatedAt = requireValidDate(now, 'Now');
   }
 
   changePasswordHash(passwordHash: string, now: Date): void {

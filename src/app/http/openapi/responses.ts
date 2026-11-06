@@ -24,8 +24,12 @@ export const itemResponseSchema = z.object({
   id: identifier,
   name: z.string(),
   description: z.string().nullable(),
+  category: z.string().describe('Groups the catalog on the sales screen.'),
   priceCents: cents,
   imageUrl: z.string().nullable(),
+  enabled: z
+    .boolean()
+    .describe('The "Active" switch: a disabled item stays editable but cannot be sold.'),
   isActive: z.boolean().describe('False once the item was removed from the active catalog.'),
   createdAt: timestamp,
   updatedAt: timestamp,
@@ -89,6 +93,12 @@ export const loginResponseSchema = z.object({
   accessToken: z.string().describe('JWT to send as `Authorization: Bearer <token>`.'),
   expiresAt: timestamp,
   user: userResponseSchema,
+});
+
+export const settingsResponseSchema = z.object({
+  serviceFeeEnabled: z.boolean(),
+  serviceFeeBasisPoints: z.number().int().describe('10% is 1000.'),
+  updatedAt: timestamp,
 });
 
 export const healthResponseSchema = z.object({ status: z.literal('ok') });

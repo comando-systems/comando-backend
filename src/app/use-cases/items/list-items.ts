@@ -27,10 +27,14 @@ export class ListItemsUseCase {
     return this.unitOfWork.read(async (repositories) => {
       const actor = await requireActor(repositories, input.actorUserId);
 
+      const manages = actor.hasPermission('items:manage');
+
       return repositories.items.list({
         page,
         pageSize,
-        includeRemoved: input.includeRemoved === true && actor.hasPermission('items:manage'),
+        includeRemoved: input.includeRemoved === true && manages,
+        // Whoever serves customers only sees what can be sold; administrators see disabled items too.
+        sellableOnly: !manages,
       });
     });
   }

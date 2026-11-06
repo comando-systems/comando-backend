@@ -80,8 +80,10 @@ The document is built in code (`src/app/http/openapi/`). Request bodies reuse th
 | `POST` | `/users` | `ADMIN` | Create a user. |
 | `GET` | `/users` | `ADMIN` | List users with pagination. |
 | `GET` | `/users/:id` | `ADMIN` | Read a user. |
-| `PATCH` | `/users/:id` | `ADMIN` | Update name, email, password, or roles. |
+| `PATCH` | `/users/:id` | `ADMIN` | Update name, email, password, or roles; `isActive: true` reactivates a user. |
 | `DELETE` | `/users/:id` | `ADMIN` | Deactivate a user (soft delete). |
+| `GET` | `/settings` | Authenticated | Read the service fee settings. |
+| `PUT` | `/settings` | `ADMIN` | Turn the service fee on or off and set its rate. |
 | `POST` | `/items` | `ADMIN` | Create a catalog item. |
 | `GET` | `/items` | Authenticated | List the active catalog. |
 | `GET` | `/items/:id` | Authenticated | Read an active item. |
@@ -147,6 +149,14 @@ Close an order:
 ```
 
 Payment methods are `CASH`, `DEBIT_CARD`, `CREDIT_CARD`, `PIX`, and `OTHER`.
+
+### Catalog, settings, and users
+
+Items have a `category` (default `Uncategorized`) and an `enabled` switch. A disabled item stays editable and visible to administrators, but cannot be sold: it is hidden from everyone else and cannot be added to an order. `isActive` still means "not removed from the catalog". The catalog is ordered by category, then name.
+
+`GET /settings` and `PUT /settings` manage the service fee. It starts off, `serviceFeeBasisPoints` is 1000 (10%) by default, and an order keeps the rate it snapshotted, so changing the settings never alters existing orders.
+
+Passwords need 8 to 128 characters. A deactivated user can only be edited by sending `isActive: true`. To avoid locking everyone out, an administrator cannot deactivate or demote themselves (`CANNOT_DEACTIVATE_SELF`, `CANNOT_REMOVE_OWN_ADMIN`) and the last active administrator cannot be removed (`LAST_ADMIN`); concurrent changes are serialized with a database lock.
 
 ### Order workflow
 

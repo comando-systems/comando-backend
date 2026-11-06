@@ -18,7 +18,7 @@ export class GetItemUseCase {
       const actor = await requireActor(repositories, input.actorUserId);
       const item = await repositories.items.findById(input.itemId);
 
-      if (item === null || (!item.isActive && !actor.hasPermission('items:manage'))) {
+      if (item === null || (!item.isSellable && !actor.hasPermission('items:manage'))) {
         throw new NotFoundError('Item not found');
       }
 
