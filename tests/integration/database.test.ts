@@ -57,12 +57,31 @@ describe.skipIf(!TEST_DATABASE_URL)('database adapters', () => {
   });
 
   test('generates increasing identifiers from a sequence', async () => {
-    const ids = new SequenceIdGenerator(database.write, 'orders_id_seq');
+    const ids = new SequenceIdGenerator(() => database.writeSql(), 'orders_id_seq');
     const first = Number(await ids.next());
     const second = Number(await ids.next());
 
     expect(second).toBeGreaterThan(first);
   });
+
+  test('drawing an id inside a transaction does not need a second connection', async () => {
+    const ids = new SequenceIdGenerator(() => database.writeSql(), 'orders_id_seq');
+
+    // More concurrent transactions than pool connections: if each took a second connection for
+    // its id, every connection would be held by a transaction waiting for another and none
+    // could finish.
+    const drawn = await Promise.all(
+      Array.from({ length: 40 }, () =>
+        database.transaction(async () => {
+          const id = await ids.next();
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          return id;
+        }),
+      ),
+    );
+
+    expect(new Set(drawn).size).toBe(40);
+  }, 20_000);
 
   test('sends structured values to the database as JSON', async () => {
     const rows = await database.write.query<{ value: { a: number } }[]>`
@@ -89,7 +108,9 @@ describe.skipIf(!TEST_DATABASE_URL)('database adapters', () => {
     const coffee = await create('Coffee', 750);
     const cake = await create('Cake', 300);
     const order = Order.createCounter({
-      id: new OrderID(await new SequenceIdGenerator(database.write, 'orders_id_seq').next()),
+      id: new OrderID(
+        await new SequenceIdGenerator(() => database.writeSql(), 'orders_id_seq').next(),
+      ),
       openedByUserId: user.id,
       lines: [
         { item: coffee, quantity: 1 },

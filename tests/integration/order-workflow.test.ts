@@ -36,7 +36,7 @@ describe.skipIf(!TEST_DATABASE_URL)('order workflow persistence', () => {
     await database.close();
   });
 
-  const orderIds = () => new SequenceIdGenerator(database.write, 'orders_id_seq');
+  const orderIds = () => new SequenceIdGenerator(() => database.writeSql(), 'orders_id_seq');
 
   function createUser(roles: readonly Role[]): Promise<User> {
     return unitOfWork.run((repos) =>

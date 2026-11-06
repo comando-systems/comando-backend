@@ -32,7 +32,7 @@ describe.skipIf(!TEST_DATABASE_URL)('PostgreSQL repositories', () => {
     await database.close();
   });
 
-  const orderIds = () => new SequenceIdGenerator(database.write, 'orders_id_seq');
+  const orderIds = () => new SequenceIdGenerator(() => database.writeSql(), 'orders_id_seq');
 
   async function createUser(roles: Array<'ADMIN' | 'CASHIER' | 'SERVER'> = ['ADMIN']) {
     return unitOfWork.run((repos) =>
