@@ -455,5 +455,7 @@ GitHub Actions runs every check on each pull request and reports them through th
 
 The `Capacity` workflow (Actions, manual) answers "how many people can use this at once?" with a measurement. It starts the production build and holds 25, 50, 100, 200, 400, and 800 concurrent users (editable) for 60 seconds each. A user loops through listing items, listing orders, and ringing up a counter sale, pausing about a second between actions; sign-ins run at a steady rate. Every step reports avg, p90, p95, p99, and max per endpoint, and the run stops at the first step where an endpoint breaks p95 < 500 ms, p99 < 1 s, or 1% failures. The summary names the highest step that stayed within the budget.
 
+Last measurement (2026-11-06, GitHub-hosted runner, workflow run 42207150069): 600 concurrent users (about 600 requests/s) stayed well inside the budget (`GET /orders` p95 95 ms, p99 144 ms; sale creation p95 64 ms, p99 88 ms; sign-in p99 155 ms; no failures). At 800 users the runner saturated at about 660 requests/s and `GET /orders` reached p95 517 ms, breaking the 500 ms budget. A first run exposed a connection pool deadlock under write load (fixed by drawing ids on the transaction's connection), so rerun the workflow after any change to the database layer.
+
 Concurrent users are not registered users: with the think time above, a few hundred concurrent users stand for a much larger registered base. API, PostgreSQL, and the load generator share one CI runner, so the number is a conservative floor for a dedicated server.
 
