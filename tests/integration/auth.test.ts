@@ -8,11 +8,16 @@ import {
   GetUserUseCase,
   ListUsersUseCase,
   LoginUseCase,
+  SessionIssuer,
   UpdateUserUseCase,
 } from '@/app/use-cases';
 import type { User } from '@/domain/entity/user';
 import type { Repositories } from '@/domain/repository';
-import { BunPasswordHasher, JwtTokenService } from '@/infrastructure/authentication';
+import {
+  BunPasswordHasher,
+  JwtTokenService,
+  RandomRefreshTokenCodec,
+} from '@/infrastructure/authentication';
 import type { DatabaseConnections } from '@/infrastructure/database/connections';
 import { DatabaseUnitOfWork } from '@/infrastructure/database/unit-of-work';
 import { createRepositories } from '@/infrastructure/repositories';
@@ -59,7 +64,8 @@ describe.skipIf(!TEST_DATABASE_URL)('authentication and user administration', ()
       expiresInSeconds: 900,
       clock,
     });
-    login = new LoginUseCase(unitOfWork, passwordHasher, tokenService);
+    const sessions = new SessionIssuer(tokenService, new RandomRefreshTokenCodec(), clock, 3_600);
+    login = new LoginUseCase(unitOfWork, passwordHasher, sessions);
     createUser = new CreateUserUseCase(unitOfWork, passwordHasher, clock);
     updateUser = new UpdateUserUseCase(unitOfWork, passwordHasher, clock);
     deactivateUser = new DeactivateUserUseCase(unitOfWork, clock);

@@ -7,6 +7,10 @@ export const loginBodySchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+export const refreshBodySchema = z.object({
+  refreshToken: z.string().min(1, 'Refresh token is required').max(512),
+});
+
 const roleSchema = z.enum(['ADMIN', 'CASHIER', 'SERVER']);
 
 const passwordSchema = z

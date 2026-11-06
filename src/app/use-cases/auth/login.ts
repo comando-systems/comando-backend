@@ -1,8 +1,7 @@
 import { UnauthorizedError } from '@/app/errors';
 import type { PasswordHasher } from '@/app/ports/password-hasher';
-import type { TokenService } from '@/app/ports/token-service';
 import type { UnitOfWork } from '@/app/ports/unit-of-work';
-import type { User } from '@/domain/entity/user';
+import type { Session, SessionIssuer } from '@/app/use-cases/auth/session-issuer';
 import type { Repositories } from '@/domain/repository';
 
 export interface LoginInput {
@@ -10,23 +9,19 @@ export interface LoginInput {
   readonly password: string;
 }
 
-export interface LoginResult {
-  readonly user: User;
-  readonly accessToken: string;
-  readonly expiresAt: Date;
-}
+export type LoginResult = Session;
 
 export class LoginUseCase {
   constructor(
     private readonly unitOfWork: UnitOfWork<Repositories>,
     private readonly passwordHasher: PasswordHasher,
-    private readonly tokenService: TokenService,
+    private readonly sessions: SessionIssuer,
   ) {}
 
   async execute(input: LoginInput): Promise<LoginResult> {
     const email = input.email.trim().toLowerCase();
 
-    return this.unitOfWork.read(async (repositories) => {
+    return this.unitOfWork.run(async (repositories) => {
       const user = await repositories.users.findByEmail(email);
 
       if (user === null || !user.isActive) {
@@ -39,13 +34,7 @@ export class LoginUseCase {
         throw new UnauthorizedError('Invalid email or password');
       }
 
-      const token = await this.tokenService.issue(user);
-
-      return {
-        user,
-        accessToken: token.token,
-        expiresAt: token.expiresAt,
-      };
+      return this.sessions.open(repositories, user);
     });
   }
 }

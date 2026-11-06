@@ -1,4 +1,4 @@
-import type { LoginUseCase } from '@/app/use-cases/auth';
+import type { LoginUseCase, LogoutUseCase, RefreshSessionUseCase } from '@/app/use-cases/auth';
 import type { ItemsUseCases } from '@/app/use-cases/items';
 import type { OrdersUseCases } from '@/app/use-cases/orders';
 import type { ReportsUseCases } from '@/app/use-cases/reports';
@@ -11,7 +11,17 @@ import type {
   UpdateUserUseCase,
 } from '@/app/use-cases/users';
 
-export { type LoginInput, type LoginResult, LoginUseCase } from '@/app/use-cases/auth';
+export {
+  type LoginInput,
+  type LoginResult,
+  LoginUseCase,
+  type LogoutInput,
+  LogoutUseCase,
+  type RefreshSessionInput,
+  RefreshSessionUseCase,
+  type Session,
+  SessionIssuer,
+} from '@/app/use-cases/auth';
 export {
   type CreateItemInput,
   CreateItemUseCase,
@@ -92,6 +102,8 @@ export interface UsersUseCases {
 
 export interface UseCases {
   readonly login: LoginUseCase;
+  readonly refresh: RefreshSessionUseCase;
+  readonly logout: LogoutUseCase;
   readonly users: UsersUseCases;
   readonly items: ItemsUseCases;
   readonly orders: OrdersUseCases;

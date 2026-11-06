@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { loginRateLimitMiddleware } from '@/app/http/middleware/login-rate-limit';
-import { loginBodySchema } from '@/app/http/schemas';
-import { toUserResponse } from '@/app/http/serializers';
+import { loginBodySchema, refreshBodySchema } from '@/app/http/schemas';
+import { toSessionResponse } from '@/app/http/serializers';
 import type { AppContainer, AppEnv } from '@/app/http/types';
 import { parseJson } from '@/app/http/validation';
 
@@ -18,13 +18,28 @@ export function authRoutes(container: AppContainer): Hono<AppEnv> {
       const body = await parseJson(context, loginBodySchema);
       const result = await container.useCases.login.execute(body);
 
-      return context.json({
-        accessToken: result.accessToken,
-        expiresAt: result.expiresAt.toISOString(),
-        user: toUserResponse(result.user),
-      });
+      return context.json(toSessionResponse(result));
     },
   );
+
+  // Shares the login limiter: a stolen token can be guessed no faster than a password.
+  routes.post(
+    '/refresh',
+    loginRateLimitMiddleware({
+      maxAttempts: container.config.loginRateLimitMax,
+      windowSeconds: container.config.loginRateLimitWindowSeconds,
+    }),
+    async (context) => {
+      const body = await parseJson(context, refreshBodySchema);
+      return context.json(toSessionResponse(await container.useCases.refresh.execute(body)));
+    },
+  );
+
+  routes.post('/logout', async (context) => {
+    const body = await parseJson(context, refreshBodySchema);
+    await container.useCases.logout.execute(body);
+    return context.body(null, 204);
+  });
 
   return routes;
 }

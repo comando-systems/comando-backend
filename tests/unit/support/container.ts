@@ -52,6 +52,10 @@ export function createTestContainer(environment: Record<string, string> = {}): A
         throw new Error('not used by this test');
       },
     },
+    refreshTokenCodec: {
+      generate: () => 'refresh-token',
+      hash: (token) => `hash:${token}`,
+    },
     useCases: {} as AppContainer['useCases'],
     async close() {},
   };

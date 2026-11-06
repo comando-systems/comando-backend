@@ -92,6 +92,10 @@ export const orderResponseSchema = z.object({
 export const loginResponseSchema = z.object({
   accessToken: z.string().describe('JWT to send as `Authorization: Bearer <token>`.'),
   expiresAt: timestamp,
+  refreshToken: z
+    .string()
+    .describe('Opaque token for `POST /auth/refresh`. Single use: each refresh returns a new one.'),
+  refreshExpiresAt: timestamp,
   user: userResponseSchema,
 });
 
