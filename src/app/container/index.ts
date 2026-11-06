@@ -13,6 +13,7 @@ import {
   DeactivateUserUseCase,
   GetItemUseCase,
   GetOrderUseCase,
+  GetSalesSummaryUseCase,
   GetUserUseCase,
   ListItemsUseCase,
   ListOrdersUseCase,
@@ -86,6 +87,9 @@ function createUseCases(container: {
       cancel: new CancelOrderUseCase(container.unitOfWork, container.clock),
       list: new ListOrdersUseCase(container.unitOfWork),
       get: new GetOrderUseCase(container.unitOfWork),
+    },
+    reports: {
+      salesSummary: new GetSalesSummaryUseCase(container.unitOfWork, container.clock),
     },
   };
 }

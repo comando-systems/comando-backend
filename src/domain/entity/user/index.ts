@@ -13,6 +13,7 @@ export const ROLES: readonly Role[] = Object.freeze(['ADMIN', 'CASHIER', 'SERVER
 export type Permission =
   | 'users:manage'
   | 'items:manage'
+  | 'reports:view'
   | 'orders:counter'
   | 'orders:history'
   | 'orders:open'
@@ -22,7 +23,7 @@ export type Permission =
   | 'orders:close';
 
 const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
-  ADMIN: ['users:manage', 'items:manage'],
+  ADMIN: ['users:manage', 'items:manage', 'reports:view'],
   CASHIER: [
     'orders:counter',
     'orders:history',

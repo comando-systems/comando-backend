@@ -33,7 +33,9 @@ describe('User', () => {
     expect(user.hasPermission('orders:close')).toBe(true);
     expect(user.hasPermission('orders:cancel')).toBe(true);
     expect(user.hasPermission('users:manage')).toBe(false);
-    expect(permissionsForRoles(['ADMIN'])).toEqual(new Set(['users:manage', 'items:manage']));
+    expect(permissionsForRoles(['ADMIN'])).toEqual(
+      new Set(['users:manage', 'items:manage', 'reports:view']),
+    );
   });
 
   test('grants closing and cancellation to cashiers and servers', () => {

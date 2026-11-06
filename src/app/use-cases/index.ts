@@ -1,6 +1,7 @@
 import type { LoginUseCase } from '@/app/use-cases/auth';
 import type { ItemsUseCases } from '@/app/use-cases/items';
 import type { OrdersUseCases } from '@/app/use-cases/orders';
+import type { ReportsUseCases } from '@/app/use-cases/reports';
 import type {
   CreateUserUseCase,
   DeactivateUserUseCase,
@@ -53,6 +54,12 @@ export {
   SetOrderPricingUseCase,
 } from '@/app/use-cases/orders';
 export {
+  type GetSalesSummaryInput,
+  GetSalesSummaryUseCase,
+  type ReportsUseCases,
+  type SalesSummaryResult,
+} from '@/app/use-cases/reports';
+export {
   type CreateUserInput,
   CreateUserUseCase,
   type DeactivateUserInput,
@@ -79,4 +86,5 @@ export interface UseCases {
   readonly users: UsersUseCases;
   readonly items: ItemsUseCases;
   readonly orders: OrdersUseCases;
+  readonly reports: ReportsUseCases;
 }

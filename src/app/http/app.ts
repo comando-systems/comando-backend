@@ -12,6 +12,7 @@ import { buildOpenApiDocument } from '@/app/http/openapi/document';
 import { authRoutes } from '@/app/http/routes/auth';
 import { itemRoutes } from '@/app/http/routes/items';
 import { orderRoutes } from '@/app/http/routes/orders';
+import { reportRoutes } from '@/app/http/routes/reports';
 import { userRoutes } from '@/app/http/routes/users';
 import type { AppContainer, AppEnv } from '@/app/http/types';
 
@@ -63,6 +64,7 @@ export function createApp(container: AppContainer): Hono<AppEnv> {
   app.route('/users', userRoutes(container));
   app.route('/items', itemRoutes(container));
   app.route('/orders', orderRoutes(container));
+  app.route('/reports', reportRoutes(container));
 
   app.notFound((context) =>
     context.json(
