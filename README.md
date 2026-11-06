@@ -366,6 +366,7 @@ Validate the environment at startup. Required variables include `DATABASE_READ_U
 | `NODE_ENV` | `development` | `production` turns HSTS on, the API docs off, and requires explicit CORS origins. |
 | `JWT_EXPIRES_IN_SECONDS` | `900` | Access token lifetime (60 to 86400). |
 | `REFRESH_TOKEN_TTL_SECONDS` | `2592000` | Refresh token lifetime (1 hour to 90 days). |
+| `WEB_CONCURRENCY` | `1` | Server processes sharing the port (`reusePort`). Bun runs JavaScript on one thread, so use about one per spare CPU core. Each process keeps its own database pools (about 20 connections), and the login rate limit is counted per process, so the effective limit is this many times `LOGIN_RATE_LIMIT_MAX`. A worker that exits is restarted. |
 | `CORS_ORIGIN` | `*` | Comma separated origins. `*` is rejected in production, so the API refuses to start with it. |
 | `LOGIN_RATE_LIMIT_MAX`, `LOGIN_RATE_LIMIT_WINDOW_SECONDS` | `10`, `60` | Applies to login and refresh, per client IP. |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, or `error`. |

@@ -15,6 +15,9 @@ on:
       think_seconds:
         description: Average pause between a user's actions
         default: "1"
+      web_concurrency:
+        description: API server processes sharing the port (WEB_CONCURRENCY)
+        default: "1"
       stop_on_break:
         description: Stop at the first step that breaks the budget
         type: boolean
@@ -53,9 +56,11 @@ jobs:
       - name: Create the capacity user
         run: ADMIN_EMAIL="$LOAD_EMAIL" ADMIN_PASSWORD="$LOAD_PASSWORD" bun run db:create-admin
       - name: Start the production build
+        env:
+          WEB_CONCURRENCY: ${{ inputs.web_concurrency }}
         run: |
           NODE_ENV=production CORS_ORIGIN=http://localhost HOST=127.0.0.1 PORT=3100 \
-            LOGIN_RATE_LIMIT_MAX=10000 LOG_LEVEL=warn \
+            LOGIN_RATE_LIMIT_MAX=10000 LOG_LEVEL=warn WEB_CONCURRENCY=${WEB_CONCURRENCY} \
             nohup bun dist/index.js > server.log 2>&1 &
       - run: scripts/smoke-test.sh http://127.0.0.1:3100
       - name: Step the concurrent users
