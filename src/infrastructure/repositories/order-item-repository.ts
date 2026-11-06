@@ -49,32 +49,69 @@ export class OrderItemRepository implements OrderItemRepositoryContract {
     return rows.map(mapOrderItem);
   }
 
-  async upsert(orderId: OrderID, item: OrderItem): Promise<void> {
-    const sql = this.database.writeSql();
-    await sql.query`
-      INSERT INTO order_items (
-        order_id,
-        item_id,
+  async findByOrderIds(
+    orderIds: readonly OrderID[],
+  ): Promise<ReadonlyMap<string, readonly OrderItem[]>> {
+    const grouped = new Map<string, OrderItem[]>();
+    if (orderIds.length === 0) {
+      return grouped;
+    }
+
+    const sql = this.database.readSql();
+    // A comma-joined list avoids array parameters; ids are digits only.
+    const rows = await sql.query<OrderItemRow[]>`
+      SELECT
+        order_id::text AS order_id,
+        item_id::text AS item_id,
         item_name_snapshot,
         quantity,
-        unit_price_cents,
+        unit_price_cents::text AS unit_price_cents,
         created_at,
         updated_at
-      )
-      VALUES (
-        ${orderId.value},
-        ${item.itemId.value},
-        ${item.itemName},
-        ${item.quantity},
-        ${item.unitPrice.cents},
-        ${item.createdAt},
-        ${item.updatedAt}
-      )
-      ON CONFLICT (order_id, item_id)
-      DO UPDATE SET
-        quantity = EXCLUDED.quantity,
-        updated_at = EXCLUDED.updated_at
+      FROM order_items
+      WHERE order_id = ANY(string_to_array(${orderIds.map((id) => id.value).join(',')}, ',')::bigint[])
+      ORDER BY order_id, item_id
     `;
+
+    for (const row of rows) {
+      const lines = grouped.get(row.order_id) ?? [];
+      lines.push(mapOrderItem(row));
+      grouped.set(row.order_id, lines);
+    }
+
+    return grouped;
+  }
+
+  async upsertMany(orderId: OrderID, items: readonly OrderItem[]): Promise<void> {
+    if (items.length === 0) {
+      return;
+    }
+
+    const columns = 7;
+    const params: unknown[] = [];
+    const tuples = items.map((item, index) => {
+      params.push(
+        orderId.value,
+        item.itemId.value,
+        item.itemName,
+        item.quantity,
+        item.unitPrice.cents,
+        item.createdAt,
+        item.updatedAt,
+      );
+      const base = index * columns;
+      return `(${Array.from({ length: columns }, (_, column) => `$${base + column + 1}`).join(', ')})`;
+    });
+
+    await this.database.writeSql().unsafe(
+      `INSERT INTO order_items (
+        order_id, item_id, item_name_snapshot, quantity, unit_price_cents, created_at, updated_at
+      )
+      VALUES ${tuples.join(', ')}
+      ON CONFLICT (order_id, item_id)
+      DO UPDATE SET quantity = EXCLUDED.quantity, updated_at = EXCLUDED.updated_at`,
+      params,
+    );
   }
 
   async delete(orderId: OrderID, itemId: ItemID): Promise<void> {

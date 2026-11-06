@@ -217,8 +217,8 @@ describe.skipIf(!TEST_DATABASE_URL)('PostgreSQL repositories', () => {
     }
 
     await unitOfWork.run(async (repos) => {
-      await repos.orderItems.upsert(order.id, line);
-      await repos.orderItems.upsert(order.id, line);
+      await repos.orderItems.upsertMany(order.id, [line]);
+      await repos.orderItems.upsertMany(order.id, [line]);
       await repos.orders.save(closed as Order);
     });
 
@@ -228,6 +228,81 @@ describe.skipIf(!TEST_DATABASE_URL)('PostgreSQL repositories', () => {
 
     const reclosed = await unitOfWork.run((repos) => repos.orders.findById(order.id));
     expect(reclosed?.payments).toHaveLength(2);
+  });
+
+  test('lists a page with each order carrying only its own lines and payments', async () => {
+    const cashier = await createUser(['CASHIER']);
+    const coffee = await createItem('Coffee', 750);
+    const cake = await createItem('Cake', 300);
+    const make = async (
+      lines: Array<{ item: Item; quantity: number }>,
+      payments: Array<{ method: 'CASH' | 'PIX'; amountCents: number }>,
+      at: Date,
+    ) => {
+      const order = Order.createCounter({
+        id: new OrderID(await orderIds().next()),
+        openedByUserId: cashier.id,
+        lines,
+        payments,
+        now: at,
+      });
+      await unitOfWork.run((repos) => repos.orders.create(order));
+      return order;
+    };
+
+    const first = await make(
+      [{ item: coffee, quantity: 1 }],
+      [{ method: 'CASH', amountCents: 750 }],
+      now,
+    );
+    const second = await make(
+      [
+        { item: coffee, quantity: 2 },
+        { item: cake, quantity: 1 },
+      ],
+      [
+        { method: 'CASH', amountCents: 1000 },
+        { method: 'PIX', amountCents: 800 },
+      ],
+      later,
+    );
+    const table = Order.openTable({
+      id: new OrderID(await orderIds().next()),
+      openedByUserId: cashier.id,
+      tableCode: 'T-09',
+      now: later,
+    });
+    await unitOfWork.run((repos) => repos.orders.create(table));
+
+    const page = await unitOfWork.run((repos) => repos.orders.list({ page: 1, pageSize: 10 }));
+
+    expect(page.total).toBe(3);
+    const byId = new Map(page.orders.map((order) => [order.id.value, order]));
+    expect(byId.get(first.id.value)?.items.map((line) => line.quantity)).toEqual([1]);
+    expect(byId.get(first.id.value)?.payments.map((payment) => payment.amountCents)).toEqual([750]);
+    expect(byId.get(second.id.value)?.items).toHaveLength(2);
+    expect(byId.get(second.id.value)?.payments.map((payment) => payment.method)).toEqual([
+      'CASH',
+      'PIX',
+    ]);
+    expect(byId.get(table.id.value)?.items).toEqual([]);
+    expect(byId.get(table.id.value)?.payments).toEqual([]);
+
+    const live = await unitOfWork.run((repos) =>
+      repos.orders.list({ page: 1, pageSize: 10, statuses: ['OPEN', 'AWAITING_PAYMENT'] }),
+    );
+    expect(live.orders.map((order) => order.id.value)).toEqual([table.id.value]);
+
+    const closedCounter = await unitOfWork.run((repos) =>
+      repos.orders.list({ page: 1, pageSize: 1, status: 'CLOSED', type: 'COUNTER' }),
+    );
+    expect(closedCounter.total).toBe(2);
+    expect(closedCounter.orders).toHaveLength(1);
+
+    const empty = await unitOfWork.run((repos) =>
+      repos.orders.list({ page: 1, pageSize: 10, tableCode: 'T-404' }),
+    );
+    expect(empty).toEqual({ orders: [], total: 0 });
   });
 
   test('rolls back the whole transaction on failure', async () => {
