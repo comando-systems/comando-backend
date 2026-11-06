@@ -35,7 +35,7 @@ export const itemResponseSchema = z.object({
   updatedAt: timestamp,
 });
 
-export const orderItemResponseSchema = z.object({
+const orderItemResponseSchema = z.object({
   itemId: identifier,
   itemName: z.string().describe('Name of the item when it was ordered.'),
   quantity: z.number().int(),
@@ -45,14 +45,14 @@ export const orderItemResponseSchema = z.object({
   lineTotalCents: cents,
 });
 
-export const orderPaymentResponseSchema = z.object({
+const orderPaymentResponseSchema = z.object({
   method: paymentMethodSchema,
   amountCents: cents,
   receivedCents: cents.nullable().describe('Cash handed over; only for CASH payments.'),
   changeCents: cents.nullable().describe('Derived by the server: received minus the amount.'),
 });
 
-export const orderAdjustmentResponseSchema = z.object({
+const orderAdjustmentResponseSchema = z.object({
   type: z.enum(['DISCOUNT', 'SURCHARGE']),
   mode: z.enum(['PERCENT', 'FIXED']),
   value: z.number().int().describe('Basis points for PERCENT (1000 is 10%), cents for FIXED.'),

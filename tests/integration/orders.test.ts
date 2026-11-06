@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
 import { requireActor } from '@/app/authorization';
 import { ForbiddenError } from '@/app/errors';
-import type { Clock } from '@/app/ports/clock';
 import {
   AddOrderItemsUseCase,
   CancelOrderUseCase,
@@ -22,21 +21,10 @@ import type { DatabaseConnections } from '@/infrastructure/database/connections'
 import { SequenceIdGenerator } from '@/infrastructure/database/sequence-id-generator';
 import { DatabaseUnitOfWork } from '@/infrastructure/database/unit-of-work';
 import { createRepositories } from '@/infrastructure/repositories';
+import { MutableClock } from '../support/clock';
 import { createTestDatabase, resetDatabase, TEST_DATABASE_URL } from './support/database';
 
 const initialNow = new Date('2026-01-01T12:00:00.000Z');
-
-class MutableClock implements Clock {
-  constructor(private current: Date) {}
-
-  now(): Date {
-    return new Date(this.current.getTime());
-  }
-
-  advance(seconds: number): void {
-    this.current = new Date(this.current.getTime() + seconds * 1_000);
-  }
-}
 
 describe.skipIf(!TEST_DATABASE_URL)('order application use cases', () => {
   let database: DatabaseConnections;

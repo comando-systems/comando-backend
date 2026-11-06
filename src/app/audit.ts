@@ -18,12 +18,6 @@ export type AuditAction =
   | 'order.cancel'
   | 'auth.refresh.reuse';
 
-// Carried by use case inputs so an audit row can be traced back to its request log line.
-export interface AuditContext {
-  readonly actorUserId: UserID;
-  readonly requestId?: string;
-}
-
 // Written in the caller's transaction, so an action and its audit row commit together.
 export async function recordAudit(
   repositories: Repositories,

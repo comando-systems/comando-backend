@@ -1,4 +1,3 @@
-import type { Context } from 'hono';
 import type { AppConfig } from '@/app/config';
 import type { Clock } from '@/app/ports/clock';
 import type { IdGenerator } from '@/app/ports/id-generator';
@@ -38,5 +37,3 @@ export interface AppEnv {
     actorUserId: UserID;
   };
 }
-
-export type AppContext = Context<AppEnv>;

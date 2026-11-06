@@ -1,21 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import { UnauthorizedError } from '@/app/errors';
-import type { Clock } from '@/app/ports/clock';
 import { User } from '@/domain/entity/user';
 import { UserID } from '@/domain/value-objects/ids';
 import { JwtTokenService } from '@/infrastructure/authentication/jwt-token-service';
-
-class MutableClock implements Clock {
-  constructor(private current: Date) {}
-
-  now(): Date {
-    return new Date(this.current.getTime());
-  }
-
-  advance(seconds: number): void {
-    this.current = new Date(this.current.getTime() + seconds * 1_000);
-  }
-}
+import { MutableClock } from '../../support/clock';
 
 const now = new Date('2026-01-01T12:00:00.000Z');
 
@@ -31,7 +19,7 @@ function createUser(): User {
 }
 
 function createService(
-  clock: Clock,
+  clock: MutableClock,
   overrides: Partial<{
     secret: string;
     issuer: string;
