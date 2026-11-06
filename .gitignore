@@ -35,3 +35,7 @@ IMPLEMENTATION_PLAN.md
 
 # Finder (MacOS) folder config
 .DS_Store
+
+# Capacity run output
+capacity/
+k6-summary.json
