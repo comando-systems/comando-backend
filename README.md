@@ -451,3 +451,9 @@ Use a separate database for tests; the helpers truncate tables. Heavy tests, suc
 
 GitHub Actions runs every check on each pull request and reports them through the single `CI Gate` job: lint and types, commit messages, PR title, unit, integration, API tests, coverage, migrations up/down, production build and smoke test, Docker image, load test, and secret and dependency scans. Commit messages and PR titles follow Conventional Commits, enforced locally by Husky and commitlint.
 
+### Capacity test
+
+The `Capacity` workflow (Actions, manual) answers "how many people can use this at once?" with a measurement. It starts the production build and holds 25, 50, 100, 200, 400, and 800 concurrent users (editable) for 60 seconds each. A user loops through listing items, listing orders, and ringing up a counter sale, pausing about a second between actions; sign-ins run at a steady rate. Every step reports avg, p90, p95, p99, and max per endpoint, and the run stops at the first step where an endpoint breaks p95 < 500 ms, p99 < 1 s, or 1% failures. The summary names the highest step that stayed within the budget.
+
+Concurrent users are not registered users: with the think time above, a few hundred concurrent users stand for a much larger registered base. API, PostgreSQL, and the load generator share one CI runner, so the number is a conservative floor for a dedicated server.
+
