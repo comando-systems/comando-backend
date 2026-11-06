@@ -55,7 +55,7 @@ jobs:
       - name: Start the production build
         run: |
           NODE_ENV=production CORS_ORIGIN=http://localhost HOST=127.0.0.1 PORT=3100 \
-            LOGIN_RATE_LIMIT_MAX=100000 LOG_LEVEL=warn \
+            LOGIN_RATE_LIMIT_MAX=10000 LOG_LEVEL=warn \
             nohup bun dist/index.js > server.log 2>&1 &
       - run: scripts/smoke-test.sh http://127.0.0.1:3100
       - name: Step the concurrent users
