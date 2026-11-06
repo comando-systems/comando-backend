@@ -24,6 +24,8 @@ const configSchema = z
     REFRESH_TOKEN_TTL_SECONDS: z.coerce.number().int().min(3_600).max(7_776_000).default(2_592_000),
     // Server processes sharing the port. Each opens its own database pools.
     WEB_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(1),
+    // How long list totals are reused (ms). 0 counts on every request.
+    LIST_COUNT_CACHE_TTL_MS: z.coerce.number().int().min(0).max(60_000).default(2_000),
     CORS_ORIGIN: z.string().min(1).default('*'),
     BODY_LIMIT_BYTES: z.coerce.number().int().min(1_024).max(10_485_760).default(1_048_576),
     LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(10_000).default(10),
@@ -61,6 +63,7 @@ export interface AppConfig {
   readonly jwtExpiresInSeconds: number;
   readonly refreshTokenTtlSeconds: number;
   readonly webConcurrency: number;
+  readonly listCountCacheTtlMs: number;
   readonly corsOrigin: string;
   readonly bodyLimitBytes: number;
   readonly loginRateLimitMax: number;
@@ -103,6 +106,7 @@ export function loadConfig(
     jwtExpiresInSeconds: value.JWT_EXPIRES_IN_SECONDS,
     refreshTokenTtlSeconds: value.REFRESH_TOKEN_TTL_SECONDS,
     webConcurrency: value.WEB_CONCURRENCY,
+    listCountCacheTtlMs: value.LIST_COUNT_CACHE_TTL_MS,
     corsOrigin: value.CORS_ORIGIN,
     bodyLimitBytes: value.BODY_LIMIT_BYTES,
     loginRateLimitMax: value.LOGIN_RATE_LIMIT_MAX,

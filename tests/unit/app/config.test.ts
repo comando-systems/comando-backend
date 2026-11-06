@@ -20,6 +20,7 @@ describe('loadConfig', () => {
     expect(config.jwtExpiresInSeconds).toBe(900);
     expect(config.refreshTokenTtlSeconds).toBe(2_592_000);
     expect(config.webConcurrency).toBe(1);
+    expect(config.listCountCacheTtlMs).toBe(2_000);
     expect(config.logLevel).toBe('info');
   });
 
@@ -64,6 +65,7 @@ describe('loadConfig', () => {
       JWT_EXPIRES_IN_SECONDS: '120',
       REFRESH_TOKEN_TTL_SECONDS: '7200',
       WEB_CONCURRENCY: '4',
+      LIST_COUNT_CACHE_TTL_MS: '500',
       LOG_LEVEL: 'debug',
     });
 
@@ -71,6 +73,7 @@ describe('loadConfig', () => {
     expect(config.jwtExpiresInSeconds).toBe(120);
     expect(config.refreshTokenTtlSeconds).toBe(7200);
     expect(config.webConcurrency).toBe(4);
+    expect(config.listCountCacheTtlMs).toBe(500);
     expect(config.logLevel).toBe('debug');
   });
 

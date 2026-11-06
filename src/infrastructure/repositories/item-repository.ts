@@ -8,6 +8,7 @@ import type {
 import { ItemID } from '@/domain/value-objects/ids';
 import { Money } from '@/domain/value-objects/money';
 import type { DatabaseConnections } from '@/infrastructure/database/connections';
+import type { CountCache } from '@/infrastructure/database/count-cache';
 import { toDate, toNullableDate } from '@/infrastructure/repositories/mapping';
 
 interface ItemRow {
@@ -39,7 +40,10 @@ function mapItem(row: ItemRow): Item {
 }
 
 export class ItemRepository implements ItemRepositoryContract {
-  constructor(private readonly database: DatabaseConnections) {}
+  constructor(
+    private readonly database: DatabaseConnections,
+    private readonly counts: CountCache,
+  ) {}
 
   async findById(id: ItemID): Promise<Item | null> {
     const sql = this.database.readSql();
@@ -155,12 +159,15 @@ export class ItemRepository implements ItemRepositoryContract {
     const offset = (options.page - 1) * options.pageSize;
     const includeRemoved = options.includeRemoved === true;
     const sellableOnly = options.sellableOnly === true;
-    const countRows = await sql.query<{ count: string }[]>`
-      SELECT COUNT(*)::text AS count
-      FROM items
-      WHERE (${includeRemoved}::boolean OR deleted_at IS NULL)
-        AND (NOT ${sellableOnly}::boolean OR (deleted_at IS NULL AND active))
-    `;
+    const total = await this.counts.get(`items|${includeRemoved}|${sellableOnly}`, async () => {
+      const countRows = await sql.query<{ count: string }[]>`
+        SELECT COUNT(*)::text AS count
+        FROM items
+        WHERE (${includeRemoved}::boolean OR deleted_at IS NULL)
+          AND (NOT ${sellableOnly}::boolean OR (deleted_at IS NULL AND active))
+      `;
+      return Number(countRows[0]?.count ?? 0);
+    });
     const rows = await sql.query<ItemRow[]>`
       SELECT
         id::text AS id,
@@ -183,7 +190,7 @@ export class ItemRepository implements ItemRepositoryContract {
 
     return {
       items: rows.map(mapItem),
-      total: Number(countRows[0]?.count ?? 0),
+      total,
     };
   }
 }

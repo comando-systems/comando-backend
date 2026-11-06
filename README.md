@@ -367,6 +367,7 @@ Validate the environment at startup. Required variables include `DATABASE_READ_U
 | `JWT_EXPIRES_IN_SECONDS` | `900` | Access token lifetime (60 to 86400). |
 | `REFRESH_TOKEN_TTL_SECONDS` | `2592000` | Refresh token lifetime (1 hour to 90 days). |
 | `WEB_CONCURRENCY` | `1` | Server processes sharing the port (`reusePort`). Bun runs JavaScript on one thread, so use about one per spare CPU core. Each process keeps its own database pools (about 20 connections), and the login rate limit is counted per process, so the effective limit is this many times `LOGIN_RATE_LIMIT_MAX`. A worker that exits is restarted. |
+| `LIST_COUNT_CACHE_TTL_MS` | `2000` | List totals (`pagination.total` of orders and items) are reused for this long, and concurrent requests share one `COUNT(*)`. The count over the ever-growing orders table was the most expensive query of every page request. A total can lag a write by up to this many milliseconds (per process); the page itself is always current. `0` counts every time. |
 | `CORS_ORIGIN` | `*` | Comma separated origins. `*` is rejected in production, so the API refuses to start with it. |
 | `LOGIN_RATE_LIMIT_MAX`, `LOGIN_RATE_LIMIT_WINDOW_SECONDS` | `10`, `60` | Applies to login and refresh, per client IP. |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, or `error`. |

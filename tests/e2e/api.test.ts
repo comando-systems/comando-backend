@@ -94,6 +94,8 @@ function testConfig() {
     LOGIN_RATE_LIMIT_MAX: '100',
     LOGIN_RATE_LIMIT_WINDOW_SECONDS: '60',
     LOG_LEVEL: 'error',
+    // This suite asserts exact totals right after writing.
+    LIST_COUNT_CACHE_TTL_MS: '0',
   });
 }
 

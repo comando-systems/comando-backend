@@ -305,6 +305,30 @@ describe.skipIf(!TEST_DATABASE_URL)('PostgreSQL repositories', () => {
     expect(empty).toEqual({ orders: [], total: 0 });
   });
 
+  test('reuses a list total for the configured time, while the page stays current', async () => {
+    const cashier = await createUser(['CASHIER']);
+    const cached = createRepositories(database, { countCacheTtlMs: 60_000 });
+    const open = async (code: string) => {
+      const order = Order.openTable({
+        id: new OrderID(await orderIds().next()),
+        openedByUserId: cashier.id,
+        tableCode: code,
+        now,
+      });
+      await unitOfWork.run((repos) => repos.orders.create(order));
+    };
+
+    await open('T-1');
+    expect((await cached.orders.list({ page: 1, pageSize: 10 })).total).toBe(1);
+
+    await open('T-2');
+    const stale = await cached.orders.list({ page: 1, pageSize: 10 });
+    expect(stale.orders).toHaveLength(2);
+    expect(stale.total).toBe(1);
+
+    expect((await repositories.orders.list({ page: 1, pageSize: 10 })).total).toBe(2);
+  });
+
   test('rolls back the whole transaction on failure', async () => {
     let createdId: UserID | null = null;
 
