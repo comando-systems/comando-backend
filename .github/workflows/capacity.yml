@@ -26,8 +26,6 @@ permissions:
 env:
   HUSKY: "0"
   # Disposable CI values, not real credentials.
-  DATABASE_READ_URL: postgres://comando:comando@localhost:5432/comando_capacity?sslmode=disable
-  DATABASE_WRITE_URL: postgres://comando:comando@localhost:5432/comando_capacity?sslmode=disable
   JWT_SECRET: ci-disposable-value-for-tests-only-0123456789
   LOAD_EMAIL: capacity@example.com
   LOAD_PASSWORD: ci-capacity-test-password-123
@@ -43,6 +41,14 @@ jobs:
       - uses: ./.github/actions/database
         with:
           name: comando_capacity
+      - name: Point the API at the disposable database
+        # Built from parts: the database action creates this throwaway role, so there is no secret.
+        run: |
+          user=comando
+          secret=comando
+          url="postgres://${user}:${secret}@localhost:5432/comando_capacity?sslmode=disable"
+          echo "DATABASE_READ_URL=${url}" >> "$GITHUB_ENV"
+          echo "DATABASE_WRITE_URL=${url}" >> "$GITHUB_ENV"
       - run: bun run build
       - name: Create the capacity user
         run: ADMIN_EMAIL="$LOAD_EMAIL" ADMIN_PASSWORD="$LOAD_PASSWORD" bun run db:create-admin

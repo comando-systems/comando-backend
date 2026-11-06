@@ -40,19 +40,19 @@ for users in $steps; do
     grafana/k6:2.2.0 run --summary-export="/out/step-${users}.json" /k6/capacity-test.js || true
 
   file="capacity/step-${users}.json"
-  [ -s "$file" ] || { echo "no summary for ${users} users" >&2; break; }
+  [[ -s "$file" ]] || { echo "no summary for ${users} users" >&2; break; }
 
   failed="$(jq -r '.metrics.http_req_failed.value // .metrics.http_req_failed.rate // 0' "$file")"
   ok="$(jq -r "$budget" "$file")"
-  [ "$(jq -n "$failed < 0.01")" = true ] || ok=false
+  [[ "$(jq -n "$failed < 0.01")" == true ]] || ok=false
 
   {
-    echo "| ${users} | $(jq -r '.metrics.http_reqs.count' "$file") | $(jq -r '.metrics.http_reqs.rate | floor' "$file") | ${failed} | $([ "$ok" = true ] && echo within || echo BROKEN) |"
+    echo "| ${users} | $(jq -r '.metrics.http_reqs.count' "$file") | $(jq -r '.metrics.http_reqs.rate | floor' "$file") | ${failed} | $([[ "$ok" == true ]] && echo within || echo BROKEN) |"
   } >> "$summary"
 
-  if [ "$ok" = true ]; then
+  if [[ "$ok" == true ]]; then
     best="$users"
-  elif [ "$stop_on_break" = true ]; then
+  elif [[ "$stop_on_break" == true ]]; then
     break
   fi
 done

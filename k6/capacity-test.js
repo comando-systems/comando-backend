@@ -85,17 +85,18 @@ export function user(data) {
     tags: { endpoint: 'items' },
   });
   check(items, { 'items is 200': (r) => r.status === 200 });
-  sleep(THINK * (0.5 + Math.random()));
+  sleep(THINK * (0.5 + Math.random())); // NOSONAR: load shaping, not security
 
   const orders = http.get(`${BASE_URL}/orders?page=1&pageSize=20`, {
     headers,
     tags: { endpoint: 'orders' },
   });
   check(orders, { 'orders is 200': (r) => r.status === 200 });
-  sleep(THINK * (0.5 + Math.random()));
+  sleep(THINK * (0.5 + Math.random())); // NOSONAR: load shaping, not security
 
   // About one iteration in five rings up a sale: the write path with its transaction and audit row.
   if (Math.random() < 0.2) {
+    // NOSONAR: load shaping, not security
     const sale = http.post(
       `${BASE_URL}/orders/counter`,
       JSON.stringify({
@@ -108,6 +109,7 @@ export function user(data) {
   }
 
   if (Math.random() < 0.1) {
+    // NOSONAR: load shaping, not security
     const health = http.get(`${BASE_URL}/health`, { tags: { endpoint: 'health' } });
     check(health, { 'health is 200': (r) => r.status === 200 });
   }
