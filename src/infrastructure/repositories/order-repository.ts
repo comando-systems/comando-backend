@@ -116,6 +116,30 @@ function mapOrderRow(
   );
 }
 
+function listConditions(filters: OrderFilters): { where: string; params: unknown[] } {
+  const clauses: string[] = [];
+  const params: unknown[] = [];
+  const add = (value: unknown, clause: (placeholder: string) => string): void => {
+    params.push(value);
+    clauses.push(clause(`$${params.length}`));
+  };
+
+  if (filters.status != null) add(filters.status, (p) => `status = ${p}::order_status`);
+  if (filters.statuses !== undefined) {
+    // A comma-joined list avoids array parameters; statuses never contain commas.
+    add(
+      filters.statuses.join(','),
+      (p) => `status = ANY(string_to_array(${p}, ',')::order_status[])`,
+    );
+  }
+  if (filters.type != null) add(filters.type, (p) => `order_type = ${p}::order_type`);
+  if (filters.tableCode != null) add(filters.tableCode, (p) => `table_code = ${p}::text`);
+  if (filters.from != null) add(filters.from, (p) => `created_at >= ${p}::timestamptz`);
+  if (filters.to != null) add(filters.to, (p) => `created_at <= ${p}::timestamptz`);
+
+  return { where: clauses.length === 0 ? '' : `WHERE ${clauses.join(' AND ')}`, params };
+}
+
 export class OrderRepository implements OrderRepositoryContract {
   constructor(
     private readonly database: DatabaseConnections,
@@ -181,11 +205,9 @@ export class OrderRepository implements OrderRepositoryContract {
       )
     `;
 
-    for (const item of order.items) {
-      await this.orderItems.upsert(order.id, item);
-    }
-
-    await this.orderPayments.replace(order.id, order.payments);
+    // A new order has no stored lines or payments yet, so each is one insert without a delete.
+    await this.orderItems.upsertMany(order.id, order.items);
+    await this.orderPayments.add(order.id, order.payments);
   }
 
   async findById(id: OrderID, options?: FindOrderOptions): Promise<Order | null> {
@@ -256,54 +278,44 @@ export class OrderRepository implements OrderRepositoryContract {
       order.items.map((item) => item.itemId),
     );
 
-    for (const item of order.items) {
-      await this.orderItems.upsert(order.id, item);
-    }
-
+    await this.orderItems.upsertMany(order.id, order.items);
     await this.orderPayments.replace(order.id, order.payments);
   }
 
   async list(filters: OrderFilters): Promise<OrderPage> {
     const sql = this.database.readSql();
+    const { where, params } = listConditions(filters);
     const offset = (filters.page - 1) * filters.pageSize;
-    const status = filters.status ?? null;
-    // A comma-joined list avoids array parameters; statuses never contain commas.
-    const statuses = filters.statuses === undefined ? null : filters.statuses.join(',');
-    const type = filters.type ?? null;
-    const tableCode = filters.tableCode ?? null;
-    const from = filters.from ?? null;
-    const to = filters.to ?? null;
 
-    const countRows = await sql.query<{ count: string }[]>`
-      SELECT COUNT(*)::text AS count
-      FROM orders
-      WHERE (${status}::order_status IS NULL OR status = ${status}::order_status)
-        AND (${statuses}::text IS NULL OR status::text = ANY(string_to_array(${statuses}::text, ',')))
-        AND (${type}::order_type IS NULL OR order_type = ${type}::order_type)
-        AND (${tableCode}::text IS NULL OR table_code = ${tableCode}::text)
-        AND (${from}::timestamptz IS NULL OR created_at >= ${from}::timestamptz)
-        AND (${to}::timestamptz IS NULL OR created_at <= ${to}::timestamptz)
-    `;
+    // Only the filters that were sent reach the SQL, so the planner can use the indexes instead of
+    // scanning the table for `$1 IS NULL OR ...` conditions.
+    const [countRows, rows] = await Promise.all([
+      sql.unsafe<{ count: string }[]>(
+        `SELECT COUNT(*)::text AS count FROM orders ${where}`,
+        params,
+      ),
+      sql.unsafe<OrderRow[]>(
+        `SELECT ${ORDER_COLUMNS}
+        FROM orders
+        ${where}
+        ORDER BY created_at DESC, id DESC
+        LIMIT $${params.length + 1}
+        OFFSET $${params.length + 2}`,
+        [...params, filters.pageSize, offset],
+      ),
+    ]);
 
-    const rows = await sql.unsafe<OrderRow[]>(
-      `SELECT ${ORDER_COLUMNS}
-      FROM orders
-      WHERE ($1::order_status IS NULL OR status = $1::order_status)
-        AND ($2::order_type IS NULL OR order_type = $2::order_type)
-        AND ($3::timestamptz IS NULL OR created_at >= $3::timestamptz)
-        AND ($4::timestamptz IS NULL OR created_at <= $4::timestamptz)
-        AND ($5::text IS NULL OR status::text = ANY(string_to_array($5::text, ',')))
-        AND ($6::text IS NULL OR table_code = $6::text)
-      ORDER BY created_at DESC, id DESC
-      LIMIT $7
-      OFFSET $8`,
-      [status, type, from, to, statuses, tableCode, filters.pageSize, offset],
-    );
-
-    const orders = await Promise.all(rows.map((row) => this.hydrate(row) as Promise<Order>));
+    // Two queries for the whole page instead of two per order.
+    const ids = rows.map((row) => new OrderID(row.id));
+    const [items, payments] = await Promise.all([
+      this.orderItems.findByOrderIds(ids),
+      this.orderPayments.findByOrderIds(ids),
+    ]);
 
     return {
-      orders,
+      orders: rows.map((row) =>
+        mapOrderRow(row, items.get(row.id) ?? [], payments.get(row.id) ?? []),
+      ),
       total: Number(countRows[0]?.count ?? 0),
     };
   }
