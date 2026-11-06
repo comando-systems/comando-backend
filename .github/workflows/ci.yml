@@ -191,7 +191,7 @@ jobs:
       - run: bun run build
       - name: Start the production build
         run: |
-          NODE_ENV=production HOST=127.0.0.1 PORT=3100 nohup bun dist/index.js > server.log 2>&1 &
+          NODE_ENV=production CORS_ORIGIN=http://localhost HOST=127.0.0.1 PORT=3100 nohup bun dist/index.js > server.log 2>&1 &
       - run: scripts/smoke-test.sh http://127.0.0.1:3100
       - name: Server log on failure
         if: failure()
@@ -235,7 +235,7 @@ jobs:
         run: ADMIN_EMAIL="$LOAD_EMAIL" ADMIN_PASSWORD="$LOAD_PASSWORD" bun run db:create-admin
       - name: Start the production build
         run: |
-          NODE_ENV=production HOST=127.0.0.1 PORT=3100 \
+          NODE_ENV=production CORS_ORIGIN=http://localhost HOST=127.0.0.1 PORT=3100 \
             LOGIN_RATE_LIMIT_MAX=10000 LOG_LEVEL=warn \
             nohup bun dist/index.js > server.log 2>&1 &
       - run: scripts/smoke-test.sh http://127.0.0.1:3100

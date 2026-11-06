@@ -361,6 +361,18 @@ Apply migrations from the root `migrations/` directory in ascending order. Do no
 
 Validate the environment at startup. Required variables include `DATABASE_READ_URL`, `DATABASE_WRITE_URL`, and a `JWT_SECRET` with at least 32 characters. See `.env.example` for the complete list and defaults. Secrets must never be committed or logged.
 
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `NODE_ENV` | `development` | `production` turns HSTS on, the API docs off, and requires explicit CORS origins. |
+| `JWT_EXPIRES_IN_SECONDS` | `900` | Access token lifetime (60 to 86400). |
+| `REFRESH_TOKEN_TTL_SECONDS` | `2592000` | Refresh token lifetime (1 hour to 90 days). |
+| `CORS_ORIGIN` | `*` | Comma separated origins. `*` is rejected in production, so the API refuses to start with it. |
+| `LOGIN_RATE_LIMIT_MAX`, `LOGIN_RATE_LIMIT_WINDOW_SECONDS` | `10`, `60` | Applies to login and refresh, per client IP. |
+| `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, or `error`. |
+| `API_DOCS_ENABLED` | on outside production | Serves `/docs` and `/openapi.json`. |
+
+An invalid or missing variable stops the process at startup with the list of problems, before it opens a port. Migrations are never applied by the API itself: run `bun run docker:migrate` (or your deployment's migration step) first.
+
 ## Authentication, security, and logging
 
 - Store password hashes only; never store plaintext passwords.
@@ -372,6 +384,8 @@ Validate the environment at startup. Required variables include `DATABASE_READ_U
 - Use structured logs with request/correlation IDs.
 - Keep technical logs separate from persistent audit events.
 - Apply authorization in use cases, not only in HTTP handlers.
+- Every API response (including errors) sends `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`, `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, and a restrictive `Permissions-Policy`. In production it also sends `Strict-Transport-Security`. The documentation page (`/docs`) is exempt from the CSP and cache headers because it loads its own assets. The API authenticates with a Bearer header, never cookies, so there is no CSRF surface.
+- Errors that are not expected answer a generic `500` with the request id; the cause is logged, with credentials redacted.
 
 ### Audit events
 

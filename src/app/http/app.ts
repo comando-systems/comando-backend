@@ -2,12 +2,12 @@ import { Scalar } from '@scalar/hono-api-reference';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
-import { secureHeaders } from 'hono/secure-headers';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { PayloadTooLargeError, ServiceUnavailableError } from '@/app/errors';
 import { toErrorResponse } from '@/app/http/error-handler';
 import { requestIdMiddleware } from '@/app/http/middleware/request-id';
 import { requestLoggerMiddleware } from '@/app/http/middleware/request-logger';
+import { securityHeadersMiddleware } from '@/app/http/middleware/security-headers';
 import { buildOpenApiDocument } from '@/app/http/openapi/document';
 import { authRoutes } from '@/app/http/routes/auth';
 import { itemRoutes } from '@/app/http/routes/items';
@@ -22,11 +22,17 @@ export function createApp(container: AppContainer): Hono<AppEnv> {
 
   app.use('*', requestIdMiddleware());
   app.use('*', requestLoggerMiddleware(container.logger));
-  app.use('*', secureHeaders());
+  app.use(
+    '*',
+    securityHeadersMiddleware({ production: container.config.environment === 'production' }),
+  );
   app.use(
     '*',
     cors({
-      origin: container.config.corsOrigin === '*' ? '*' : container.config.corsOrigin,
+      origin:
+        container.config.corsOrigin === '*'
+          ? '*'
+          : container.config.corsOrigin.split(',').map((origin) => origin.trim()),
       allowHeaders: ['Authorization', 'Content-Type', 'X-Request-Id'],
       exposeHeaders: ['X-Request-Id'],
       allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],

@@ -71,17 +71,43 @@ describe('loadConfig', () => {
     expect(config.logLevel).toBe('debug');
   });
 
+  describe('CORS origin', () => {
+    test('rejects the wildcard in production only', () => {
+      expect(() => loadConfig({ ...validEnvironment, NODE_ENV: 'production' })).toThrow(
+        'CORS_ORIGIN must list explicit origins in production',
+      );
+      expect(loadConfig({ ...validEnvironment, NODE_ENV: 'development' }).corsOrigin).toBe('*');
+      expect(
+        loadConfig({
+          ...validEnvironment,
+          NODE_ENV: 'production',
+          CORS_ORIGIN: 'https://a.example.com,https://b.example.com',
+        }).corsOrigin,
+      ).toBe('https://a.example.com,https://b.example.com');
+    });
+  });
+
   describe('API documentation switch', () => {
     test('is on outside production and off in production by default', () => {
       expect(loadConfig({ ...validEnvironment, NODE_ENV: 'development' }).docsEnabled).toBe(true);
       expect(loadConfig({ ...validEnvironment, NODE_ENV: 'test' }).docsEnabled).toBe(true);
-      expect(loadConfig({ ...validEnvironment, NODE_ENV: 'production' }).docsEnabled).toBe(false);
+      expect(
+        loadConfig({
+          ...validEnvironment,
+          NODE_ENV: 'production',
+          CORS_ORIGIN: 'https://app.example.com',
+        }).docsEnabled,
+      ).toBe(false);
     });
 
     test('can be forced either way', () => {
       expect(
-        loadConfig({ ...validEnvironment, NODE_ENV: 'production', API_DOCS_ENABLED: 'true' })
-          .docsEnabled,
+        loadConfig({
+          ...validEnvironment,
+          NODE_ENV: 'production',
+          CORS_ORIGIN: 'https://app.example.com',
+          API_DOCS_ENABLED: 'true',
+        }).docsEnabled,
       ).toBe(true);
       expect(
         loadConfig({ ...validEnvironment, NODE_ENV: 'development', API_DOCS_ENABLED: 'false' })
@@ -91,8 +117,12 @@ describe('loadConfig', () => {
 
     test('treats an empty value as unset and rejects anything else', () => {
       expect(
-        loadConfig({ ...validEnvironment, NODE_ENV: 'production', API_DOCS_ENABLED: '' })
-          .docsEnabled,
+        loadConfig({
+          ...validEnvironment,
+          NODE_ENV: 'production',
+          CORS_ORIGIN: 'https://app.example.com',
+          API_DOCS_ENABLED: '',
+        }).docsEnabled,
       ).toBe(false);
       expect(() => loadConfig({ ...validEnvironment, API_DOCS_ENABLED: 'yes' })).toThrow(
         ConfigurationError,
