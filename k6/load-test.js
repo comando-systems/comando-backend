@@ -17,6 +17,8 @@ const PASSWORD = __ENV.LOAD_PASSWORD;
 const BUDGET = ['p(95)<500', 'p(99)<1000'];
 
 export const options = {
+  // The report and the capacity runs compare p90, p95, and p99.
+  summaryTrendStats: ['avg', 'min', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'],
   scenarios: {
     // Authenticated reads: the bulk of the traffic.
     browse: {
