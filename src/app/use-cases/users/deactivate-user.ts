@@ -2,6 +2,7 @@ import { requireActor } from '@/app/authorization';
 import { ConflictError, NotFoundError } from '@/app/errors';
 import type { Clock } from '@/app/ports/clock';
 import type { UnitOfWork } from '@/app/ports/unit-of-work';
+import { assertCanRemoveAdministrator } from '@/app/use-cases/users/admin-safeguards';
 import type { User } from '@/domain/entity/user';
 import type { Repositories } from '@/domain/repository';
 import type { UserID } from '@/domain/value-objects/ids';
@@ -19,7 +20,8 @@ export class DeactivateUserUseCase {
 
   async execute(input: DeactivateUserInput): Promise<User> {
     return this.unitOfWork.run(async (repositories) => {
-      await requireActor(repositories, input.actorUserId, 'users:manage');
+      const actor = await requireActor(repositories, input.actorUserId, 'users:manage');
+      await repositories.users.lockAdministration();
 
       const user = await repositories.users.findById(input.userId);
 
@@ -30,6 +32,8 @@ export class DeactivateUserUseCase {
       if (!user.isActive) {
         throw new ConflictError('User is already deactivated');
       }
+
+      await assertCanRemoveAdministrator(repositories, actor, user, 'deactivate');
 
       user.deactivate(this.clock.now());
       await repositories.users.update(user);

@@ -47,6 +47,8 @@ export function fakeUsers(overrides: Partial<UserRepository>): UserRepository {
     create: unused,
     update: unused,
     list: unused,
+    countActiveAdmins: unused,
+    lockAdministration: async () => {},
     ...overrides,
   };
 }

@@ -25,4 +25,8 @@ export interface UserRepository {
   create(record: CreateUserRecord): Promise<User>;
   update(user: User): Promise<void>;
   list(options: UserPageOptions): Promise<UserPage>;
+  countActiveAdmins(): Promise<number>;
+  // Serializes changes that could remove an administrator until the transaction ends, so two
+  // administrators cannot both pass the "last administrator" check.
+  lockAdministration(): Promise<void>;
 }

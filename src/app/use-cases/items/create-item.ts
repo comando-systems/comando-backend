@@ -9,8 +9,10 @@ export interface CreateItemInput {
   readonly actorUserId: UserID;
   readonly name: string;
   readonly description?: string | null;
+  readonly category?: string;
   readonly priceCents: number;
   readonly imageUrl?: string | null;
+  readonly enabled?: boolean;
 }
 
 export class CreateItemUseCase {
@@ -26,8 +28,10 @@ export class CreateItemUseCase {
       return repositories.items.create({
         name: input.name,
         description: input.description ?? null,
+        category: input.category,
         priceCents: input.priceCents,
         imageUrl: input.imageUrl ?? null,
+        active: input.enabled,
         now: this.clock.now(),
       });
     });

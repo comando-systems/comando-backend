@@ -1,4 +1,5 @@
 import type { Item } from '@/domain/entity/item';
+
 import type {
   AdjustmentMode,
   AdjustmentType,
@@ -7,6 +8,8 @@ import type {
   OrderType,
   PaymentMethod,
 } from '@/domain/entity/order';
+import type { Settings } from '@/domain/entity/settings';
+
 import type { Role, User } from '@/domain/entity/user';
 
 export interface UserResponse {
@@ -23,8 +26,12 @@ export interface ItemResponse {
   readonly id: string;
   readonly name: string;
   readonly description: string | null;
+  readonly category: string;
   readonly priceCents: number;
   readonly imageUrl: string | null;
+  // The "Active" switch: a disabled item stays editable but cannot be sold.
+  readonly enabled: boolean;
+  // False once the item was removed from the catalog.
   readonly isActive: boolean;
   readonly createdAt: string;
   readonly updatedAt: string;
@@ -93,6 +100,13 @@ export interface SalesSummaryResponse {
   }>;
 }
 
+export interface SettingsResponse {
+  readonly serviceFeeEnabled: boolean;
+  // 10% is 1000.
+  readonly serviceFeeBasisPoints: number;
+  readonly updatedAt: string;
+}
+
 export interface PageResponse<T> {
   readonly data: readonly T[];
   readonly pagination: {
@@ -128,8 +142,10 @@ export function toItemResponse(item: Item): ItemResponse {
     id: item.id.value,
     name: item.name,
     description: item.description,
+    category: item.category,
     priceCents: item.price.cents,
     imageUrl: item.imageUrl,
+    enabled: item.isEnabled,
     isActive: item.isActive,
     createdAt: toIsoString(item.createdAt),
     updatedAt: toIsoString(item.updatedAt),
@@ -201,6 +217,14 @@ export function toSalesSummaryResponse(summary: {
     canceledOrders: summary.canceledOrders,
     openOrders: summary.openOrders,
     byMethod: summary.byMethod.map(({ method, amountCents }) => ({ method, amountCents })),
+  };
+}
+
+export function toSettingsResponse(settings: Settings): SettingsResponse {
+  return {
+    serviceFeeEnabled: settings.serviceFeeEnabled,
+    serviceFeeBasisPoints: settings.serviceFeeBasisPoints,
+    updatedAt: toIsoString(settings.updatedAt),
   };
 }
 

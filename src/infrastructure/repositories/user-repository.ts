@@ -10,6 +10,9 @@ import type { DatabaseConnections } from '@/infrastructure/database/connections'
 import type { SqlClient } from '@/infrastructure/database/sql-client';
 import { toDate, toNullableDate } from '@/infrastructure/repositories/mapping';
 
+// Arbitrary constant shared by every change that could remove an administrator.
+const ADMINISTRATION_LOCK = 7_001;
+
 interface UserRow {
   id: string;
   name: string;
@@ -187,5 +190,23 @@ export class UserRepository implements UserRepositoryContract {
         SELECT ${user.id.value}, id FROM roles WHERE code = ${role}
       `;
     }
+  }
+
+  async countActiveAdmins(): Promise<number> {
+    const sql = this.database.readSql();
+    const rows = await sql.query<{ count: string }[]>`
+      SELECT COUNT(DISTINCT u.id)::text AS count
+      FROM users u
+      JOIN user_roles ur ON ur.user_id = u.id
+      JOIN roles r ON r.id = ur.role_id
+      WHERE r.code = 'ADMIN' AND u.deleted_at IS NULL
+    `;
+
+    return Number(rows[0]?.count ?? 0);
+  }
+
+  async lockAdministration(): Promise<void> {
+    const sql = this.database.writeSql();
+    await sql.query`SELECT pg_advisory_xact_lock(${ADMINISTRATION_LOCK}::bigint)`;
   }
 }

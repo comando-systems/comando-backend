@@ -38,7 +38,7 @@ const document = buildOpenApiDocument() as {
   tags: Array<{ name: string }>;
 };
 
-const methods = ['get', 'post', 'patch', 'delete'];
+const methods = ['get', 'post', 'put', 'patch', 'delete'];
 const operations = Object.entries(document.paths).flatMap(([path, byMethod]) =>
   Object.entries(byMethod).map(([method, operation]) => ({ path, method, operation })),
 );

@@ -14,6 +14,7 @@ import {
   GetItemUseCase,
   GetOrderUseCase,
   GetSalesSummaryUseCase,
+  GetSettingsUseCase,
   GetUserUseCase,
   ListItemsUseCase,
   ListOrdersUseCase,
@@ -26,6 +27,7 @@ import {
   RequestOrderPaymentUseCase,
   SetOrderPricingUseCase,
   UpdateItemUseCase,
+  UpdateSettingsUseCase,
   UpdateUserUseCase,
 } from '@/app/use-cases';
 import { BunPasswordHasher, JwtTokenService } from '@/infrastructure/authentication';
@@ -90,6 +92,10 @@ function createUseCases(container: {
     },
     reports: {
       salesSummary: new GetSalesSummaryUseCase(container.unitOfWork, container.clock),
+    },
+    settings: {
+      get: new GetSettingsUseCase(container.unitOfWork),
+      update: new UpdateSettingsUseCase(container.unitOfWork, container.clock),
     },
   };
 }

@@ -6,6 +6,8 @@ import {
   loginResponseSchema,
   orderResponseSchema,
   pageOf,
+  salesSummaryResponseSchema,
+  settingsResponseSchema,
   userResponseSchema,
 } from '@/app/http/openapi/responses';
 import {
@@ -19,6 +21,7 @@ import {
   openTableOrderBodySchema,
   setOrderPricingBodySchema,
   updateItemBodySchema,
+  updateSettingsBodySchema,
   updateUserBodySchema,
 } from '@/app/http/schemas';
 
@@ -27,7 +30,7 @@ export type OpenApiDocument = JsonObject;
 
 export const API_VERSION = '0.1.0';
 
-type Method = 'get' | 'post' | 'patch' | 'delete';
+type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
 type Role = 'ADMIN' | 'CASHIER' | 'SERVER';
 
 interface ParameterSpec {
@@ -64,6 +67,7 @@ const requestSchemas: Readonly<Record<string, z.ZodType>> = {
   LoginRequest: loginBodySchema,
   CreateUserRequest: createUserBodySchema,
   UpdateUserRequest: updateUserBodySchema,
+  UpdateSettingsRequest: updateSettingsBodySchema,
   CreateItemRequest: createItemBodySchema,
   UpdateItemRequest: updateItemBodySchema,
   CreateCounterOrderRequest: createCounterOrderBodySchema,
@@ -84,6 +88,8 @@ const responseSchemas: Readonly<Record<string, z.ZodType>> = {
   ItemPage: pageOf(itemResponseSchema),
   Order: orderResponseSchema,
   OrderPage: pageOf(orderResponseSchema),
+  Settings: settingsResponseSchema,
+  SalesSummary: salesSummaryResponseSchema,
 };
 
 const errorDescriptions: Readonly<Record<number, string>> = {
@@ -193,7 +199,8 @@ const operations: readonly OperationSpec[] = [
     operationId: 'updateUser',
     tag: 'Users',
     summary: 'Update a user',
-    description: 'Changes the name, email, password, or roles. Deactivated users cannot be edited.',
+    description:
+      'Changes the name, email, password (8 to 128 characters), or roles. `isActive: true` reactivates a deactivated user, which is the only edit a deactivated user accepts; `isActive: false` deactivates. An administrator cannot deactivate or demote themselves, and the last active administrator cannot be removed (`CANNOT_DEACTIVATE_SELF`, `CANNOT_REMOVE_OWN_ADMIN`, `LAST_ADMIN`).',
     roles: ['ADMIN'],
     parameters: [idParameter('id', 'User identifier.')],
     request: 'UpdateUserRequest',
@@ -207,7 +214,7 @@ const operations: readonly OperationSpec[] = [
     tag: 'Users',
     summary: 'Deactivate a user',
     description:
-      'Users are never deleted. A deactivated user cannot sign in, and tokens already issued stop working at once because the user is reloaded on every request.',
+      'Users are never deleted. A deactivated user cannot sign in, and tokens already issued stop working at once because the user is reloaded on every request. Same safeguards as `PATCH`.',
     roles: ['ADMIN'],
     parameters: [idParameter('id', 'User identifier.')],
     success: { status: 200, description: 'The deactivated user.', schema: 'User' },
@@ -230,7 +237,8 @@ const operations: readonly OperationSpec[] = [
     operationId: 'listItems',
     tag: 'Items',
     summary: 'List the catalog',
-    description: 'Lists the active catalog, ordered by name.',
+    description:
+      'Ordered by category, then name. Administrators see disabled items too; everyone else sees only items that can be sold.',
     parameters: [
       ...pagination,
       {
@@ -277,6 +285,56 @@ const operations: readonly OperationSpec[] = [
     parameters: [idParameter('id', 'Item identifier.')],
     success: { status: 200, description: 'The removed item.', schema: 'Item' },
     errors: [400, 401, 403, 404, 409],
+  },
+  {
+    method: 'get',
+    path: '/reports/summary',
+    operationId: 'getSalesSummary',
+    tag: 'Reports',
+    summary: 'Sales summary for a range',
+    description:
+      'Orders closed in the range, the revenue, the average ticket, the payments by method, the orders canceled, and the orders still being served. Without parameters it covers today in UTC. Send `from` and `to` to use the shop day instead, in local time. The range cannot exceed 366 days.',
+    roles: ['ADMIN'],
+    parameters: [
+      {
+        name: 'from',
+        in: 'query',
+        description:
+          'Start of the range, inclusive. Defaults to a day before `to`, or the start of today in UTC.',
+        schema: { type: 'string', format: 'date-time' },
+      },
+      {
+        name: 'to',
+        in: 'query',
+        description: 'End of the range, exclusive. Defaults to a day after `from`.',
+        schema: { type: 'string', format: 'date-time' },
+      },
+    ],
+    success: { status: 200, description: 'The summary.', schema: 'SalesSummary' },
+    errors: [400, 401, 403],
+  },
+  {
+    method: 'get',
+    path: '/settings',
+    operationId: 'getSettings',
+    tag: 'Settings',
+    summary: 'Read the settings',
+    description: 'The service fee shows on every bill, so every signed-in user can read it.',
+    success: { status: 200, description: 'The settings.', schema: 'Settings' },
+    errors: [401],
+  },
+  {
+    method: 'put',
+    path: '/settings',
+    operationId: 'updateSettings',
+    tag: 'Settings',
+    summary: 'Change the settings',
+    description:
+      'Turns the service fee on or off and sets its rate. The fee starts off. Orders keep the rate snapshotted when they were opened, so a change does not alter existing orders.',
+    roles: ['ADMIN'],
+    request: 'UpdateSettingsRequest',
+    success: { status: 200, description: 'The updated settings.', schema: 'Settings' },
+    errors: [400, 401, 403],
   },
   {
     method: 'post',
@@ -558,6 +616,8 @@ export function buildOpenApiDocument(): OpenApiDocument {
       { name: 'Users', description: 'User administration (ADMIN).' },
       { name: 'Items', description: 'The catalog.' },
       { name: 'Orders', description: 'Counter and table orders.' },
+      { name: 'Reports', description: 'Sales figures for administrators.' },
+      { name: 'Settings', description: 'Application settings (the service fee).' },
     ],
     security: [{ bearerAuth: [] }],
     paths,
