@@ -1,3 +1,4 @@
+import { recordAudit } from '@/app/audit';
 import { UnauthorizedError } from '@/app/errors';
 import type { Clock } from '@/app/ports/clock';
 import type { RefreshTokenCodec } from '@/app/ports/refresh-token-codec';
@@ -34,6 +35,10 @@ export class RefreshSessionUseCase {
 
       if (token.revokedAt !== null) {
         await repositories.refreshTokens.revokeAllForUser(token.userId, now);
+        await recordAudit(repositories, { actorUserId: token.userId }, 'auth.refresh.reuse', {
+          type: 'user',
+          id: token.userId.value,
+        });
         return null;
       }
 

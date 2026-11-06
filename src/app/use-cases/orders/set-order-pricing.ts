@@ -1,3 +1,4 @@
+import { recordAudit } from '@/app/audit';
 import { requireActorAny } from '@/app/authorization';
 import { ValidationError } from '@/app/errors';
 import type { Clock } from '@/app/ports/clock';
@@ -8,6 +9,7 @@ import type { Repositories } from '@/domain/repository';
 import type { OrderID, UserID } from '@/domain/value-objects/ids';
 
 export interface SetOrderPricingInput {
+  readonly requestId?: string;
   readonly actorUserId: UserID;
   readonly orderId: OrderID;
   // `null` clears the adjustment; omitted leaves it as it is.
@@ -42,6 +44,13 @@ export class SetOrderPricingUseCase {
       }
 
       await repositories.orders.save(order);
+      await recordAudit(
+        repositories,
+        input,
+        'order.pricing.set',
+        { type: 'order', id: order.id.value },
+        { totalCents: order.pricing.total.cents },
+      );
       return order;
     });
   }

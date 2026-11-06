@@ -17,6 +17,7 @@ export function itemRoutes(container: AppContainer): Hono<AppEnv> {
   routes.post('/', async (context) => {
     const body = await parseJson(context, createItemBodySchema);
     const item = await container.useCases.items.create.execute({
+      requestId: context.get('requestId'),
       actorUserId: context.get('actorUserId'),
       ...body,
     });
@@ -48,6 +49,7 @@ export function itemRoutes(container: AppContainer): Hono<AppEnv> {
   routes.patch('/:id', async (context) => {
     const body = await parseJson(context, updateItemBodySchema);
     const item = await container.useCases.items.update.execute({
+      requestId: context.get('requestId'),
       actorUserId: context.get('actorUserId'),
       itemId: new ItemID(context.req.param('id')),
       ...body,
@@ -58,6 +60,7 @@ export function itemRoutes(container: AppContainer): Hono<AppEnv> {
 
   routes.delete('/:id', async (context) => {
     const item = await container.useCases.items.remove.execute({
+      requestId: context.get('requestId'),
       actorUserId: context.get('actorUserId'),
       itemId: new ItemID(context.req.param('id')),
     });

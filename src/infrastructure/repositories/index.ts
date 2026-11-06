@@ -1,5 +1,6 @@
 import type { Repositories } from '@/domain/repository';
 import type { DatabaseConnections } from '@/infrastructure/database/connections';
+import { AuditLogRepository } from '@/infrastructure/repositories/audit-log-repository';
 import { ItemRepository } from '@/infrastructure/repositories/item-repository';
 import { OrderItemRepository } from '@/infrastructure/repositories/order-item-repository';
 import { OrderPaymentRepository } from '@/infrastructure/repositories/order-payment-repository';
@@ -14,6 +15,7 @@ export function createRepositories(database: DatabaseConnections): Repositories 
   const orderPayments = new OrderPaymentRepository(database);
 
   return {
+    auditLogs: new AuditLogRepository(database),
     users: new UserRepository(database),
     items: new ItemRepository(database),
     orders: new OrderRepository(database, orderItems, orderPayments),

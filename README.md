@@ -373,6 +373,18 @@ Validate the environment at startup. Required variables include `DATABASE_READ_U
 - Keep technical logs separate from persistent audit events.
 - Apply authorization in use cases, not only in HTTP handlers.
 
+### Audit events
+
+Administrative and order lifecycle actions write a row to `audit_logs` in the same transaction as the action, so a rolled back action leaves no trace and a committed one always does. Each row has the actor, an `action`, the target type and id, the request id of the call (the `X-Request-Id` response header, also present in the request log), and a small `metadata` object that never holds credentials or tokens.
+
+| Action | When |
+| --- | --- |
+| `user.create`, `user.update`, `user.deactivate` | User administration. |
+| `item.create`, `item.update`, `item.remove` | Catalog administration. |
+| `settings.update` | Service fee settings change. |
+| `order.counter.create`, `order.table.open`, `order.pricing.set`, `order.payment.request`, `order.reopen`, `order.close`, `order.cancel` | Order lifecycle. Line edits are not audited. |
+| `auth.refresh.reuse` | A rotated refresh token was presented again; all of that user's tokens were revoked. |
+
 ## Transactions and consistency
 
 Use transactions for counter-order creation, table-order creation, line changes, closing, and cancellation. Recalculate the total inside the same transaction as line mutations. Use row locking or optimistic concurrency control to prevent lost updates when multiple requests modify one open order.

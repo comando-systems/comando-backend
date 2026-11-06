@@ -20,6 +20,7 @@ export function settingsRoutes(container: AppContainer): Hono<AppEnv> {
   routes.put('/', async (context) => {
     const body = await parseJson(context, updateSettingsBodySchema);
     const settings = await container.useCases.settings.update.execute({
+      requestId: context.get('requestId'),
       actorUserId: context.get('actorUserId'),
       ...body,
     });

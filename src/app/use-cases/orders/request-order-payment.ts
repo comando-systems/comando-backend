@@ -1,3 +1,4 @@
+import { recordAudit } from '@/app/audit';
 import { requireActor } from '@/app/authorization';
 import type { Clock } from '@/app/ports/clock';
 import type { UnitOfWork } from '@/app/ports/unit-of-work';
@@ -7,6 +8,7 @@ import type { Repositories } from '@/domain/repository';
 import type { OrderID, UserID } from '@/domain/value-objects/ids';
 
 export interface RequestOrderPaymentInput {
+  readonly requestId?: string;
   readonly actorUserId: UserID;
   readonly orderId: OrderID;
 }
@@ -26,6 +28,10 @@ export class RequestOrderPaymentUseCase {
       order.requestPayment(actor.id, this.clock.now());
 
       await repositories.orders.save(order);
+      await recordAudit(repositories, input, 'order.payment.request', {
+        type: 'order',
+        id: order.id.value,
+      });
       return order;
     });
   }

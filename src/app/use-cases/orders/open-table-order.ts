@@ -1,3 +1,4 @@
+import { recordAudit } from '@/app/audit';
 import { requireActor } from '@/app/authorization';
 import { ConflictError } from '@/app/errors';
 import type { Clock } from '@/app/ports/clock';
@@ -9,6 +10,7 @@ import type { Repositories } from '@/domain/repository';
 import { OrderID, type UserID } from '@/domain/value-objects/ids';
 
 export interface OpenTableOrderInput {
+  readonly requestId?: string;
   readonly actorUserId: UserID;
   readonly tableCode: string;
 }
@@ -46,6 +48,13 @@ export class OpenTableOrderUseCase {
       });
 
       await repositories.orders.create(order);
+      await recordAudit(
+        repositories,
+        input,
+        'order.table.open',
+        { type: 'order', id: order.id.value },
+        { tableCode },
+      );
       return order;
     });
   }

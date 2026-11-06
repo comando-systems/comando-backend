@@ -17,6 +17,7 @@ export function userRoutes(container: AppContainer): Hono<AppEnv> {
   routes.post('/', async (context) => {
     const body = await parseJson(context, createUserBodySchema);
     const user = await container.useCases.users.create.execute({
+      requestId: context.get('requestId'),
       actorUserId: context.get('actorUserId'),
       ...body,
     });
@@ -48,6 +49,7 @@ export function userRoutes(container: AppContainer): Hono<AppEnv> {
   routes.patch('/:id', async (context) => {
     const body = await parseJson(context, updateUserBodySchema);
     const user = await container.useCases.users.update.execute({
+      requestId: context.get('requestId'),
       actorUserId: context.get('actorUserId'),
       userId: new UserID(context.req.param('id')),
       ...body,
@@ -58,6 +60,7 @@ export function userRoutes(container: AppContainer): Hono<AppEnv> {
 
   routes.delete('/:id', async (context) => {
     const user = await container.useCases.users.deactivate.execute({
+      requestId: context.get('requestId'),
       actorUserId: context.get('actorUserId'),
       userId: new UserID(context.req.param('id')),
     });

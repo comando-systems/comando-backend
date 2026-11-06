@@ -16,6 +16,7 @@ import { User } from '@/domain/entity/user';
 import { InvalidStateTransitionError, InvariantViolationError } from '@/domain/errors';
 import type { Repositories } from '@/domain/repository';
 import { ItemID, OrderID, UserID } from '@/domain/value-objects/ids';
+import { fakeUnitOfWork } from '../support/fakes';
 
 const now = new Date('2026-01-01T12:00:00.000Z');
 const clock = { now: () => now };
@@ -101,10 +102,7 @@ function world(orders: readonly Order[], settings?: Settings): World {
   return { repositories, saved };
 }
 
-const unitOfWorkOf = ({ repositories }: World) => ({
-  run: <T>(work: (repos: Repositories) => Promise<T>) => work(repositories),
-  read: <T>(work: (repos: Repositories) => Promise<T>) => work(repositories),
-});
+const unitOfWorkOf = ({ repositories }: World) => fakeUnitOfWork(repositories);
 
 describe('requesting payment', () => {
   test('moves a table with items to awaiting payment and saves it', async () => {
