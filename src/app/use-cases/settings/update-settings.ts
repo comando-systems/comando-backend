@@ -1,3 +1,4 @@
+import { recordAudit } from '@/app/audit';
 import { requireActor } from '@/app/authorization';
 import type { Clock } from '@/app/ports/clock';
 import type { UnitOfWork } from '@/app/ports/unit-of-work';
@@ -6,6 +7,7 @@ import type { Repositories } from '@/domain/repository';
 import type { UserID } from '@/domain/value-objects/ids';
 
 export interface UpdateSettingsInput {
+  readonly requestId?: string;
   readonly actorUserId: UserID;
   readonly serviceFeeEnabled?: boolean;
   // 10% is 1000.
@@ -31,6 +33,16 @@ export class UpdateSettingsUseCase {
       });
 
       await repositories.settings.save(settings);
+      await recordAudit(
+        repositories,
+        input,
+        'settings.update',
+        { type: 'settings', id: '1' },
+        {
+          serviceFeeEnabled: settings.serviceFeeEnabled,
+          serviceFeeBasisPoints: settings.serviceFeeBasisPoints,
+        },
+      );
       return settings;
     });
   }

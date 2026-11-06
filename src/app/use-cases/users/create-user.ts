@@ -1,3 +1,4 @@
+import { recordAudit } from '@/app/audit';
 import { requireActor } from '@/app/authorization';
 import { ConflictError, ValidationError } from '@/app/errors';
 import type { Clock } from '@/app/ports/clock';
@@ -8,6 +9,7 @@ import type { Repositories } from '@/domain/repository';
 import type { UserID } from '@/domain/value-objects/ids';
 
 export interface CreateUserInput {
+  readonly requestId?: string;
   readonly actorUserId: UserID;
   readonly name: string;
   readonly email: string;
@@ -39,13 +41,22 @@ export class CreateUserUseCase {
         throw new ConflictError('Email is already registered');
       }
 
-      return repositories.users.create({
+      const user = await repositories.users.create({
         name: input.name,
         email,
         passwordHash,
         roles: input.roles,
         now: this.clock.now(),
       });
+
+      await recordAudit(
+        repositories,
+        input,
+        'user.create',
+        { type: 'user', id: user.id.value },
+        { roles: user.roles },
+      );
+      return user;
     });
   }
 }

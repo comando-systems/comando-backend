@@ -1,3 +1,4 @@
+import { recordAudit } from '@/app/audit';
 import { requireActor } from '@/app/authorization';
 import type { Clock } from '@/app/ports/clock';
 import type { UnitOfWork } from '@/app/ports/unit-of-work';
@@ -7,6 +8,7 @@ import type { Repositories } from '@/domain/repository';
 import type { OrderID, UserID } from '@/domain/value-objects/ids';
 
 export interface CloseOrderInput {
+  readonly requestId?: string;
   readonly actorUserId: UserID;
   readonly orderId: OrderID;
   readonly payments: readonly OrderPaymentInput[];
@@ -26,6 +28,13 @@ export class CloseOrderUseCase {
       order.close(actor.id, input.payments, this.clock.now());
 
       await repositories.orders.save(order);
+      await recordAudit(
+        repositories,
+        input,
+        'order.close',
+        { type: 'order', id: order.id.value },
+        { totalCents: order.pricing.total.cents },
+      );
       return order;
     });
   }

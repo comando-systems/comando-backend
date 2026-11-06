@@ -1,3 +1,4 @@
+import { recordAudit } from '@/app/audit';
 import { requireActor } from '@/app/authorization';
 import { ConflictError, NotFoundError } from '@/app/errors';
 import type { Clock } from '@/app/ports/clock';
@@ -7,6 +8,7 @@ import type { Repositories } from '@/domain/repository';
 import type { ItemID, UserID } from '@/domain/value-objects/ids';
 
 export interface RemoveItemInput {
+  readonly requestId?: string;
   readonly actorUserId: UserID;
   readonly itemId: ItemID;
 }
@@ -33,6 +35,7 @@ export class RemoveItemUseCase {
 
       item.remove(this.clock.now());
       await repositories.items.update(item);
+      await recordAudit(repositories, input, 'item.remove', { type: 'item', id: item.id.value });
       return item;
     });
   }

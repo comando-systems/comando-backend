@@ -1,3 +1,4 @@
+import { recordAudit } from '@/app/audit';
 import { requireActor } from '@/app/authorization';
 import type { Clock } from '@/app/ports/clock';
 import type { IdGenerator } from '@/app/ports/id-generator';
@@ -11,6 +12,7 @@ import type { Repositories } from '@/domain/repository';
 import { OrderID, type UserID } from '@/domain/value-objects/ids';
 
 export interface CreateCounterOrderInput {
+  readonly requestId?: string;
   readonly actorUserId: UserID;
   readonly lines: readonly OrderLineInput[];
   readonly payments: readonly OrderPaymentInput[];
@@ -45,6 +47,13 @@ export class CreateCounterOrderUseCase {
       });
 
       await repositories.orders.create(order);
+      await recordAudit(
+        repositories,
+        input,
+        'order.counter.create',
+        { type: 'order', id: order.id.value },
+        { totalCents: order.pricing.total.cents },
+      );
       return order;
     });
   }

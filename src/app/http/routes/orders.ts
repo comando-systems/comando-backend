@@ -21,6 +21,7 @@ export function orderRoutes(container: AppContainer): Hono<AppEnv> {
   routes.post('/counter', async (context) => {
     const body = await parseJson(context, createCounterOrderBodySchema);
     const order = await container.useCases.orders.createCounter.execute({
+      requestId: context.get('requestId'),
       actorUserId: context.get('actorUserId'),
       lines: body.items.map((line) => ({
         itemId: new ItemID(line.itemId),
@@ -38,6 +39,7 @@ export function orderRoutes(container: AppContainer): Hono<AppEnv> {
   routes.post('/table', async (context) => {
     const body = await parseJson(context, openTableOrderBodySchema);
     const order = await container.useCases.orders.openTable.execute({
+      requestId: context.get('requestId'),
       actorUserId: context.get('actorUserId'),
       tableCode: body.tableCode,
     });
@@ -95,6 +97,7 @@ export function orderRoutes(container: AppContainer): Hono<AppEnv> {
   routes.post('/:id/close', async (context) => {
     const body = await parseJson(context, closeOrderBodySchema);
     const order = await container.useCases.orders.close.execute({
+      requestId: context.get('requestId'),
       actorUserId: context.get('actorUserId'),
       orderId: new OrderID(context.req.param('id')),
       payments: body.payments,
@@ -105,6 +108,7 @@ export function orderRoutes(container: AppContainer): Hono<AppEnv> {
 
   routes.post('/:id/cancel', async (context) => {
     const order = await container.useCases.orders.cancel.execute({
+      requestId: context.get('requestId'),
       actorUserId: context.get('actorUserId'),
       orderId: new OrderID(context.req.param('id')),
     });
@@ -125,6 +129,7 @@ export function orderRoutes(container: AppContainer): Hono<AppEnv> {
   routes.patch('/:id/pricing', async (context) => {
     const body = await parseJson(context, setOrderPricingBodySchema);
     const order = await container.useCases.orders.setPricing.execute({
+      requestId: context.get('requestId'),
       actorUserId: context.get('actorUserId'),
       orderId: new OrderID(context.req.param('id')),
       adjustment: body.adjustment,
@@ -136,6 +141,7 @@ export function orderRoutes(container: AppContainer): Hono<AppEnv> {
 
   routes.post('/:id/request-payment', async (context) => {
     const order = await container.useCases.orders.requestPayment.execute({
+      requestId: context.get('requestId'),
       actorUserId: context.get('actorUserId'),
       orderId: new OrderID(context.req.param('id')),
     });
@@ -145,6 +151,7 @@ export function orderRoutes(container: AppContainer): Hono<AppEnv> {
 
   routes.post('/:id/reopen', async (context) => {
     const order = await container.useCases.orders.reopen.execute({
+      requestId: context.get('requestId'),
       actorUserId: context.get('actorUserId'),
       orderId: new OrderID(context.req.param('id')),
     });

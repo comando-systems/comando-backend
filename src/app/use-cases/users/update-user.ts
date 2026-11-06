@@ -1,3 +1,4 @@
+import { recordAudit } from '@/app/audit';
 import { requireActor } from '@/app/authorization';
 import { ConflictError, NotFoundError, ValidationError } from '@/app/errors';
 import type { Clock } from '@/app/ports/clock';
@@ -9,6 +10,7 @@ import type { Repositories } from '@/domain/repository';
 import type { UserID } from '@/domain/value-objects/ids';
 
 export interface UpdateUserInput {
+  readonly requestId?: string;
   readonly actorUserId: UserID;
   readonly userId: UserID;
   readonly name?: string;
@@ -84,6 +86,13 @@ export class UpdateUserUseCase {
       }
 
       await repositories.users.update(user);
+      await recordAudit(
+        repositories,
+        input,
+        'user.update',
+        { type: 'user', id: user.id.value },
+        { roles: user.roles },
+      );
       return user;
     });
   }

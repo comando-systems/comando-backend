@@ -1,3 +1,4 @@
+import { recordAudit } from '@/app/audit';
 import { requireActor } from '@/app/authorization';
 import { ConflictError, NotFoundError } from '@/app/errors';
 import type { Clock } from '@/app/ports/clock';
@@ -7,6 +8,7 @@ import type { Repositories } from '@/domain/repository';
 import type { ItemID, UserID } from '@/domain/value-objects/ids';
 
 export interface UpdateItemInput {
+  readonly requestId?: string;
   readonly actorUserId: UserID;
   readonly itemId: ItemID;
   readonly name?: string;
@@ -48,6 +50,7 @@ export class UpdateItemUseCase {
       });
 
       await repositories.items.update(item);
+      await recordAudit(repositories, input, 'item.update', { type: 'item', id: item.id.value });
       return item;
     });
   }

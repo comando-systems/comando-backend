@@ -1,3 +1,4 @@
+import { recordAudit } from '@/app/audit';
 import { requireActor } from '@/app/authorization';
 import { ConflictError, NotFoundError } from '@/app/errors';
 import type { Clock } from '@/app/ports/clock';
@@ -8,6 +9,7 @@ import type { Repositories } from '@/domain/repository';
 import type { UserID } from '@/domain/value-objects/ids';
 
 export interface DeactivateUserInput {
+  readonly requestId?: string;
   readonly actorUserId: UserID;
   readonly userId: UserID;
 }
@@ -39,6 +41,10 @@ export class DeactivateUserUseCase {
       user.deactivate(now);
       await repositories.users.update(user);
       await repositories.refreshTokens.revokeAllForUser(user.id, now);
+      await recordAudit(repositories, input, 'user.deactivate', {
+        type: 'user',
+        id: user.id.value,
+      });
       return user;
     });
   }
