@@ -155,3 +155,8 @@ export const orderListQuerySchema = paginationQuerySchema.extend({
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
 });
+
+export const salesSummaryQuerySchema = z.object({
+  from: z.coerce.date().optional(),
+  to: z.coerce.date().optional(),
+});

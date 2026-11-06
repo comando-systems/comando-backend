@@ -4,6 +4,7 @@ import { ItemRepository } from '@/infrastructure/repositories/item-repository';
 import { OrderItemRepository } from '@/infrastructure/repositories/order-item-repository';
 import { OrderPaymentRepository } from '@/infrastructure/repositories/order-payment-repository';
 import { OrderRepository } from '@/infrastructure/repositories/order-repository';
+import { ReportRepository } from '@/infrastructure/repositories/report-repository';
 import { SettingsRepository } from '@/infrastructure/repositories/settings-repository';
 import { UserRepository } from '@/infrastructure/repositories/user-repository';
 
@@ -17,6 +18,7 @@ export function createRepositories(database: DatabaseConnections): Repositories 
     orders: new OrderRepository(database, orderItems, orderPayments),
     orderItems,
     orderPayments,
+    reports: new ReportRepository(database),
     settings: new SettingsRepository(database),
   };
 }

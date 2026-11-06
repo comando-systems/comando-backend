@@ -6,6 +6,7 @@ import {
   loginResponseSchema,
   orderResponseSchema,
   pageOf,
+  salesSummaryResponseSchema,
   settingsResponseSchema,
   userResponseSchema,
 } from '@/app/http/openapi/responses';
@@ -88,6 +89,7 @@ const responseSchemas: Readonly<Record<string, z.ZodType>> = {
   Order: orderResponseSchema,
   OrderPage: pageOf(orderResponseSchema),
   Settings: settingsResponseSchema,
+  SalesSummary: salesSummaryResponseSchema,
 };
 
 const errorDescriptions: Readonly<Record<number, string>> = {
@@ -283,6 +285,33 @@ const operations: readonly OperationSpec[] = [
     parameters: [idParameter('id', 'Item identifier.')],
     success: { status: 200, description: 'The removed item.', schema: 'Item' },
     errors: [400, 401, 403, 404, 409],
+  },
+  {
+    method: 'get',
+    path: '/reports/summary',
+    operationId: 'getSalesSummary',
+    tag: 'Reports',
+    summary: 'Sales summary for a range',
+    description:
+      'Orders closed in the range, the revenue, the average ticket, the payments by method, the orders canceled, and the orders still being served. Without parameters it covers today in UTC. Send `from` and `to` to use the shop day instead, in local time. The range cannot exceed 366 days.',
+    roles: ['ADMIN'],
+    parameters: [
+      {
+        name: 'from',
+        in: 'query',
+        description:
+          'Start of the range, inclusive. Defaults to a day before `to`, or the start of today in UTC.',
+        schema: { type: 'string', format: 'date-time' },
+      },
+      {
+        name: 'to',
+        in: 'query',
+        description: 'End of the range, exclusive. Defaults to a day after `from`.',
+        schema: { type: 'string', format: 'date-time' },
+      },
+    ],
+    success: { status: 200, description: 'The summary.', schema: 'SalesSummary' },
+    errors: [400, 401, 403],
   },
   {
     method: 'get',
@@ -587,6 +616,7 @@ export function buildOpenApiDocument(): OpenApiDocument {
       { name: 'Users', description: 'User administration (ADMIN).' },
       { name: 'Items', description: 'The catalog.' },
       { name: 'Orders', description: 'Counter and table orders.' },
+      { name: 'Reports', description: 'Sales figures for administrators.' },
       { name: 'Settings', description: 'Application settings (the service fee).' },
     ],
     security: [{ bearerAuth: [] }],

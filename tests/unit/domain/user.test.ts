@@ -44,6 +44,7 @@ describe('User', () => {
         'users:manage',
         'items:manage',
         'settings:manage',
+        'reports:view',
         'orders:counter',
         'orders:history',
         'orders:close',
