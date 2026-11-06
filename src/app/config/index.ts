@@ -10,28 +10,39 @@ const postgresUrl = z
     message: 'must be a PostgreSQL connection string',
   });
 
-const configSchema = z.object({
-  NODE_ENV: environmentSchema.default('development'),
-  HOST: z.string().min(1).default('0.0.0.0'),
-  PORT: z.coerce.number().int().min(1).max(65535).default(3000),
-  DATABASE_READ_URL: postgresUrl,
-  DATABASE_WRITE_URL: postgresUrl,
-  JWT_SECRET: z.string().min(32, 'JWT_SECRET must have at least 32 characters'),
-  JWT_ISSUER: z.string().min(1).default('comando'),
-  JWT_AUDIENCE: z.string().min(1).default('comando-api'),
-  JWT_EXPIRES_IN_SECONDS: z.coerce.number().int().min(60).max(86_400).default(900),
-  REFRESH_TOKEN_TTL_SECONDS: z.coerce.number().int().min(3_600).max(7_776_000).default(2_592_000),
-  CORS_ORIGIN: z.string().min(1).default('*'),
-  BODY_LIMIT_BYTES: z.coerce.number().int().min(1_024).max(10_485_760).default(1_048_576),
-  LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(10_000).default(10),
-  LOGIN_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().min(1).max(86_400).default(60),
-  LOG_LEVEL: logLevelSchema.default('info'),
-  // Empty counts as unset (Compose passes an empty string). Unset means on outside production.
-  API_DOCS_ENABLED: z.preprocess(
-    (value) => (value === '' ? undefined : value),
-    z.enum(['true', 'false']).optional(),
-  ),
-});
+const configSchema = z
+  .object({
+    NODE_ENV: environmentSchema.default('development'),
+    HOST: z.string().min(1).default('0.0.0.0'),
+    PORT: z.coerce.number().int().min(1).max(65535).default(3000),
+    DATABASE_READ_URL: postgresUrl,
+    DATABASE_WRITE_URL: postgresUrl,
+    JWT_SECRET: z.string().min(32, 'JWT_SECRET must have at least 32 characters'),
+    JWT_ISSUER: z.string().min(1).default('comando'),
+    JWT_AUDIENCE: z.string().min(1).default('comando-api'),
+    JWT_EXPIRES_IN_SECONDS: z.coerce.number().int().min(60).max(86_400).default(900),
+    REFRESH_TOKEN_TTL_SECONDS: z.coerce.number().int().min(3_600).max(7_776_000).default(2_592_000),
+    CORS_ORIGIN: z.string().min(1).default('*'),
+    BODY_LIMIT_BYTES: z.coerce.number().int().min(1_024).max(10_485_760).default(1_048_576),
+    LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(10_000).default(10),
+    LOGIN_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().min(1).max(86_400).default(60),
+    LOG_LEVEL: logLevelSchema.default('info'),
+    // Empty counts as unset (Compose passes an empty string). Unset means on outside production.
+    API_DOCS_ENABLED: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.enum(['true', 'false']).optional(),
+    ),
+  })
+  .superRefine((value, context) => {
+    // A wildcard origin is fine for local work but not for a deployed API.
+    if (value.NODE_ENV === 'production' && value.CORS_ORIGIN === '*') {
+      context.addIssue({
+        code: 'custom',
+        path: ['CORS_ORIGIN'],
+        message: 'CORS_ORIGIN must list explicit origins in production',
+      });
+    }
+  });
 
 export type Environment = z.infer<typeof environmentSchema>;
 export type LogLevel = z.infer<typeof logLevelSchema>;

@@ -241,7 +241,9 @@ describe('API reference routes', () => {
 
   test('default to on outside production and off in production', async () => {
     const development = createApp(createTestContainer({ NODE_ENV: 'development' }));
-    const production = createApp(createTestContainer({ NODE_ENV: 'production' }));
+    const production = createApp(
+      createTestContainer({ NODE_ENV: 'production', CORS_ORIGIN: 'https://app.example.com' }),
+    );
 
     expect((await development.request('/openapi.json')).status).toBe(200);
     expect((await production.request('/openapi.json')).status).toBe(404);
