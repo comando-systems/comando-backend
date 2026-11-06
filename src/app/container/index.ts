@@ -130,7 +130,9 @@ export function createContainer(config: AppConfig): AppContainer {
     config.databaseWriteUrl,
     logger,
   );
-  const repositories = createRepositories(database);
+  const repositories = createRepositories(database, {
+    countCacheTtlMs: config.listCountCacheTtlMs,
+  });
   const unitOfWork = new DatabaseUnitOfWork(database, () => repositories);
   const clock = systemClock;
   const passwordHasher = new BunPasswordHasher();

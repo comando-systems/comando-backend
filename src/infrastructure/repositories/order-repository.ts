@@ -17,6 +17,7 @@ import type {
 } from '@/domain/repository/order-repository';
 import { OrderID, UserID } from '@/domain/value-objects/ids';
 import type { DatabaseConnections } from '@/infrastructure/database/connections';
+import type { CountCache } from '@/infrastructure/database/count-cache';
 import { toDate, toNullableDate } from '@/infrastructure/repositories/mapping';
 
 interface OrderRow {
@@ -145,6 +146,7 @@ export class OrderRepository implements OrderRepositoryContract {
     private readonly database: DatabaseConnections,
     private readonly orderItems: OrderItemRepositoryContract,
     private readonly orderPayments: OrderPaymentRepositoryContract,
+    private readonly counts: CountCache,
   ) {}
 
   async create(order: Order): Promise<void> {
@@ -289,11 +291,14 @@ export class OrderRepository implements OrderRepositoryContract {
 
     // Only the filters that were sent reach the SQL, so the planner can use the indexes instead of
     // scanning the table for `$1 IS NULL OR ...` conditions.
-    const [countRows, rows] = await Promise.all([
-      sql.unsafe<{ count: string }[]>(
-        `SELECT COUNT(*)::text AS count FROM orders ${where}`,
-        params,
-      ),
+    const [total, rows] = await Promise.all([
+      this.counts.get(`orders|${where}|${JSON.stringify(params)}`, async () => {
+        const countRows = await sql.unsafe<{ count: string }[]>(
+          `SELECT COUNT(*)::text AS count FROM orders ${where}`,
+          params,
+        );
+        return Number(countRows[0]?.count ?? 0);
+      }),
       sql.unsafe<OrderRow[]>(
         `SELECT ${ORDER_COLUMNS}
         FROM orders
@@ -316,7 +321,7 @@ export class OrderRepository implements OrderRepositoryContract {
       orders: rows.map((row) =>
         mapOrderRow(row, items.get(row.id) ?? [], payments.get(row.id) ?? []),
       ),
-      total: Number(countRows[0]?.count ?? 0),
+      total,
     };
   }
 

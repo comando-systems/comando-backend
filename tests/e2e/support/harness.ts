@@ -28,6 +28,8 @@ export function createHarness() {
         JWT_SECRET: 'a'.repeat(32),
         LOGIN_RATE_LIMIT_MAX: '1000',
         LOG_LEVEL: 'error',
+        // Suites assert exact totals right after writing.
+        LIST_COUNT_CACHE_TTL_MS: '0',
         ...environment,
       }),
     );

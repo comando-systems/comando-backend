@@ -1,5 +1,6 @@
 import type { Repositories } from '@/domain/repository';
 import type { DatabaseConnections } from '@/infrastructure/database/connections';
+import { CountCache } from '@/infrastructure/database/count-cache';
 import { AuditLogRepository } from '@/infrastructure/repositories/audit-log-repository';
 import { ItemRepository } from '@/infrastructure/repositories/item-repository';
 import { OrderItemRepository } from '@/infrastructure/repositories/order-item-repository';
@@ -10,15 +11,24 @@ import { ReportRepository } from '@/infrastructure/repositories/report-repositor
 import { SettingsRepository } from '@/infrastructure/repositories/settings-repository';
 import { UserRepository } from '@/infrastructure/repositories/user-repository';
 
-export function createRepositories(database: DatabaseConnections): Repositories {
+export interface RepositoryOptions {
+  // How long list totals are reused. 0 always counts.
+  readonly countCacheTtlMs?: number;
+}
+
+export function createRepositories(
+  database: DatabaseConnections,
+  options: RepositoryOptions = {},
+): Repositories {
+  const counts = new CountCache(options.countCacheTtlMs ?? 0);
   const orderItems = new OrderItemRepository(database);
   const orderPayments = new OrderPaymentRepository(database);
 
   return {
     auditLogs: new AuditLogRepository(database),
     users: new UserRepository(database),
-    items: new ItemRepository(database),
-    orders: new OrderRepository(database, orderItems, orderPayments),
+    items: new ItemRepository(database, counts),
+    orders: new OrderRepository(database, orderItems, orderPayments, counts),
     orderItems,
     orderPayments,
     refreshTokens: new RefreshTokenRepository(database),
