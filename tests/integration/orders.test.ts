@@ -45,7 +45,7 @@ describe.skipIf(!TEST_DATABASE_URL)('order application use cases', () => {
     repositories = createRepositories(database);
     unitOfWork = new DatabaseUnitOfWork(database, () => repositories);
     clock = new MutableClock(initialNow);
-    const orderIds = new SequenceIdGenerator(database.write, 'orders_id_seq');
+    const orderIds = new SequenceIdGenerator(() => database.writeSql(), 'orders_id_seq');
     createCounterOrder = new CreateCounterOrderUseCase(unitOfWork, orderIds, clock);
     openTableOrder = new OpenTableOrderUseCase(unitOfWork, orderIds, clock);
     addOrderItems = new AddOrderItemsUseCase(unitOfWork, clock);
@@ -61,12 +61,12 @@ describe.skipIf(!TEST_DATABASE_URL)('order application use cases', () => {
     clock = new MutableClock(initialNow);
     createCounterOrder = new CreateCounterOrderUseCase(
       unitOfWork,
-      new SequenceIdGenerator(database.write, 'orders_id_seq'),
+      new SequenceIdGenerator(() => database.writeSql(), 'orders_id_seq'),
       clock,
     );
     openTableOrder = new OpenTableOrderUseCase(
       unitOfWork,
-      new SequenceIdGenerator(database.write, 'orders_id_seq'),
+      new SequenceIdGenerator(() => database.writeSql(), 'orders_id_seq'),
       clock,
     );
     addOrderItems = new AddOrderItemsUseCase(unitOfWork, clock);

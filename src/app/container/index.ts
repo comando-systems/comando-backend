@@ -145,7 +145,7 @@ export function createContainer(config: AppConfig): AppContainer {
   const refreshTokenCodec = new RandomRefreshTokenCodec();
 
   const ids: IdGenerators = {
-    orders: new SequenceIdGenerator(database.write, 'orders_id_seq'),
+    orders: new SequenceIdGenerator(() => database.writeSql(), 'orders_id_seq'),
   };
 
   const useCases = createUseCases({

@@ -37,7 +37,7 @@ describe.skipIf(!TEST_DATABASE_URL)('item administration', () => {
     database = createTestDatabase();
     repositories = createRepositories(database);
     unitOfWork = new DatabaseUnitOfWork(database, () => repositories);
-    orderIds = new SequenceIdGenerator(database.write, 'orders_id_seq');
+    orderIds = new SequenceIdGenerator(() => database.writeSql(), 'orders_id_seq');
     createItem = new CreateItemUseCase(unitOfWork, clock);
     updateItem = new UpdateItemUseCase(unitOfWork, clock);
     removeItem = new RemoveItemUseCase(unitOfWork, clock);
