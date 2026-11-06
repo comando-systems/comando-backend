@@ -86,6 +86,20 @@ export interface OrderResponse {
   readonly payments: readonly OrderPaymentResponse[];
 }
 
+export interface SalesSummaryResponse {
+  readonly from: string;
+  readonly to: string;
+  readonly closedOrders: number;
+  readonly revenueCents: number;
+  readonly averageTicketCents: number;
+  readonly canceledOrders: number;
+  readonly openOrders: number;
+  readonly byMethod: ReadonlyArray<{
+    readonly method: PaymentMethod;
+    readonly amountCents: number;
+  }>;
+}
+
 export interface SettingsResponse {
   readonly serviceFeeEnabled: boolean;
   // 10% is 1000.
@@ -178,6 +192,31 @@ export function toOrderResponse(order: Order): OrderResponse {
       receivedCents: payment.receivedCents,
       changeCents: payment.changeCents,
     })),
+  };
+}
+
+export function toSalesSummaryResponse(summary: {
+  readonly from: Date;
+  readonly to: Date;
+  readonly closedOrders: number;
+  readonly revenueCents: number;
+  readonly averageTicketCents: number;
+  readonly canceledOrders: number;
+  readonly openOrders: number;
+  readonly byMethod: ReadonlyArray<{
+    readonly method: PaymentMethod;
+    readonly amountCents: number;
+  }>;
+}): SalesSummaryResponse {
+  return {
+    from: toIsoString(summary.from),
+    to: toIsoString(summary.to),
+    closedOrders: summary.closedOrders,
+    revenueCents: summary.revenueCents,
+    averageTicketCents: summary.averageTicketCents,
+    canceledOrders: summary.canceledOrders,
+    openOrders: summary.openOrders,
+    byMethod: summary.byMethod.map(({ method, amountCents }) => ({ method, amountCents })),
   };
 }
 

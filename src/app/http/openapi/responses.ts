@@ -101,6 +101,19 @@ export const settingsResponseSchema = z.object({
   updatedAt: timestamp,
 });
 
+export const salesSummaryResponseSchema = z.object({
+  from: timestamp.describe('Start of the range, inclusive.'),
+  to: timestamp.describe('End of the range, exclusive.'),
+  closedOrders: z.number().int().describe('Orders closed within the range.'),
+  revenueCents: cents.describe('Sum of the totals of the closed orders.'),
+  averageTicketCents: cents.describe('Revenue divided by closed orders; zero when there are none.'),
+  canceledOrders: z.number().int().describe('Orders canceled within the range.'),
+  openOrders: z.number().int().describe('Orders being served right now, whatever the range.'),
+  byMethod: z
+    .array(z.object({ method: paymentMethodSchema, amountCents: cents }))
+    .describe('Payments of the closed orders, by method.'),
+});
+
 export const healthResponseSchema = z.object({ status: z.literal('ok') });
 
 export const errorResponseSchema = z.object({

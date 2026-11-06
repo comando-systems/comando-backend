@@ -34,7 +34,7 @@ describe('User', () => {
     expect(user.hasPermission('orders:cancel')).toBe(true);
     expect(user.hasPermission('users:manage')).toBe(false);
     expect(permissionsForRoles(['ADMIN'])).toEqual(
-      new Set(['users:manage', 'items:manage', 'settings:manage']),
+      new Set(['users:manage', 'items:manage', 'settings:manage', 'reports:view']),
     );
   });
 

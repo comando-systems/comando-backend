@@ -68,6 +68,12 @@ export type {
   OrderPage,
   OrderRepository,
 } from '@/domain/repository/order-repository';
+export type {
+  MethodTotal,
+  ReportRepository,
+  SalesRange,
+  SalesSummary,
+} from '@/domain/repository/report-repository';
 export type { SettingsRepository } from '@/domain/repository/settings-repository';
 export type {
   UserPage,

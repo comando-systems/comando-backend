@@ -84,6 +84,7 @@ The document is built in code (`src/app/http/openapi/`). Request bodies reuse th
 | `DELETE` | `/users/:id` | `ADMIN` | Deactivate a user (soft delete). |
 | `GET` | `/settings` | Authenticated | Read the service fee settings. |
 | `PUT` | `/settings` | `ADMIN` | Turn the service fee on or off and set its rate. |
+| `GET` | `/reports/summary` | `ADMIN` | Sales summary for a range: revenue, orders, average ticket, payments by method. |
 | `POST` | `/items` | `ADMIN` | Create a catalog item. |
 | `GET` | `/items` | Authenticated | List the active catalog. |
 | `GET` | `/items/:id` | Authenticated | Read an active item. |
@@ -157,6 +158,10 @@ Items have a `category` (default `Uncategorized`) and an `enabled` switch. A dis
 `GET /settings` and `PUT /settings` manage the service fee. It starts off, `serviceFeeBasisPoints` is 1000 (10%) by default, and an order keeps the rate it snapshotted, so changing the settings never alters existing orders.
 
 Passwords need 8 to 128 characters. A deactivated user can only be edited by sending `isActive: true`. To avoid locking everyone out, an administrator cannot deactivate or demote themselves (`CANNOT_DEACTIVATE_SELF`, `CANNOT_REMOVE_OWN_ADMIN`) and the last active administrator cannot be removed (`LAST_ADMIN`); concurrent changes are serialized with a database lock.
+
+### Sales summary
+
+`GET /reports/summary` returns, for the orders closed in a range: `closedOrders`, `revenueCents`, `averageTicketCents` (rounded half up, zero when there are none), and `byMethod`. It also reports `canceledOrders` in the range and `openOrders`, the orders being served right now. The range is `from` (inclusive) to `to` (exclusive), at most 366 days. Without parameters it is today in UTC; to follow the shop's day, the client sends its own local day boundaries as ISO 8601 instants.
 
 ### Order workflow
 
