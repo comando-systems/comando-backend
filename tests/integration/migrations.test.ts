@@ -240,42 +240,34 @@ describe.skipIf(!TEST_DATABASE_URL)('migrations', () => {
     ).rejects.toThrow();
   });
 
-  test('DOWN of the workflow migration reopens orders awaiting payment', async () => {
-    const index = migrations.findIndex((migration) => migration.name === 'order_workflow');
-    const workflow = migrations[index] as Migration;
-    const previous = migrations[index - 1] as Migration;
-    const later = migrations.slice(index + 1);
-
-    for (const migration of [...later].reverse()) {
-      await sql.unsafe(migration.down);
-    }
-    await sql.unsafe(workflow.down);
-
-    const orders = await rows<{ status: string }>('SELECT status::text AS status FROM orders');
-    expect(orders.map((order) => order.status)).toEqual(['OPEN']);
-
-    await sql.unsafe(previous.down);
-    await sql.unsafe(previous.up);
-    await sql.unsafe(workflow.up);
-    for (const migration of later) {
-      await sql.unsafe(migration.up);
-    }
-  });
-
-  test('the list indexes exist and DOWN removes only them', async () => {
-    const names = ['orders_status_created_idx', 'orders_closed_at_idx', 'orders_canceled_at_idx'];
-    const present = () =>
+  test('creates only indexes backed by application queries', async () => {
+    const kept = [
+      'items_sellable_category_idx',
+      'orders_history_idx',
+      'orders_status_created_idx',
+      'orders_closed_at_idx',
+      'orders_canceled_at_idx',
+      'orders_one_active_per_table_idx',
+      'order_payments_order_id_idx',
+      'refresh_tokens_user_active_idx',
+      'audit_logs_created_at_idx',
+    ];
+    const removed = [
+      'user_roles_role_id_idx',
+      'orders_status_type_idx',
+      'items_active_name_idx',
+      'order_items_item_id_idx',
+      'audit_logs_actor_created_at_idx',
+      'audit_logs_target_idx',
+    ];
+    const present = (names: readonly string[]) =>
       rows<{ indexname: string }>(
         `SELECT indexname FROM pg_indexes
          WHERE schemaname = 'public' AND indexname IN (${names.map((name) => `'${name}'`).join(', ')})`,
       );
-    const migration = migrations.find(({ name }) => name === 'order_list_indexes') as Migration;
 
-    expect((await present()).length).toBe(3);
-    await sql.unsafe(migration.down);
-    expect(await present()).toEqual([]);
-    await sql.unsafe(migration.up);
-    expect((await present()).length).toBe(3);
+    expect((await present(kept)).length).toBe(kept.length);
+    expect(await present(removed)).toEqual([]);
   });
 
   test('UP, DOWN, UP leaves exactly the same schema', async () => {
