@@ -13,20 +13,14 @@ import type { ItemID, OrderID, UserID } from '@/domain/value-objects/ids';
 import { Money } from '@/domain/value-objects/money';
 import { OrderItemKey } from '@/domain/value-objects/order-item-key';
 import {
-  type Adjustment,
   calculatePricing,
   type PricingBreakdown,
-  requireAdjustment,
   requireBasisPoints,
+  requireNonNegativeMoney,
 } from './pricing';
 
-export type {
-  Adjustment,
-  AdjustmentMode,
-  AdjustmentType,
-  PricingBreakdown,
-} from './pricing';
-export { ADJUSTMENT_MODES, ADJUSTMENT_TYPES, MAX_BASIS_POINTS } from './pricing';
+export type { PricingBreakdown } from './pricing';
+export { MAX_BASIS_POINTS } from './pricing';
 
 export type OrderType = 'COUNTER' | 'TABLE';
 export type OrderStatus = 'OPEN' | 'AWAITING_PAYMENT' | 'CLOSED' | 'CANCELED';
@@ -232,7 +226,8 @@ export interface OrderProps {
   canceledByUserId: UserID | null;
   paymentRequestedByUserId: UserID | null;
   paymentRequestedAt: Date | null;
-  adjustment: Adjustment | null;
+  surcharge: Money;
+  discount: Money;
   applyServiceFee: boolean;
   // Rate snapshot in basis points; zero when the fee does not apply.
   serviceFeeBasisPoints: number;
@@ -267,7 +262,8 @@ export interface CreateCounterOrderInput {
   readonly lines: readonly CounterOrderLine[];
   readonly payments: readonly OrderPaymentInput[];
   readonly label?: string | null;
-  readonly adjustment?: Adjustment | null;
+  readonly surchargeCents?: number;
+  readonly discountCents?: number;
   // Present only when the sale charges a service fee.
   readonly serviceFeeBasisPoints?: number;
   readonly now: Date;
@@ -319,10 +315,14 @@ export class Order {
         canceledByUserId: null,
         paymentRequestedByUserId: null,
         paymentRequestedAt: null,
-        adjustment:
-          input.adjustment === undefined || input.adjustment === null
-            ? null
-            : requireAdjustment(input.adjustment),
+        surcharge:
+          input.surchargeCents === undefined
+            ? Money.zero()
+            : requireNonNegativeMoney(Money.fromCents(input.surchargeCents), 'Surcharge'),
+        discount:
+          input.discountCents === undefined
+            ? Money.zero()
+            : requireNonNegativeMoney(Money.fromCents(input.discountCents), 'Discount'),
         applyServiceFee: input.serviceFeeBasisPoints !== undefined,
         serviceFeeBasisPoints:
           input.serviceFeeBasisPoints === undefined
@@ -342,6 +342,7 @@ export class Order {
       order.addOrIncrementLine(line.item, line.quantity, now);
     }
 
+    order.assertAmountsValid();
     order.paymentList = normalizePayments(input.payments);
     assertPaymentsMatchTotal(order.paymentList, order.total);
 
@@ -363,7 +364,8 @@ export class Order {
         canceledByUserId: null,
         paymentRequestedByUserId: null,
         paymentRequestedAt: null,
-        adjustment: null,
+        surcharge: Money.zero(),
+        discount: Money.zero(),
         applyServiceFee: true,
         serviceFeeBasisPoints: requireBasisPoints(input.serviceFeeBasisPoints ?? 0, 'Service fee'),
         openedAt: now,
@@ -395,7 +397,8 @@ export class Order {
       {
         ...props,
         label: normalizeLabel(props.label),
-        adjustment: props.adjustment === null ? null : requireAdjustment(props.adjustment),
+        surcharge: requireNonNegativeMoney(props.surcharge, 'Surcharge'),
+        discount: requireNonNegativeMoney(props.discount, 'Discount'),
         serviceFeeBasisPoints: requireBasisPoints(props.serviceFeeBasisPoints, 'Service fee'),
         paymentRequestedAt:
           props.paymentRequestedAt === null
@@ -416,6 +419,8 @@ export class Order {
     if (!order.props.applyServiceFee && order.props.serviceFeeBasisPoints !== 0) {
       throw new InvariantViolationError('A service fee rate requires the fee to apply');
     }
+
+    order.assertAmountsValid();
 
     if (
       order.status === 'AWAITING_PAYMENT' &&
@@ -467,8 +472,12 @@ export class Order {
       : new Date(this.props.paymentRequestedAt.getTime());
   }
 
-  get adjustment(): Adjustment | null {
-    return this.props.adjustment;
+  get surcharge(): Money {
+    return this.props.surcharge;
+  }
+
+  get discount(): Money {
+    return this.props.discount;
   }
 
   get applyServiceFee(): boolean {
@@ -526,7 +535,8 @@ export class Order {
   get pricing(): PricingBreakdown {
     return calculatePricing({
       subtotal: this.subtotal,
-      adjustment: this.props.adjustment,
+      surcharge: this.props.surcharge,
+      discount: this.props.discount,
       serviceFeeBasisPoints: this.props.serviceFeeBasisPoints,
     });
   }
@@ -553,24 +563,42 @@ export class Order {
       throw new InvariantViolationError('Order item not found');
     }
 
-    line.changeQuantity(quantity, now);
+    const nextQuantity = requirePositiveInteger(quantity, 'Quantity');
+    const nextSubtotal = this.subtotal
+      .subtract(line.lineTotal)
+      .add(line.unitPrice.multiply(nextQuantity));
+
+    this.assertAmountsValid(this.props.surcharge, this.props.discount, nextSubtotal);
+    line.changeQuantity(nextQuantity, now);
     this.touch(now);
   }
 
   removeItem(itemId: ItemID, now: Date): void {
     this.assertEditableLines();
     const key = new OrderItemKey(this.props.id, itemId).toString();
+    const line = this.lineMap.get(key);
 
-    if (!this.lineMap.delete(key)) {
+    if (line === undefined) {
       throw new InvariantViolationError('Order item not found');
     }
 
+    this.assertAmountsValid(
+      this.props.surcharge,
+      this.props.discount,
+      this.subtotal.subtract(line.lineTotal),
+    );
+    this.lineMap.delete(key);
     this.touch(now);
   }
 
-  setAdjustment(adjustment: Adjustment | null, now: Date): void {
+  setAmounts(surcharge: Money, discount: Money, now: Date): void {
     this.assertActive();
-    this.props.adjustment = adjustment === null ? null : requireAdjustment(adjustment);
+    const nextSurcharge = requireNonNegativeMoney(surcharge, 'Surcharge');
+    const nextDiscount = requireNonNegativeMoney(discount, 'Discount');
+
+    this.assertAmountsValid(nextSurcharge, nextDiscount);
+    this.props.surcharge = nextSurcharge;
+    this.props.discount = nextDiscount;
     this.touch(now);
   }
 
@@ -668,6 +696,20 @@ export class Order {
         now,
       }),
     );
+  }
+
+  // Validates a combination before it is stored, so a failed change leaves the order untouched.
+  private assertAmountsValid(
+    surcharge: Money = this.props.surcharge,
+    discount: Money = this.props.discount,
+    subtotal: Money = this.subtotal,
+  ): void {
+    calculatePricing({
+      subtotal,
+      surcharge,
+      discount,
+      serviceFeeBasisPoints: this.props.serviceFeeBasisPoints,
+    });
   }
 
   // Lines can change only while the server is still taking the order.

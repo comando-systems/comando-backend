@@ -1,35 +1,21 @@
 import { InvalidValueError } from '@/domain/errors';
 import { Money } from '@/domain/value-objects/money';
 
-export type AdjustmentType = 'DISCOUNT' | 'SURCHARGE';
-export type AdjustmentMode = 'PERCENT' | 'FIXED';
-
-export const ADJUSTMENT_TYPES: readonly AdjustmentType[] = Object.freeze(['DISCOUNT', 'SURCHARGE']);
-export const ADJUSTMENT_MODES: readonly AdjustmentMode[] = Object.freeze(['PERCENT', 'FIXED']);
-
 // 100% expressed in basis points. Percentages are integers so decimals (12.5%) stay exact.
 export const MAX_BASIS_POINTS = 10_000;
 
-/**
- * `value` is basis points for PERCENT and cents for FIXED.
- */
-export interface Adjustment {
-  readonly type: AdjustmentType;
-  readonly mode: AdjustmentMode;
-  readonly value: number;
-}
-
 export interface PricingInput {
   readonly subtotal: Money;
-  readonly adjustment: Adjustment | null;
+  readonly surcharge: Money;
+  readonly discount: Money;
   // Zero when the order does not charge a service fee.
   readonly serviceFeeBasisPoints: number;
 }
 
 export interface PricingBreakdown {
   readonly subtotal: Money;
-  // Signed: negative for a discount, positive for a surcharge.
-  readonly adjustment: Money;
+  readonly surcharge: Money;
+  readonly discount: Money;
   readonly serviceFee: Money;
   readonly total: Money;
 }
@@ -42,21 +28,12 @@ export function requireBasisPoints(value: number, field: string): number {
   return value;
 }
 
-export function requireAdjustment(adjustment: Adjustment): Adjustment {
-  if (!ADJUSTMENT_TYPES.includes(adjustment.type)) {
-    throw new InvalidValueError('Invalid adjustment type');
-  }
-  if (!ADJUSTMENT_MODES.includes(adjustment.mode)) {
-    throw new InvalidValueError('Invalid adjustment mode');
-  }
-  if (!Number.isSafeInteger(adjustment.value) || adjustment.value < 0) {
-    throw new InvalidValueError('Adjustment value must be a non-negative integer');
-  }
-  if (adjustment.mode === 'PERCENT') {
-    requireBasisPoints(adjustment.value, 'Adjustment percentage');
+export function requireNonNegativeMoney(value: Money, field: string): Money {
+  if (value.isNegative()) {
+    throw new InvalidValueError(`${field} cannot be negative`);
   }
 
-  return Object.freeze({ type: adjustment.type, mode: adjustment.mode, value: adjustment.value });
+  return Money.fromCents(value.cents);
 }
 
 // Half-up rounding on integer cents, exact for any safe amount (no floating point).
@@ -65,21 +42,21 @@ function percentOf(cents: number, basisPoints: number): number {
 }
 
 /**
- * subtotal -> adjustment -> service fee -> total. A discount never exceeds the subtotal, and the
- * service fee is charged on the adjusted amount.
+ * subtotal + surcharge - discount, then the service fee on the adjusted amount. The surcharge and
+ * the discount are independent, so both may apply at once, and a discount never exceeds the
+ * adjusted subtotal.
  */
 export function calculatePricing(input: PricingInput): PricingBreakdown {
   const subtotal = input.subtotal.cents;
-  const adjustment = input.adjustment;
+  const surcharge = requireNonNegativeMoney(input.surcharge, 'Surcharge').cents;
+  const discount = requireNonNegativeMoney(input.discount, 'Discount').cents;
+  const adjusted = subtotal + surcharge;
 
-  let adjustmentCents = 0;
-  if (adjustment !== null) {
-    const raw =
-      adjustment.mode === 'PERCENT' ? percentOf(subtotal, adjustment.value) : adjustment.value;
-    adjustmentCents = adjustment.type === 'DISCOUNT' ? -Math.min(raw, subtotal) : raw;
+  if (discount > adjusted) {
+    throw new InvalidValueError('Discount cannot exceed the subtotal plus the surcharge');
   }
 
-  const base = subtotal + adjustmentCents;
+  const base = adjusted - discount;
   const serviceFee = percentOf(
     base,
     requireBasisPoints(input.serviceFeeBasisPoints, 'Service fee'),
@@ -87,8 +64,9 @@ export function calculatePricing(input: PricingInput): PricingBreakdown {
 
   return {
     subtotal: Money.fromCents(subtotal),
-    adjustment: Money.fromCents(adjustmentCents),
+    surcharge: Money.fromCents(surcharge),
+    discount: Money.fromCents(discount),
     serviceFee: Money.fromCents(serviceFee),
-    total: Money.fromCents(Math.max(0, base + serviceFee)),
+    total: Money.fromCents(base + serviceFee),
   };
 }

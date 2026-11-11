@@ -1,6 +1,6 @@
 // Comandô database schema
 //
-// Current state after migrations 001 through 005.
+// Current state after migrations 001 and 002.
 // Money is always stored as integer minor units (cents). Timestamps are UTC (`timestamptz`).
 // This file is documentation: PostgreSQL remains the source of truth.
 
@@ -22,16 +22,6 @@ Enum payment_method {
   CREDIT_CARD
   PIX
   OTHER
-}
-
-Enum order_adjustment_type {
-  DISCOUNT
-  SURCHARGE
-}
-
-Enum order_adjustment_mode {
-  PERCENT
-  FIXED
 }
 
 // Staff accounts. Users are never physically deleted: `deleted_at` deactivates them and
@@ -93,7 +83,7 @@ Table items {
 
 // Single order model for both channels. COUNTER orders are inserted directly as CLOSED;
 // TABLE orders move through OPEN -> AWAITING_PAYMENT -> CLOSED or CANCELED.
-// Pricing columns snapshot the adjustment and service fee applied to the order.
+// Pricing columns snapshot the surcharge, discount, and service fee applied to the order.
 Table orders {
   id bigint [pk, increment]
   order_type order_type [not null]
@@ -106,10 +96,8 @@ Table orders {
   canceled_by_user_id bigint [null, note: 'Required when status = CANCELED']
   payment_requested_at timestamptz [null, note: 'Set when the order enters AWAITING_PAYMENT']
   payment_requested_by_user_id bigint [null, note: 'Must be set together with payment_requested_at']
-  adjustment_type order_adjustment_type [null, note: 'DISCOUNT or SURCHARGE; must be set together with adjustment_mode']
-  adjustment_mode order_adjustment_mode [null, note: 'PERCENT or FIXED']
-  adjustment_value bigint [not null, default: 0, note: 'Basis points for PERCENT, cents for FIXED; CHECK >= 0 and <= 10000 for PERCENT']
-  adjustment_cents bigint [not null, default: 0, note: 'Signed result: negative for DISCOUNT, positive for SURCHARGE']
+  surcharge_cents bigint [not null, default: 0, note: 'Amount added to the subtotal; CHECK >= 0']
+  discount_cents bigint [not null, default: 0, note: 'Amount removed from the subtotal plus surcharge; CHECK >= 0']
   apply_service_fee boolean [not null, default: false]
   service_fee_basis_points integer [not null, default: 0, note: 'Snapshotted fee rate; CHECK 0..10000']
   service_fee_cents bigint [not null, default: 0, note: 'Snapshotted fee amount; CHECK >= 0']

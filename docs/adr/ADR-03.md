@@ -10,7 +10,7 @@ The app builds a counter sale item by item and charges at the end. The domain re
 ## Decision
 
 - The draft of a counter sale exists only on the device until the cashier charges.
-- Charging sends one `POST /orders/counter` with: lines (`itemId`, `quantity`), optional customer label, optional adjustment, whether the service fee applies, and payments.
+- Charging sends one `POST /orders/counter` with: lines (`itemId`, `quantity`), optional customer label, optional surcharge and discount, whether the service fee applies, and payments.
 - The client never sends prices, subtotals, or totals. The server reads current prices, snapshots them on the lines, and computes every amount (ADR-04).
 - The backend has no draft state. Discarding a draft is a client action; a persisted counter order cannot be canceled.
 

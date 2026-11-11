@@ -4,16 +4,18 @@ import { ValidationError } from '@/app/errors';
 import type { Clock } from '@/app/ports/clock';
 import type { UnitOfWork } from '@/app/ports/unit-of-work';
 import { findTableOrderForUpdate } from '@/app/use-cases/orders/load-order';
-import type { Adjustment, Order } from '@/domain/entity/order';
+import type { Order } from '@/domain/entity/order';
 import type { Repositories } from '@/domain/repository';
 import type { OrderID, UserID } from '@/domain/value-objects/ids';
+import { Money } from '@/domain/value-objects/money';
 
 export interface SetOrderPricingInput {
   readonly requestId?: string;
   readonly actorUserId: UserID;
   readonly orderId: OrderID;
-  // `null` clears the adjustment; omitted leaves it as it is.
-  readonly adjustment?: Adjustment | null;
+  // `null` clears the amount to zero; omitted leaves it as it is.
+  readonly surchargeCents?: number | null;
+  readonly discountCents?: number | null;
   readonly applyServiceFee?: boolean;
 }
 
@@ -25,8 +27,12 @@ export class SetOrderPricingUseCase {
   ) {}
 
   async execute(input: SetOrderPricingInput): Promise<Order> {
-    if (input.adjustment === undefined && input.applyServiceFee === undefined) {
-      throw new ValidationError('Provide an adjustment or applyServiceFee');
+    if (
+      input.surchargeCents === undefined &&
+      input.discountCents === undefined &&
+      input.applyServiceFee === undefined
+    ) {
+      throw new ValidationError('Provide a surcharge, a discount, or applyServiceFee');
     }
 
     return this.unitOfWork.run(async (repositories) => {
@@ -34,8 +40,17 @@ export class SetOrderPricingUseCase {
       const order = await findTableOrderForUpdate(repositories, input.orderId);
       const now = this.clock.now();
 
-      if (input.adjustment !== undefined) {
-        order.setAdjustment(input.adjustment, now);
+      if (input.surchargeCents !== undefined || input.discountCents !== undefined) {
+        const surcharge =
+          input.surchargeCents === undefined
+            ? order.surcharge
+            : Money.fromCents(input.surchargeCents ?? 0);
+        const discount =
+          input.discountCents === undefined
+            ? order.discount
+            : Money.fromCents(input.discountCents ?? 0);
+
+        order.setAmounts(surcharge, discount, now);
       }
 
       if (input.applyServiceFee !== undefined) {

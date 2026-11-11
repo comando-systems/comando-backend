@@ -29,7 +29,8 @@ export function orderRoutes(container: AppContainer): Hono<AppEnv> {
       })),
       payments: body.payments,
       label: body.label,
-      adjustment: body.adjustment,
+      surchargeCents: body.surchargeCents,
+      discountCents: body.discountCents,
       applyServiceFee: body.applyServiceFee,
     });
 
@@ -132,7 +133,8 @@ export function orderRoutes(container: AppContainer): Hono<AppEnv> {
       requestId: context.get('requestId'),
       actorUserId: context.get('actorUserId'),
       orderId: new OrderID(context.req.param('id')),
-      adjustment: body.adjustment,
+      surchargeCents: body.surchargeCents,
+      discountCents: body.discountCents,
       applyServiceFee: body.applyServiceFee,
     });
 

@@ -501,9 +501,9 @@ const operations: readonly OperationSpec[] = [
     path: '/orders/{id}/pricing',
     operationId: 'setOrderPricing',
     tag: 'Orders',
-    summary: 'Set the adjustment or the service fee',
+    summary: 'Set the surcharge, the discount, or the service fee',
     description:
-      'Sets or clears (`null`) a discount or surcharge, and switches the service fee. The server calculates the total: subtotal, then the adjustment, then the fee on the adjusted amount. Allowed while the order is open or awaiting payment.',
+      'Sets or clears (`null`) the surcharge and the discount, and switches the service fee. Both amounts are independent and may be set at once. The server calculates the total: subtotal plus surcharge minus discount, then the fee on the adjusted amount. Allowed while the order is open or awaiting payment.',
     roles: ['ADMIN', 'CASHIER', 'SERVER'],
     parameters: [idParameter('id', 'Order identifier.')],
     request: 'SetOrderPricingRequest',

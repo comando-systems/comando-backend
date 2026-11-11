@@ -52,12 +52,6 @@ const orderPaymentResponseSchema = z.object({
   changeCents: cents.nullable().describe('Derived by the server: received minus the amount.'),
 });
 
-const orderAdjustmentResponseSchema = z.object({
-  type: z.enum(['DISCOUNT', 'SURCHARGE']),
-  mode: z.enum(['PERCENT', 'FIXED']),
-  value: z.number().int().describe('Basis points for PERCENT (1000 is 10%), cents for FIXED.'),
-});
-
 export const orderResponseSchema = z.object({
   id: identifier,
   type: z.enum(['COUNTER', 'TABLE']),
@@ -75,16 +69,18 @@ export const orderResponseSchema = z.object({
   createdAt: timestamp,
   updatedAt: timestamp,
   version: z.number().int().describe('Increments on every change to the order.'),
-  adjustment: orderAdjustmentResponseSchema.nullable(),
   applyServiceFee: z.boolean(),
   serviceFeeBasisPoints: z
     .number()
     .int()
     .describe('Rate snapshot taken for this order; 1000 is 10%.'),
   subtotalCents: cents.describe('Sum of the lines.'),
-  adjustmentCents: cents.describe('Signed: negative for a discount.'),
+  surchargeCents: cents.describe('Amount added to the subtotal.'),
+  discountCents: cents.describe('Amount removed from the subtotal plus the surcharge.'),
   serviceFeeCents: cents,
-  totalCents: cents.describe('Calculated by the server: subtotal, adjustment, then service fee.'),
+  totalCents: cents.describe(
+    'Calculated by the server: subtotal plus surcharge minus discount, then the service fee.',
+  ),
   items: z.array(orderItemResponseSchema),
   payments: z.array(orderPaymentResponseSchema),
 });
