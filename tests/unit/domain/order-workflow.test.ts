@@ -7,6 +7,7 @@ import {
   InvariantViolationError,
 } from '@/domain/errors';
 import { ItemID, OrderID, UserID } from '@/domain/value-objects/ids';
+import { Money } from '@/domain/value-objects/money';
 
 const now = new Date('2026-01-01T12:00:00.000Z');
 const later = new Date('2026-01-01T13:00:00.000Z');
@@ -205,7 +206,9 @@ describe('closing and canceling', () => {
       expect(() => order.cancel(cashier, later)).toThrow(InvalidStateTransitionError);
       expect(() => order.close(cashier, [], later)).toThrow(InvalidStateTransitionError);
       expect(() => order.reopen(later)).toThrow(InvalidStateTransitionError);
-      expect(() => order.setAdjustment(null, later)).toThrow(InvalidStateTransitionError);
+      expect(() => order.setAmounts(Money.zero(), Money.zero(), later)).toThrow(
+        InvalidStateTransitionError,
+      );
       expect(() => order.setServiceFee(false, 0, later)).toThrow(InvalidStateTransitionError);
       expect(() => order.addItem(item('2', 100), 1, later)).toThrow(InvalidStateTransitionError);
     }
@@ -225,6 +228,18 @@ describe('lines', () => {
     expect(order.items.map((line) => line.itemId.value)).toEqual(['2']);
     expect(order.total.cents).toBe(300);
     expect(() => order.removeItem(coffee.id, later)).toThrow(InvariantViolationError);
+  });
+
+  test('refuses a line change that would leave the discount above the adjusted subtotal', () => {
+    const order = table(0);
+    const coffee = item('1', 500);
+    const cake = item('2', 300);
+    order.addItem(coffee, 1, now);
+    order.addItem(cake, 1, now);
+    order.setAmounts(Money.zero(), Money.fromCents(700), later);
+
+    expect(() => order.removeItem(coffee.id, later)).toThrow(InvalidValueError);
+    expect(order.items).toHaveLength(2);
   });
 
   test('adding the same item again updates the single line', () => {
@@ -260,22 +275,38 @@ describe('lines', () => {
 });
 
 describe('pricing changes', () => {
-  test('applies and clears an adjustment while awaiting payment', () => {
+  test('applies and clears a surcharge and a discount while awaiting payment', () => {
     const order = table(0);
     order.addItem(item('1', 1000), 1, now);
     order.requestPayment(server, now);
 
-    order.setAdjustment({ type: 'DISCOUNT', mode: 'PERCENT', value: 1000 }, later);
-    expect(order.total.cents).toBe(900);
+    order.setAmounts(Money.fromCents(200), Money.fromCents(100), later);
+    expect(order.surcharge.cents).toBe(200);
+    expect(order.discount.cents).toBe(100);
+    expect(order.total.cents).toBe(1100);
 
-    order.setAdjustment(null, later);
+    order.setAmounts(Money.zero(), Money.zero(), later);
     expect(order.total.cents).toBe(1000);
   });
 
-  test('rejects an invalid adjustment', () => {
-    expect(() =>
-      table().setAdjustment({ type: 'DISCOUNT', mode: 'PERCENT', value: 20_000 }, later),
-    ).toThrow(InvalidValueError);
+  test('rejects a discount above the adjusted subtotal without changing the order', () => {
+    const order = table(0);
+    order.addItem(item('1', 1000), 1, now);
+
+    expect(() => order.setAmounts(Money.fromCents(200), Money.fromCents(1201), later)).toThrow(
+      InvalidValueError,
+    );
+    expect(order.surcharge.cents).toBe(0);
+    expect(order.discount.cents).toBe(0);
+  });
+
+  test('rejects negative amounts', () => {
+    expect(() => table().setAmounts(Money.fromCents(-1), Money.zero(), later)).toThrow(
+      InvalidValueError,
+    );
+    expect(() => table().setAmounts(Money.zero(), Money.fromCents(-1), later)).toThrow(
+      InvalidValueError,
+    );
   });
 
   test('toggles the service fee and snapshots the rate', () => {
@@ -306,13 +337,14 @@ describe('pricing changes', () => {
 describe('counter orders', () => {
   const coffee = item('1', 1000);
 
-  test('is created closed with the label, adjustment, and fee', () => {
+  test('is created closed with the label, surcharge, discount, and fee', () => {
     const order = Order.createCounter({
       id: new OrderID('11'),
       openedByUserId: cashier,
       label: '  Maria  ',
       lines: [{ item: coffee, quantity: 2 }],
-      adjustment: { type: 'DISCOUNT', mode: 'FIXED', value: 500 },
+      surchargeCents: 200,
+      discountCents: 700,
       serviceFeeBasisPoints: 1000,
       payments: [{ method: 'CASH', amountCents: 1650, receivedCents: 2000 }],
       now,
@@ -320,9 +352,24 @@ describe('counter orders', () => {
 
     expect(order.status).toBe('CLOSED');
     expect(order.label).toBe('Maria');
-    expect(order.pricing.adjustment.cents).toBe(-500);
+    expect(order.pricing.surcharge.cents).toBe(200);
+    expect(order.pricing.discount.cents).toBe(700);
     expect(order.total.cents).toBe(1650);
     expect(order.payments[0]?.changeCents).toBe(350);
+  });
+
+  test('rejects a discount above the adjusted subtotal', () => {
+    expect(() =>
+      Order.createCounter({
+        id: new OrderID('11'),
+        openedByUserId: cashier,
+        lines: [{ item: coffee, quantity: 1 }],
+        surchargeCents: 100,
+        discountCents: 1101,
+        payments: [],
+        now,
+      }),
+    ).toThrow(InvalidValueError);
   });
 
   test('has no fee unless one is requested, and treats a blank label as none', () => {
@@ -397,7 +444,8 @@ describe('restoring persisted orders', () => {
       canceledByUserId: null,
       paymentRequestedByUserId: null,
       paymentRequestedAt: null,
-      adjustment: null,
+      surcharge: Money.zero(),
+      discount: Money.zero(),
       applyServiceFee: true,
       serviceFeeBasisPoints: 1000,
       openedAt: now,

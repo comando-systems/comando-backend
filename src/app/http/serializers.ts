@@ -1,13 +1,6 @@
 import type { Session } from '@/app/use-cases';
 import type { Item } from '@/domain/entity/item';
-import type {
-  AdjustmentMode,
-  AdjustmentType,
-  Order,
-  OrderStatus,
-  OrderType,
-  PaymentMethod,
-} from '@/domain/entity/order';
+import type { Order, OrderStatus, OrderType, PaymentMethod } from '@/domain/entity/order';
 import type { Settings } from '@/domain/entity/settings';
 import type { Role, User } from '@/domain/entity/user';
 
@@ -51,12 +44,6 @@ export interface OrderPaymentResponse {
   readonly changeCents: number | null;
 }
 
-export interface OrderAdjustmentResponse {
-  readonly type: AdjustmentType;
-  readonly mode: AdjustmentMode;
-  readonly value: number;
-}
-
 export interface OrderResponse {
   readonly id: string;
   readonly type: OrderType;
@@ -74,11 +61,11 @@ export interface OrderResponse {
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly version: number;
-  readonly adjustment: OrderAdjustmentResponse | null;
   readonly applyServiceFee: boolean;
   readonly serviceFeeBasisPoints: number;
   readonly subtotalCents: number;
-  readonly adjustmentCents: number;
+  readonly surchargeCents: number;
+  readonly discountCents: number;
   readonly serviceFeeCents: number;
   readonly totalCents: number;
   readonly items: readonly OrderItemResponse[];
@@ -179,11 +166,11 @@ export function toOrderResponse(order: Order): OrderResponse {
     createdAt: toIsoString(order.createdAt),
     updatedAt: toIsoString(order.updatedAt),
     version: order.version,
-    adjustment: order.adjustment === null ? null : { ...order.adjustment },
     applyServiceFee: order.applyServiceFee,
     serviceFeeBasisPoints: order.serviceFeeBasisPoints,
     subtotalCents: pricing.subtotal.cents,
-    adjustmentCents: pricing.adjustment.cents,
+    surchargeCents: pricing.surcharge.cents,
+    discountCents: pricing.discount.cents,
     serviceFeeCents: pricing.serviceFee.cents,
     totalCents: pricing.total.cents,
     items: order.items.map((item) => ({

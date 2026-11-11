@@ -1,29 +1,29 @@
-# ADR-04: Order pricing: adjustment and service fee
+# ADR-04: Order pricing: surcharge, discount, and service fee
 
 - Status: Accepted
 - Date: 2026-11-05
+- Updated: 2026-11-11
 
 ## Context
 
-The app applies a discount or surcharge (percent or fixed amount) and a configurable service fee. Totals must be computed by the server, in integer cents, and historical totals must not change when settings change.
+The app applies a surcharge, a discount, or both, plus a configurable service fee. Totals must be computed by the server, in integer cents, and historical totals must not change when settings change.
 
 ## Decision
 
 Total calculation, in this order:
 
 1. `subtotal` = sum of line totals.
-2. `adjustment`: a percent adjustment is `round(subtotal * basisPoints / 10000)`; a fixed adjustment is its cents. A discount is capped at `subtotal` and applied as negative; a surcharge is positive.
-3. `base` = `subtotal + adjustment`.
-4. `serviceFee` = `round(base * serviceFeeBasisPoints / 10000)` when the order applies the fee and settings have it enabled; otherwise 0.
-5. `total` = `max(0, base + serviceFee)`.
+2. `surcharge` = a non-negative amount in cents added to the subtotal.
+3. `discount` = a non-negative amount in cents removed from the subtotal plus the surcharge. It cannot exceed `subtotal + surcharge`.
+4. `base` = `subtotal + surcharge - discount`.
+5. `serviceFee` = `round(base * serviceFeeBasisPoints / 10000)` when the order applies the fee and settings have it enabled; otherwise 0.
+6. `total` = `base + serviceFee`.
 
-Rounding is half-up on integer cents (inputs are non-negative where rounded). No floating point is used for money.
-
-Percentages are stored as integer basis points (10% = 1000, 12.5% = 1250), so decimals are exact.
+The surcharge and the discount are independent, so an order may have a surcharge, a discount, both, or neither. Rounding is half-up on integer cents. No floating point is used for money.
 
 Persistence:
 
-- `orders`: `adjustment_type`, `adjustment_mode`, `adjustment_value`, `adjustment_cents`, `apply_service_fee`, `service_fee_basis_points`, `service_fee_cents`, and the final `total_amount_cents`. The applied fee rate and amounts are snapshotted, so later setting changes do not alter existing orders.
+- `orders`: `surcharge_cents`, `discount_cents`, `apply_service_fee`, `service_fee_basis_points`, `service_fee_cents`, and the final `total_amount_cents`. Both amount columns are non-negative and default to zero. The applied fee rate and amounts are snapshotted, so later setting changes do not alter existing orders.
 - `settings`: a single row with `service_fee_enabled` and `service_fee_basis_points`.
 - `order_payments`: `received_cents` and `change_cents` for cash, so a receipt can show them. The payment amount still counts toward the exact-sum rule.
 - `apply_service_fee` defaults to true for `TABLE` orders and false for `COUNTER` orders, matching the app.
