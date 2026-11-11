@@ -26,7 +26,7 @@ export async function recordAudit(
   target: { readonly type: string; readonly id: string | null },
   metadata: Readonly<Record<string, unknown>> = {},
 ): Promise<void> {
-  await repositories.auditLogs.record({
+  await repositories.auditLogs.create({
     actorUserId: context.actorUserId,
     action,
     targetType: target.type,

@@ -8,8 +8,10 @@ import { OrderPaymentRepository } from '@/infrastructure/repositories/order-paym
 import { OrderRepository } from '@/infrastructure/repositories/order-repository';
 import { RefreshTokenRepository } from '@/infrastructure/repositories/refresh-token-repository';
 import { ReportRepository } from '@/infrastructure/repositories/report-repository';
+import { RoleRepository } from '@/infrastructure/repositories/role-repository';
 import { SettingsRepository } from '@/infrastructure/repositories/settings-repository';
 import { UserRepository } from '@/infrastructure/repositories/user-repository';
+import { UserRoleRepository } from '@/infrastructure/repositories/user-role-repository';
 
 export interface RepositoryOptions {
   // How long list totals are reused. 0 always counts.
@@ -21,12 +23,16 @@ export function createRepositories(
   options: RepositoryOptions = {},
 ): Repositories {
   const counts = new CountCache(options.countCacheTtlMs ?? 0);
+  const roles = new RoleRepository(database);
+  const userRoles = new UserRoleRepository(database);
   const orderItems = new OrderItemRepository(database);
   const orderPayments = new OrderPaymentRepository(database);
 
   return {
     auditLogs: new AuditLogRepository(database),
-    users: new UserRepository(database),
+    users: new UserRepository(database, roles, userRoles),
+    roles,
+    userRoles,
     items: new ItemRepository(database, counts),
     orders: new OrderRepository(database, orderItems, orderPayments, counts),
     orderItems,

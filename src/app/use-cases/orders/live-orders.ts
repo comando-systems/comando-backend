@@ -1,5 +1,5 @@
 import type { OrderStatus } from '@/domain/entity/order';
-import type { Permission } from '@/domain/entity/user';
+import type { Permission } from '@/domain/entity/role';
 
 // Orders still being served. Everyone who works the floor or the till needs to see them, while the
 // closed and canceled history is for whoever holds `orders:history`.

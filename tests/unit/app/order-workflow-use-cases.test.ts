@@ -10,8 +10,8 @@ import {
 } from '@/app/use-cases';
 import { Item } from '@/domain/entity/item';
 import { Order } from '@/domain/entity/order';
+import type { RoleCode } from '@/domain/entity/role';
 import { Settings } from '@/domain/entity/settings';
-import type { Role } from '@/domain/entity/user';
 import { User } from '@/domain/entity/user';
 import { InvalidStateTransitionError, InvariantViolationError } from '@/domain/errors';
 import type { Repositories } from '@/domain/repository';
@@ -21,7 +21,7 @@ import { fakeUnitOfWork } from '../support/fakes';
 const now = new Date('2026-01-01T12:00:00.000Z');
 const clock = { now: () => now };
 
-function user(id: string, roles: readonly Role[]): User {
+function user(id: string, roles: readonly RoleCode[]): User {
   return User.create({
     id: new UserID(id),
     name: `User ${id}`,

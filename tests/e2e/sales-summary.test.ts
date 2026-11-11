@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
 import type { AppContainer } from '@/app/http/types';
-import type { Role } from '@/domain/entity/user';
+import type { RoleCode } from '@/domain/entity/role';
 import { resetDatabase, TEST_DATABASE_URL } from '../integration/support/database';
 import { createHarness } from './support/harness';
 
@@ -36,7 +36,7 @@ describe.skipIf(!TEST_DATABASE_URL)('sales summary API', () => {
       ['admin', ['ADMIN']],
       ['cashier', ['CASHIER']],
       ['server', ['SERVER']],
-    ] as Array<[string, Role[]]>) {
+    ] as Array<[string, RoleCode[]]>) {
       await createUser(name, roles);
     }
     adminToken = await login('admin');

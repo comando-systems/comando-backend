@@ -4,7 +4,8 @@ import { ConflictError, ValidationError } from '@/app/errors';
 import type { Clock } from '@/app/ports/clock';
 import type { PasswordHasher } from '@/app/ports/password-hasher';
 import type { UnitOfWork } from '@/app/ports/unit-of-work';
-import type { Role, User } from '@/domain/entity/user';
+import type { RoleCode } from '@/domain/entity/role';
+import type { User } from '@/domain/entity/user';
 import type { Repositories } from '@/domain/repository';
 import type { UserID } from '@/domain/value-objects/ids';
 
@@ -14,7 +15,7 @@ export interface CreateUserInput {
   readonly name: string;
   readonly email: string;
   readonly password: string;
-  readonly roles: readonly Role[];
+  readonly roles: readonly RoleCode[];
 }
 
 export class CreateUserUseCase {
