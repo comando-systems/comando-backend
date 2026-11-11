@@ -355,6 +355,8 @@ The API receives separate `DATABASE_READ_URL` and `DATABASE_WRITE_URL` connectio
 
 All SQL runs through the first-party `SqlClient` adapter in `src/infrastructure/database`, which wraps Bun's native SQL client. Repositories do not import or depend on a third-party database driver. Transactions are scoped with `AsyncLocalStorage`, so singleton repositories automatically use the active transaction.
 
+Each domain table has one entity, one repository contract in `src/domain/repository`, and one implementation in `src/infrastructure/repositories`. Repositories own their table: `UserRepository` no longer reads `roles` or `user_roles` directly but composes `RoleRepository` and `UserRoleRepository`. Cross-table aggregates, such as reports and the last-administrator safeguard, are explicit and documented at their repository boundary.
+
 Apply migrations from the root `migrations/` directory in ascending order. Do not execute schema changes ad hoc during application startup. The `docker-compose.yml` migration service mounts that directory.
 
 `docs/schema.dbml` documents the resulting tables, columns, relationships, indexes, and the purpose of each table in DBML. It is documentation only; PostgreSQL and the migrations remain the source of truth.

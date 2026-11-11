@@ -5,7 +5,8 @@ import type { Clock } from '@/app/ports/clock';
 import type { PasswordHasher } from '@/app/ports/password-hasher';
 import type { UnitOfWork } from '@/app/ports/unit-of-work';
 import { assertCanRemoveAdministrator } from '@/app/use-cases/users/admin-safeguards';
-import type { Role, User } from '@/domain/entity/user';
+import type { RoleCode } from '@/domain/entity/role';
+import type { User } from '@/domain/entity/user';
 import type { Repositories } from '@/domain/repository';
 import type { UserID } from '@/domain/value-objects/ids';
 
@@ -16,7 +17,7 @@ export interface UpdateUserInput {
   readonly name?: string;
   readonly email?: string;
   readonly password?: string;
-  readonly roles?: readonly Role[];
+  readonly roles?: readonly RoleCode[];
   // `true` reactivates a deactivated user; `false` deactivates one.
   readonly isActive?: boolean;
 }

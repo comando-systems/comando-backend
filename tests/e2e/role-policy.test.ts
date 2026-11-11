@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
 import type { AppContainer } from '@/app/http/types';
-import type { Role } from '@/domain/entity/user';
+import type { RoleCode } from '@/domain/entity/role';
 import { resetDatabase, TEST_DATABASE_URL } from '../integration/support/database';
 import { createHarness } from './support/harness';
 
@@ -38,7 +38,7 @@ describe.skipIf(!TEST_DATABASE_URL)('role policy over HTTP', () => {
     await resetDatabase(container.database);
     tableNumber = 0;
 
-    for (const role of ['ADMIN', 'CASHIER', 'SERVER'] as Role[]) {
+    for (const role of ['ADMIN', 'CASHIER', 'SERVER'] as RoleCode[]) {
       await createUser(role.toLowerCase(), [role]);
     }
 

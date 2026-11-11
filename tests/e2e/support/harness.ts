@@ -2,7 +2,7 @@ import { loadConfig } from '@/app/config';
 import { createContainer } from '@/app/container';
 import { createApp } from '@/app/http/app';
 import type { AppContainer } from '@/app/http/types';
-import type { Role } from '@/domain/entity/user';
+import type { RoleCode } from '@/domain/entity/role';
 import { TEST_DATABASE_URL } from '../../integration/support/database';
 
 export const PASSWORD = 'a-long-enough-password';
@@ -53,7 +53,7 @@ export function createHarness() {
     });
   }
 
-  async function createUser(name: string, roles: Role[]): Promise<string> {
+  async function createUser(name: string, roles: RoleCode[]): Promise<string> {
     if (container === undefined) {
       throw new Error('Call start() in beforeAll first');
     }

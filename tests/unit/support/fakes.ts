@@ -1,12 +1,13 @@
 import type { UnitOfWork } from '@/app/ports/unit-of-work';
-import type { Role } from '@/domain/entity/user';
+import { AuditLog } from '@/domain/entity/audit-log';
+import type { RoleCode } from '@/domain/entity/role';
 import { User } from '@/domain/entity/user';
 import type { Repositories } from '@/domain/repository';
 import type { AuditLogRepository } from '@/domain/repository/audit-log-repository';
 import type { OrderRepository } from '@/domain/repository/order-repository';
 import type { RefreshTokenRepository } from '@/domain/repository/refresh-token-repository';
 import type { UserRepository } from '@/domain/repository/user-repository';
-import { UserID } from '@/domain/value-objects/ids';
+import { AuditLogID, UserID } from '@/domain/value-objects/ids';
 
 export const NOW = new Date('2026-01-01T12:00:00.000Z');
 
@@ -27,7 +28,7 @@ export function fakeUnitOfWork(repositories: Partial<Repositories>): UnitOfWork<
   };
 }
 
-export function makeUser(id: string, roles: readonly Role[], deactivate = false): User {
+export function makeUser(id: string, roles: readonly RoleCode[], deactivate = false): User {
   const user = User.create({
     id: new UserID(id),
     name: `User ${id}`,
@@ -44,7 +45,14 @@ export function makeUser(id: string, roles: readonly Role[], deactivate = false)
   return user;
 }
 
-const noAuditLogs: AuditLogRepository = { record: async () => {} };
+const noAuditLogs: AuditLogRepository = {
+  create: async (log) =>
+    AuditLog.restore({
+      id: new AuditLogID('1'),
+      ...log,
+      createdAt: NOW,
+    }),
+};
 
 const noRefreshTokens: RefreshTokenRepository = {
   create: async () => {},
@@ -74,9 +82,9 @@ export function fakeOrders(overrides: Partial<OrderRepository>): OrderRepository
   return {
     create: unused,
     findById: unused,
+    findActiveTableByCode: unused,
     save: unused,
     list: unused,
     ...overrides,
-    // The table lookup is renamed in another change, so it is left to the overrides.
-  } as OrderRepository;
+  };
 }

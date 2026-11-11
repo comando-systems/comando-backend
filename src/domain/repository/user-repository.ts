@@ -1,4 +1,5 @@
-import type { Role, User } from '@/domain/entity/user';
+import type { RoleCode } from '@/domain/entity/role';
+import type { User } from '@/domain/entity/user';
 import type { UserID } from '@/domain/value-objects/ids';
 
 export interface UserPageOptions {
@@ -15,7 +16,7 @@ export interface CreateUserRecord {
   readonly name: string;
   readonly email: string;
   readonly passwordHash: string;
-  readonly roles: readonly Role[];
+  readonly roles: readonly RoleCode[];
   readonly now: Date;
 }
 

@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
 import type { Item } from '@/domain/entity/item';
 import { Order } from '@/domain/entity/order';
-import type { Role, User } from '@/domain/entity/user';
+import type { RoleCode } from '@/domain/entity/role';
+import type { User } from '@/domain/entity/user';
 import type { Repositories } from '@/domain/repository';
 import { ItemID, OrderID } from '@/domain/value-objects/ids';
 import { Money } from '@/domain/value-objects/money';
@@ -39,7 +40,7 @@ describe.skipIf(!TEST_DATABASE_URL)('order workflow persistence', () => {
 
   const orderIds = () => new SequenceIdGenerator(() => database.writeSql(), 'orders_id_seq');
 
-  function createUser(roles: readonly Role[]): Promise<User> {
+  function createUser(roles: readonly RoleCode[]): Promise<User> {
     return unitOfWork.run((repos) =>
       repos.users.create({
         name: `User ${crypto.randomUUID()}`,
