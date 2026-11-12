@@ -11,7 +11,8 @@ ALTER TABLE orders
 UPDATE orders
 SET
     surcharge_cents = GREATEST(adjustment_cents, 0),
-    discount_cents = GREATEST(-adjustment_cents, 0);
+    discount_cents = GREATEST(-adjustment_cents, 0)
+WHERE adjustment_cents <> 0;
 
 ALTER TABLE orders
     DROP CONSTRAINT orders_adjustment_sign,

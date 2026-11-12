@@ -24,7 +24,8 @@ SET
         ELSE NULL
     END,
     adjustment_value = ABS(surcharge_cents - discount_cents),
-    adjustment_cents = surcharge_cents - discount_cents;
+    adjustment_cents = surcharge_cents - discount_cents
+WHERE surcharge_cents <> 0 OR discount_cents <> 0;
 
 ALTER TABLE orders
     DROP CONSTRAINT orders_discount_nonnegative,
