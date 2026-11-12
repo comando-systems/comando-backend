@@ -195,7 +195,7 @@ export class UserRepository implements UserRepositoryContract {
       const codes = (assignments.get(id.value) ?? [])
         .map((assignment) => codeByRoleId.get(assignment.roleId.value))
         .filter((code): code is RoleCode => code !== undefined)
-        .sort();
+        .sort((left, right) => left.localeCompare(right));
       result.set(id.value, codes);
     }
 
