@@ -23,6 +23,8 @@ describe('RefreshToken', () => {
   test('tracks expiry and revocation', () => {
     const token = restore();
 
+    expect(token.tokenHash).toBe('hash');
+    expect(token.createdAt).toEqual(now);
     expect(token.isExpired(now)).toBe(false);
     expect(token.isExpired(new Date(now.getTime() + 60_000))).toBe(true);
     expect(token.isRevoked).toBe(false);

@@ -47,5 +47,6 @@ describe('UserRoleKey', () => {
     expect(key.userId.value).toBe('10');
     expect(key.roleId.value).toBe('20');
     expect(Object.isFrozen(key.value)).toBe(true);
+    expect(key.toJSON()).toEqual({ userId: '10', roleId: '20' });
   });
 });
