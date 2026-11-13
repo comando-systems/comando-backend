@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
 import { loadConfig } from '@/app/config';
+import type { AppContainer } from '@/app/container';
 import { createContainer } from '@/app/container';
 import { createApp } from '@/app/http/app';
-import type { AppContainer } from '@/app/http/types';
 import { UserID } from '@/domain/value-objects/ids';
 import { resetDatabase, TEST_DATABASE_URL } from '../integration/support/database';
 

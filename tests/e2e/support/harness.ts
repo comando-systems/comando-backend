@@ -1,7 +1,7 @@
 import { loadConfig } from '@/app/config';
+import type { AppContainer } from '@/app/container';
 import { createContainer } from '@/app/container';
 import { createApp } from '@/app/http/app';
-import type { AppContainer } from '@/app/http/types';
 import type { RoleCode } from '@/domain/entity/role';
 import { TEST_DATABASE_URL } from '../../integration/support/database';
 

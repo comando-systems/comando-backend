@@ -1,5 +1,5 @@
 import { loadConfig } from '@/app/config';
-import type { AppContainer } from '@/app/http/types';
+import type { AppContainer } from '@/app/container';
 import { JsonLogger } from '@/infrastructure/logging/json-logger';
 import { createRepositories } from '@/infrastructure/repositories';
 

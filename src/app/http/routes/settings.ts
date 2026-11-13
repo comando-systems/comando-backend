@@ -1,8 +1,9 @@
 import { Hono } from 'hono';
+import type { AppContainer } from '@/app/container';
 import { authMiddleware } from '@/app/http/middleware/auth';
 import { updateSettingsBodySchema } from '@/app/http/schemas';
 import { toSettingsResponse } from '@/app/http/serializers';
-import type { AppContainer, AppEnv } from '@/app/http/types';
+import type { AppEnv } from '@/app/http/types';
 import { parseJson } from '@/app/http/validation';
 
 export function settingsRoutes(container: AppContainer): Hono<AppEnv> {

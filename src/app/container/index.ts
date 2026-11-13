@@ -1,5 +1,5 @@
 import type { AppConfig } from '@/app/config';
-import type { AppContainer, IdGenerators } from '@/app/http/types';
+import type { AppContainer, IdGenerators } from '@/app/container/types';
 import { systemClock } from '@/app/ports/clock';
 import type { UseCases } from '@/app/use-cases';
 import {
@@ -177,3 +177,5 @@ export function createContainer(config: AppConfig): AppContainer {
     },
   };
 }
+
+export type { AppContainer, IdGenerators } from '@/app/container/types';
