@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
+import type { AppContainer } from '@/app/container';
 import { PayloadTooLargeError, ServiceUnavailableError } from '@/app/errors';
 import { toErrorResponse } from '@/app/http/error-handler';
 import { requestIdMiddleware } from '@/app/http/middleware/request-id';
@@ -15,7 +16,7 @@ import { orderRoutes } from '@/app/http/routes/orders';
 import { reportRoutes } from '@/app/http/routes/reports';
 import { settingsRoutes } from '@/app/http/routes/settings';
 import { userRoutes } from '@/app/http/routes/users';
-import type { AppContainer, AppEnv } from '@/app/http/types';
+import type { AppEnv } from '@/app/http/types';
 
 export function createApp(container: AppContainer): Hono<AppEnv> {
   const app = new Hono<AppEnv>();

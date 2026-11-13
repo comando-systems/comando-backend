@@ -1,8 +1,9 @@
 import { Hono } from 'hono';
+import type { AppContainer } from '@/app/container';
 import { loginRateLimitMiddleware } from '@/app/http/middleware/login-rate-limit';
 import { loginBodySchema, refreshBodySchema } from '@/app/http/schemas';
 import { toSessionResponse } from '@/app/http/serializers';
-import type { AppContainer, AppEnv } from '@/app/http/types';
+import type { AppEnv } from '@/app/http/types';
 import { parseJson } from '@/app/http/validation';
 
 export function authRoutes(container: AppContainer): Hono<AppEnv> {

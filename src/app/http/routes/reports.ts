@@ -1,8 +1,9 @@
 import { Hono } from 'hono';
+import type { AppContainer } from '@/app/container';
 import { authMiddleware } from '@/app/http/middleware/auth';
 import { salesSummaryQuerySchema } from '@/app/http/schemas';
 import { toSalesSummaryResponse } from '@/app/http/serializers';
-import type { AppContainer, AppEnv } from '@/app/http/types';
+import type { AppEnv } from '@/app/http/types';
 import { parseQuery } from '@/app/http/validation';
 
 export function reportRoutes(container: AppContainer): Hono<AppEnv> {

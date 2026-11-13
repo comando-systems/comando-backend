@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
-import type { AppContainer } from '@/app/http/types';
+import type { AppContainer } from '@/app/container';
 import type { RoleCode } from '@/domain/entity/role';
 import { resetDatabase, TEST_DATABASE_URL } from '../integration/support/database';
 import { createHarness } from './support/harness';

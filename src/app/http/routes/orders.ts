@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import type { AppContainer } from '@/app/container';
 import { authMiddleware } from '@/app/http/middleware/auth';
 import {
   addOrderItemsBodySchema,
@@ -10,7 +11,7 @@ import {
   setOrderPricingBodySchema,
 } from '@/app/http/schemas';
 import { toOrderResponse, toPageResponse } from '@/app/http/serializers';
-import type { AppContainer, AppEnv } from '@/app/http/types';
+import type { AppEnv } from '@/app/http/types';
 import { parseJson, parseQuery } from '@/app/http/validation';
 import { ItemID, OrderID } from '@/domain/value-objects/ids';
 
