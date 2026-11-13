@@ -4,6 +4,7 @@ import { Order } from '@/domain/entity/order';
 import type { Role, User } from '@/domain/entity/user';
 import type { Repositories } from '@/domain/repository';
 import { ItemID, OrderID } from '@/domain/value-objects/ids';
+import { Money } from '@/domain/value-objects/money';
 import type { DatabaseConnections } from '@/infrastructure/database/connections';
 import { SequenceIdGenerator } from '@/infrastructure/database/sequence-id-generator';
 import { DatabaseUnitOfWork } from '@/infrastructure/database/unit-of-work';
@@ -85,7 +86,7 @@ describe.skipIf(!TEST_DATABASE_URL)('order workflow persistence', () => {
     const coffee = await createItem('Coffee', 1000);
     const order = await openTable('T-1');
     order.addItem(coffee, 2, now);
-    order.setAdjustment({ type: 'DISCOUNT', mode: 'PERCENT', value: 1000 }, now);
+    order.setAmounts(Money.fromCents(100), Money.fromCents(300), now);
     order.requestPayment(server.id, later);
     await unitOfWork.run((repos) => repos.orders.save(order));
 
@@ -94,16 +95,18 @@ describe.skipIf(!TEST_DATABASE_URL)('order workflow persistence', () => {
     expect(found?.status).toBe('AWAITING_PAYMENT');
     expect(found?.paymentRequestedByUserId?.value).toBe(server.id.value);
     expect(found?.paymentRequestedAt).toEqual(later);
-    expect(found?.adjustment).toEqual({ type: 'DISCOUNT', mode: 'PERCENT', value: 1000 });
+    expect(found?.surcharge.cents).toBe(100);
+    expect(found?.discount.cents).toBe(300);
     expect(found?.applyServiceFee).toBe(true);
     expect(found?.serviceFeeBasisPoints).toBe(1000);
 
-    // 2000 - 10% = 1800, plus a 10% fee = 1980. The amounts are stored as a snapshot.
+    // 2000 + 100 - 300 = 1800, plus a 10% fee = 1980. The amounts are stored as a snapshot.
     const [row] = await database.write.query<
-      { total: string; adjustment: string; fee: string }[]
-    >`SELECT total_amount_cents::text AS total, adjustment_cents::text AS adjustment,
-             service_fee_cents::text AS fee FROM orders WHERE id = ${order.id.value}`;
-    expect({ ...row }).toEqual({ total: '1980', adjustment: '-200', fee: '180' });
+      { total: string; surcharge: string; discount: string; fee: string }[]
+    >`SELECT total_amount_cents::text AS total, surcharge_cents::text AS surcharge,
+             discount_cents::text AS discount, service_fee_cents::text AS fee
+      FROM orders WHERE id = ${order.id.value}`;
+    expect({ ...row }).toEqual({ total: '1980', surcharge: '100', discount: '300', fee: '180' });
   });
 
   test('reopens, then closes with a cash tender and keeps the request history', async () => {
@@ -155,14 +158,14 @@ describe.skipIf(!TEST_DATABASE_URL)('order workflow persistence', () => {
     expect((await reload(order.id))?.items).toHaveLength(0);
   });
 
-  test('persists a counter sale with its label, adjustment, and fee', async () => {
+  test('persists a counter sale with its label, surcharge, and fee', async () => {
     const coffee = await createItem('Coffee', 1000);
     const order = Order.createCounter({
       id: new OrderID(await orderIds().next()),
       openedByUserId: cashier.id,
       label: 'Maria',
       lines: [{ item: coffee, quantity: 2 }],
-      adjustment: { type: 'SURCHARGE', mode: 'FIXED', value: 200 },
+      surchargeCents: 200,
       serviceFeeBasisPoints: 1000,
       payments: [{ method: 'PIX', amountCents: 2420 }],
       now,
@@ -172,7 +175,8 @@ describe.skipIf(!TEST_DATABASE_URL)('order workflow persistence', () => {
     const found = await reload(order.id);
 
     expect(found?.label).toBe('Maria');
-    expect(found?.adjustment).toEqual({ type: 'SURCHARGE', mode: 'FIXED', value: 200 });
+    expect(found?.surcharge.cents).toBe(200);
+    expect(found?.discount.cents).toBe(0);
     expect(found?.total.cents).toBe(2420);
     expect(found?.payments.map((payment) => payment.amountCents)).toEqual([2420]);
   });

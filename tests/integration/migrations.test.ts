@@ -145,6 +145,25 @@ describe.skipIf(!TEST_DATABASE_URL)('migrations', () => {
     expect(settings[0]?.service_fee_basis_points).toBe(1000);
   });
 
+  test('replaces the generic adjustment with explicit surcharge and discount amounts', async () => {
+    const columns = await rows<{ column_name: string }>(
+      `SELECT column_name FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = 'orders'`,
+    );
+    const names = columns.map((column) => column.column_name);
+    expect(names).toContain('surcharge_cents');
+    expect(names).toContain('discount_cents');
+    expect(names).not.toContain('adjustment_cents');
+    expect(names).not.toContain('adjustment_type');
+
+    const enums = await rows<{ typname: string }>(
+      `SELECT typname FROM pg_type
+       WHERE typnamespace = 'public'::regnamespace AND typtype = 'e'`,
+    );
+    expect(enums.map((type) => type.typname)).not.toContain('order_adjustment_type');
+    expect(enums.map((type) => type.typname)).not.toContain('order_adjustment_mode');
+  });
+
   test('enforces the order workflow constraints', async () => {
     const [user] = await rows<{ id: string }>(
       `INSERT INTO users (name, email, password_hash)
@@ -187,20 +206,18 @@ describe.skipIf(!TEST_DATABASE_URL)('migrations', () => {
       ),
     ).rejects.toThrow();
 
-    // A discount must not be positive, and a percent cannot exceed 100%.
+    // Both monetary amounts are non-negative.
     await expect(
       sql.unsafe(
-        `INSERT INTO orders (order_type, status, table_code, opened_by_user_id,
-                             adjustment_type, adjustment_mode, adjustment_value, adjustment_cents)
-         VALUES ('TABLE', 'OPEN', 'T-3', $1, 'DISCOUNT', 'FIXED', 100, 100)`,
+        `INSERT INTO orders (order_type, status, table_code, opened_by_user_id, surcharge_cents)
+         VALUES ('TABLE', 'OPEN', 'T-3', $1, -1)`,
         [userId],
       ),
     ).rejects.toThrow();
     await expect(
       sql.unsafe(
-        `INSERT INTO orders (order_type, status, table_code, opened_by_user_id,
-                             adjustment_type, adjustment_mode, adjustment_value, adjustment_cents)
-         VALUES ('TABLE', 'OPEN', 'T-4', $1, 'DISCOUNT', 'PERCENT', 10001, -1)`,
+        `INSERT INTO orders (order_type, status, table_code, opened_by_user_id, discount_cents)
+         VALUES ('TABLE', 'OPEN', 'T-4', $1, -1)`,
         [userId],
       ),
     ).rejects.toThrow();

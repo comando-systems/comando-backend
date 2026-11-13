@@ -1,12 +1,4 @@
-import {
-  type Adjustment,
-  type AdjustmentMode,
-  type AdjustmentType,
-  Order,
-  type OrderPayment,
-  type OrderStatus,
-  type OrderType,
-} from '@/domain/entity/order';
+import { Order, type OrderPayment, type OrderStatus, type OrderType } from '@/domain/entity/order';
 import type { OrderItemRepository as OrderItemRepositoryContract } from '@/domain/repository/order-item-repository';
 import type { OrderPaymentRepository as OrderPaymentRepositoryContract } from '@/domain/repository/order-payment-repository';
 import type {
@@ -16,6 +8,7 @@ import type {
   OrderRepository as OrderRepositoryContract,
 } from '@/domain/repository/order-repository';
 import { OrderID, UserID } from '@/domain/value-objects/ids';
+import { Money } from '@/domain/value-objects/money';
 import type { DatabaseConnections } from '@/infrastructure/database/connections';
 import type { CountCache } from '@/infrastructure/database/count-cache';
 import { toDate, toNullableDate } from '@/infrastructure/repositories/mapping';
@@ -31,9 +24,8 @@ interface OrderRow {
   canceled_by_user_id: string | null;
   payment_requested_by_user_id: string | null;
   payment_requested_at: Date | string | null;
-  adjustment_type: AdjustmentType | null;
-  adjustment_mode: AdjustmentMode | null;
-  adjustment_value: string;
+  surcharge_cents: string;
+  discount_cents: string;
   apply_service_fee: boolean;
   service_fee_basis_points: number;
   opened_at: Date | string;
@@ -56,9 +48,8 @@ const ORDER_COLUMNS = `
   canceled_by_user_id::text AS canceled_by_user_id,
   payment_requested_by_user_id::text AS payment_requested_by_user_id,
   payment_requested_at,
-  adjustment_type,
-  adjustment_mode,
-  adjustment_value::text AS adjustment_value,
+  surcharge_cents::text AS surcharge_cents,
+  discount_cents::text AS discount_cents,
   apply_service_fee,
   service_fee_basis_points,
   opened_at,
@@ -71,18 +62,6 @@ const ORDER_COLUMNS = `
 
 function optionalUserId(value: string | null): UserID | null {
   return value === null ? null : new UserID(value);
-}
-
-function mapAdjustment(row: OrderRow): Adjustment | null {
-  if (row.adjustment_type === null || row.adjustment_mode === null) {
-    return null;
-  }
-
-  return {
-    type: row.adjustment_type,
-    mode: row.adjustment_mode,
-    value: Number(row.adjustment_value),
-  };
 }
 
 function mapOrderRow(
@@ -102,7 +81,8 @@ function mapOrderRow(
       canceledByUserId: optionalUserId(row.canceled_by_user_id),
       paymentRequestedByUserId: optionalUserId(row.payment_requested_by_user_id),
       paymentRequestedAt: toNullableDate(row.payment_requested_at),
-      adjustment: mapAdjustment(row),
+      surcharge: Money.fromCents(Number(row.surcharge_cents)),
+      discount: Money.fromCents(Number(row.discount_cents)),
       applyServiceFee: row.apply_service_fee,
       serviceFeeBasisPoints: row.service_fee_basis_points,
       openedAt: toDate(row.opened_at),
@@ -165,10 +145,8 @@ export class OrderRepository implements OrderRepositoryContract {
         canceled_by_user_id,
         payment_requested_by_user_id,
         payment_requested_at,
-        adjustment_type,
-        adjustment_mode,
-        adjustment_value,
-        adjustment_cents,
+        surcharge_cents,
+        discount_cents,
         apply_service_fee,
         service_fee_basis_points,
         service_fee_cents,
@@ -191,10 +169,8 @@ export class OrderRepository implements OrderRepositoryContract {
         ${order.canceledByUserId?.value ?? null},
         ${order.paymentRequestedByUserId?.value ?? null},
         ${order.paymentRequestedAt},
-        ${order.adjustment?.type ?? null},
-        ${order.adjustment?.mode ?? null},
-        ${order.adjustment?.value ?? 0},
-        ${pricing.adjustment.cents},
+        ${pricing.surcharge.cents},
+        ${pricing.discount.cents},
         ${order.applyServiceFee},
         ${order.serviceFeeBasisPoints},
         ${pricing.serviceFee.cents},
@@ -255,10 +231,8 @@ export class OrderRepository implements OrderRepositoryContract {
         canceled_by_user_id = ${order.canceledByUserId?.value ?? null},
         payment_requested_by_user_id = ${order.paymentRequestedByUserId?.value ?? null},
         payment_requested_at = ${order.paymentRequestedAt},
-        adjustment_type = ${order.adjustment?.type ?? null},
-        adjustment_mode = ${order.adjustment?.mode ?? null},
-        adjustment_value = ${order.adjustment?.value ?? 0},
-        adjustment_cents = ${pricing.adjustment.cents},
+        surcharge_cents = ${pricing.surcharge.cents},
+        discount_cents = ${pricing.discount.cents},
         apply_service_fee = ${order.applyServiceFee},
         service_fee_basis_points = ${order.serviceFeeBasisPoints},
         service_fee_cents = ${pricing.serviceFee.cents},

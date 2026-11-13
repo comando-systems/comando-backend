@@ -7,7 +7,7 @@ import {
   type OrderLineInput,
   resolveActiveOrderLines,
 } from '@/app/use-cases/orders/active-order-lines';
-import { type Adjustment, Order, type OrderPaymentInput } from '@/domain/entity/order';
+import { Order, type OrderPaymentInput } from '@/domain/entity/order';
 import type { Repositories } from '@/domain/repository';
 import { OrderID, type UserID } from '@/domain/value-objects/ids';
 
@@ -17,7 +17,8 @@ export interface CreateCounterOrderInput {
   readonly lines: readonly OrderLineInput[];
   readonly payments: readonly OrderPaymentInput[];
   readonly label?: string | null;
-  readonly adjustment?: Adjustment | null;
+  readonly surchargeCents?: number;
+  readonly discountCents?: number;
   readonly applyServiceFee?: boolean;
 }
 
@@ -41,7 +42,8 @@ export class CreateCounterOrderUseCase {
         lines,
         payments: input.payments,
         label: input.label,
-        adjustment: input.adjustment,
+        surchargeCents: input.surchargeCents,
+        discountCents: input.discountCents,
         serviceFeeBasisPoints: settings?.effectiveServiceFeeBasisPoints,
         now: this.clock.now(),
       });

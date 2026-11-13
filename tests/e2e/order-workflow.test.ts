@@ -13,11 +13,11 @@ interface OrderDto {
   version: number;
   paymentRequestedAt: string | null;
   paymentRequestedByUserId: string | null;
-  adjustment: { type: string; mode: string; value: number } | null;
   applyServiceFee: boolean;
   serviceFeeBasisPoints: number;
   subtotalCents: number;
-  adjustmentCents: number;
+  surchargeCents: number;
+  discountCents: number;
   serviceFeeCents: number;
   totalCents: number;
   items: Array<{ itemId: string; quantity: number }>;
@@ -202,24 +202,44 @@ describe.skipIf(!TEST_DATABASE_URL)('order workflow API', () => {
         await request(`/orders/${order.id}/pricing`, {
           method: 'PATCH',
           token: cashierToken,
-          body: { adjustment: { type: 'DISCOUNT', mode: 'PERCENT', value: 1000 } },
+          body: { discountCents: 200 },
         }),
       );
       expect(discounted).toMatchObject({
         subtotalCents: 2000,
-        adjustmentCents: -200,
+        surchargeCents: 0,
+        discountCents: 200,
         totalCents: 1800,
       });
-      expect(discounted.adjustment).toEqual({ type: 'DISCOUNT', mode: 'PERCENT', value: 1000 });
 
       const cleared = await json<OrderDto>(
         await request(`/orders/${order.id}/pricing`, {
           method: 'PATCH',
           token: serverToken,
-          body: { adjustment: null },
+          body: { discountCents: null },
         }),
       );
-      expect(cleared).toMatchObject({ adjustmentCents: 0, totalCents: 2000, adjustment: null });
+      expect(cleared).toMatchObject({ surchargeCents: 0, discountCents: 0, totalCents: 2000 });
+    });
+
+    test('applies a surcharge and a discount at the same time', async () => {
+      const order = await openTable();
+      await addCoffee(order.id, 2);
+
+      const priced = await json<OrderDto>(
+        await request(`/orders/${order.id}/pricing`, {
+          method: 'PATCH',
+          token: cashierToken,
+          body: { surchargeCents: 300, discountCents: 500 },
+        }),
+      );
+
+      expect(priced).toMatchObject({
+        subtotalCents: 2000,
+        surchargeCents: 300,
+        discountCents: 500,
+        totalCents: 1800,
+      });
     });
 
     test('can still be adjusted while awaiting payment', async () => {
@@ -230,7 +250,7 @@ describe.skipIf(!TEST_DATABASE_URL)('order workflow API', () => {
       const response = await request(`/orders/${order.id}/pricing`, {
         method: 'PATCH',
         token: cashierToken,
-        body: { adjustment: { type: 'SURCHARGE', mode: 'FIXED', value: 150 } },
+        body: { surchargeCents: 150 },
       });
 
       expect((await json<OrderDto>(response)).totalCents).toBe(1150);
@@ -271,12 +291,9 @@ describe.skipIf(!TEST_DATABASE_URL)('order workflow API', () => {
 
     test.each([
       ['an empty body', {}],
-      [
-        'a percentage above 100%',
-        { adjustment: { type: 'DISCOUNT', mode: 'PERCENT', value: 20_000 } },
-      ],
-      ['a negative value', { adjustment: { type: 'DISCOUNT', mode: 'FIXED', value: -1 } }],
-      ['an unknown type', { adjustment: { type: 'BONUS', mode: 'FIXED', value: 1 } }],
+      ['a negative surcharge', { surchargeCents: -1 }],
+      ['a negative discount', { discountCents: -1 }],
+      ['a discount above the adjusted subtotal', { discountCents: 1001 }],
     ])('rejects %s', async (_label, body) => {
       const order = await openTable();
       await addCoffee(order.id, 1);
@@ -297,7 +314,7 @@ describe.skipIf(!TEST_DATABASE_URL)('order workflow API', () => {
       const response = await request(`/orders/${order.id}/pricing`, {
         method: 'PATCH',
         token: adminToken,
-        body: { adjustment: { type: 'DISCOUNT', mode: 'FIXED', value: 100 } },
+        body: { discountCents: 100 },
       });
 
       expect((await json<OrderDto>(response)).totalCents).toBe(900);
@@ -489,7 +506,7 @@ describe.skipIf(!TEST_DATABASE_URL)('order workflow API', () => {
   });
 
   describe('counter sales', () => {
-    test('keep the customer name, the adjustment, the fee, and the change', async () => {
+    test('keep the customer name, the surcharge, the fee, and the change', async () => {
       await enableServiceFee(1000);
 
       const response = await request('/orders/counter', {
@@ -498,7 +515,7 @@ describe.skipIf(!TEST_DATABASE_URL)('order workflow API', () => {
         body: {
           label: 'Maria',
           items: [{ itemId, quantity: 1 }],
-          adjustment: { type: 'SURCHARGE', mode: 'FIXED', value: 200 },
+          surchargeCents: 200,
           applyServiceFee: true,
           payments: [{ method: 'CASH', amountCents: 1320, receivedCents: 2000 }],
         },
@@ -511,7 +528,8 @@ describe.skipIf(!TEST_DATABASE_URL)('order workflow API', () => {
         status: 'CLOSED',
         label: 'Maria',
         subtotalCents: 1000,
-        adjustmentCents: 200,
+        surchargeCents: 200,
+        discountCents: 0,
         serviceFeeCents: 120,
         totalCents: 1320,
       });

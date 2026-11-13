@@ -103,7 +103,7 @@ The document is built in code (`src/app/http/openapi/`). Request bodies reuse th
 | `POST` | `/orders/:id/items` | `CASHIER`, `SERVER` | Add items, incrementing existing lines. |
 | `PATCH` | `/orders/:id/items/:itemId` | `CASHIER`, `SERVER` | Set an absolute line quantity. |
 | `DELETE` | `/orders/:id/items/:itemId` | `CASHIER`, `SERVER` | Remove a line from an open table order. |
-| `PATCH` | `/orders/:id/pricing` | `ADMIN`, `CASHIER`, `SERVER` | Set or clear the adjustment, or switch the service fee. |
+| `PATCH` | `/orders/:id/pricing` | `ADMIN`, `CASHIER`, `SERVER` | Set or clear the surcharge or discount, or switch the service fee. |
 | `POST` | `/orders/:id/request-payment` | `CASHIER`, `SERVER` | Hand an open table order to the cashier (`AWAITING_PAYMENT`). |
 | `POST` | `/orders/:id/reopen` | `CASHIER`, `SERVER` | Return an order awaiting payment to `OPEN`. |
 | `POST` | `/orders/:id/close` | `ADMIN`, `CASHIER` | Close a table order that is open or awaiting payment. |
@@ -173,15 +173,15 @@ Passwords need 8 to 128 characters. A deactivated user can only be edited by sen
 
 A table order goes `OPEN` to `AWAITING_PAYMENT` when the server hands it to the cashier, who closes it with the payments. While it awaits payment the lines are locked and only the pricing can change; `reopen` returns it to `OPEN`. A table stays occupied while its order is open or awaiting payment, and opening it again answers `409 TABLE_OCCUPIED` with the existing order in `error.details.orderId`.
 
-The server calculates every amount in integer cents: the subtotal, then an optional adjustment (a discount or surcharge, as basis points or cents), then the service fee on the adjusted amount, rounding half up. `totalCents` is the sum, and the fee rate is a snapshot taken when the order is opened or the fee is switched, so changing the settings later does not alter existing orders. The service fee starts switched off in the settings.
+The server calculates every amount in integer cents: the subtotal, plus an optional surcharge, minus an optional discount, then the service fee on the adjusted amount, rounding half up. The surcharge and the discount are independent and may be set at once; the discount cannot exceed the subtotal plus the surcharge. `totalCents` is the result, and the fee rate is a snapshot taken when the order is opened or the fee is switched, so changing the settings later does not alter existing orders. The service fee starts switched off in the settings.
 
 Request examples:
 
 ```json
-{ "adjustment": { "type": "DISCOUNT", "mode": "PERCENT", "value": 1000 }, "applyServiceFee": true }
+{ "surchargeCents": 500, "discountCents": 200, "applyServiceFee": true }
 ```
 
-`PATCH /orders/:id/pricing`: `value` is basis points for `PERCENT` (1000 is 10%) and cents for `FIXED`; `"adjustment": null` clears it.
+`PATCH /orders/:id/pricing`: `surchargeCents` and `discountCents` are integer cents; `null` clears one to zero and omitting a field leaves it unchanged.
 
 ```json
 { "payments": [{ "method": "CASH", "amountCents": 2000, "receivedCents": 5000 }] }
@@ -189,7 +189,7 @@ Request examples:
 
 `POST /orders/:id/close`: for cash the server derives the change (`changeCents`).
 
-`POST /orders/counter` also accepts `label` (the customer name), `adjustment`, and `applyServiceFee`.
+`POST /orders/counter` also accepts `label` (the customer name), `surchargeCents`, `discountCents`, and `applyServiceFee`.
 
 `GET /orders` accepts `statuses` (comma separated, such as `OPEN,AWAITING_PAYMENT`) and `tableCode`. Servers and cashiers may list orders that are still being served; anything that can include a closed or canceled order needs the history permission.
 
@@ -305,6 +305,8 @@ src/
 migrations/
   001_initial_schema.up.sql
   001_initial_schema.down.sql
+  002_order_surcharge_discount.up.sql
+  002_order_surcharge_discount.down.sql
 tests/
   unit/
   integration/

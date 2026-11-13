@@ -6,11 +6,6 @@ export {
   type UpdateItemInput,
 } from '@/domain/entity/item';
 export {
-  ADJUSTMENT_MODES,
-  ADJUSTMENT_TYPES,
-  type Adjustment,
-  type AdjustmentMode,
-  type AdjustmentType,
   type CounterOrderLine,
   type CreateCounterOrderInput,
   type CreateOrderItemInput,

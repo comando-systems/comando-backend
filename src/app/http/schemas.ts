@@ -73,29 +73,34 @@ const paymentSchema = z.object({
   receivedCents: z.number().int().positive('Amount received must be positive').optional(),
 });
 
-// PERCENT values are basis points (10% is 1000); FIXED values are cents.
-const adjustmentSchema = z.object({
-  type: z.enum(['DISCOUNT', 'SURCHARGE']),
-  mode: z.enum(['PERCENT', 'FIXED']),
-  value: z.number().int().min(0, 'Adjustment value cannot be negative'),
-});
+// Both amounts are integer cents and independent: an order may have one, both, or neither.
+const orderAmountSchema = z.number().int().min(0, 'Amount cannot be negative');
 
 export const createCounterOrderBodySchema = z.object({
   items: z.array(orderLineSchema).min(1, 'At least one item is required'),
   payments: z.array(paymentSchema).default([]),
   label: z.string().max(160).nullable().optional(),
-  adjustment: adjustmentSchema.nullable().optional(),
+  surchargeCents: orderAmountSchema.optional(),
+  discountCents: orderAmountSchema.optional(),
   applyServiceFee: z.boolean().optional(),
 });
 
 export const setOrderPricingBodySchema = z
   .object({
-    adjustment: adjustmentSchema.nullable().optional(),
+    // `null` clears the amount to zero.
+    surchargeCents: orderAmountSchema.nullable().optional(),
+    discountCents: orderAmountSchema.nullable().optional(),
     applyServiceFee: z.boolean().optional(),
   })
-  .refine((value) => value.adjustment !== undefined || value.applyServiceFee !== undefined, {
-    message: 'Provide an adjustment or applyServiceFee',
-  });
+  .refine(
+    (value) =>
+      value.surchargeCents !== undefined ||
+      value.discountCents !== undefined ||
+      value.applyServiceFee !== undefined,
+    {
+      message: 'Provide a surcharge, a discount, or applyServiceFee',
+    },
+  );
 
 export const openTableOrderBodySchema = z.object({
   tableCode: z.string().min(1, 'Table code is required'),

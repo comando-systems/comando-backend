@@ -205,8 +205,6 @@ describe('removing a line', () => {
 });
 
 describe('pricing', () => {
-  const ten = { type: 'DISCOUNT', mode: 'PERCENT', value: 1000 } as const;
-
   test('needs something to change', async () => {
     const useCase = new SetOrderPricingUseCase(unitOfWorkOf(world([tableWith(1)])), clock);
 
@@ -215,27 +213,51 @@ describe('pricing', () => {
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
-  test('applies and clears an adjustment', async () => {
+  test('applies and clears a surcharge and a discount', async () => {
     const useCase = new SetOrderPricingUseCase(unitOfWorkOf(world([tableWith(2)])), clock);
 
-    const discounted = await useCase.execute({
+    const priced = await useCase.execute({
       actorUserId: cashier.id,
       orderId: new OrderID('10'),
-      adjustment: ten,
+      surchargeCents: 300,
+      discountCents: 500,
     });
-    expect(discounted.total.cents).toBe(1800);
+    expect(priced.surcharge.cents).toBe(300);
+    expect(priced.discount.cents).toBe(500);
+    expect(priced.total.cents).toBe(1800);
 
     const cleared = await useCase.execute({
       actorUserId: cashier.id,
       orderId: new OrderID('10'),
-      adjustment: null,
+      surchargeCents: null,
+      discountCents: null,
     });
     expect(cleared.total.cents).toBe(2000);
   });
 
+  test('changes one amount without clearing the other', async () => {
+    const useCase = new SetOrderPricingUseCase(unitOfWorkOf(world([tableWith(2)])), clock);
+
+    await useCase.execute({
+      actorUserId: cashier.id,
+      orderId: new OrderID('10'),
+      surchargeCents: 300,
+      discountCents: 500,
+    });
+    const changed = await useCase.execute({
+      actorUserId: cashier.id,
+      orderId: new OrderID('10'),
+      surchargeCents: 100,
+    });
+
+    expect(changed.surcharge.cents).toBe(100);
+    expect(changed.discount.cents).toBe(500);
+    expect(changed.total.cents).toBe(1600);
+  });
+
   test('the server, the cashier, and an administrator at the till may all adjust', async () => {
     const useCase = new SetOrderPricingUseCase(unitOfWorkOf(world([tableWith(1)])), clock);
-    const input = { orderId: new OrderID('10'), adjustment: ten };
+    const input = { orderId: new OrderID('10'), discountCents: 100 };
 
     for (const actor of [server, cashier, admin]) {
       await expect(useCase.execute({ ...input, actorUserId: actor.id })).resolves.toBeDefined();
