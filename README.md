@@ -305,8 +305,6 @@ src/
 migrations/
   001_initial_schema.up.sql
   001_initial_schema.down.sql
-  002_order_payments.up.sql
-  002_order_payments.down.sql
 tests/
   unit/
   integration/
@@ -356,6 +354,8 @@ The API receives separate `DATABASE_READ_URL` and `DATABASE_WRITE_URL` connectio
 All SQL runs through the first-party `SqlClient` adapter in `src/infrastructure/database`, which wraps Bun's native SQL client. Repositories do not import or depend on a third-party database driver. Transactions are scoped with `AsyncLocalStorage`, so singleton repositories automatically use the active transaction.
 
 Apply migrations from the root `migrations/` directory in ascending order. Do not execute schema changes ad hoc during application startup. The `docker-compose.yml` migration service mounts that directory.
+
+`docs/schema.dbml` documents the resulting tables, columns, relationships, indexes, and the purpose of each table in DBML. It is documentation only; PostgreSQL and the migrations remain the source of truth.
 
 ## Configuration
 
