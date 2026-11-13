@@ -1,4 +1,10 @@
 import {
+  isRoleCode,
+  type Permission,
+  permissionsForRoles,
+  type RoleCode,
+} from '@/domain/entity/role';
+import {
   normalizeEmail,
   requireNonEmptyString,
   requireValidDate,
@@ -6,69 +12,11 @@ import {
 import { InvalidValueError, InvariantViolationError } from '@/domain/errors';
 import type { UserID } from '@/domain/value-objects/ids';
 
-export type Role = 'ADMIN' | 'CASHIER' | 'SERVER';
-
-export const ROLES: readonly Role[] = Object.freeze(['ADMIN', 'CASHIER', 'SERVER']);
-
-export type Permission =
-  | 'users:manage'
-  | 'items:manage'
-  | 'reports:view'
-  | 'settings:manage'
-  | 'orders:counter'
-  | 'orders:history'
-  | 'orders:open'
-  | 'orders:update'
-  | 'orders:request-payment'
-  | 'orders:cancel'
-  | 'orders:close';
-
-// The table from ADR-02. A server takes the order and hands the table over; the cashier takes the
-// payment. Administrators manage the business and may also run the till.
-const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
-  ADMIN: [
-    'users:manage',
-    'items:manage',
-    'settings:manage',
-    'reports:view',
-    'orders:counter',
-    'orders:history',
-    'orders:close',
-    'orders:cancel',
-  ],
-  CASHIER: [
-    'orders:counter',
-    'orders:history',
-    'orders:open',
-    'orders:update',
-    'orders:request-payment',
-    'orders:close',
-    'orders:cancel',
-  ],
-  SERVER: ['orders:open', 'orders:update', 'orders:request-payment', 'orders:cancel'],
-};
-
-export function isRole(value: string): value is Role {
-  return ROLES.includes(value as Role);
-}
-
-export function permissionsForRoles(roles: Iterable<Role>): Set<Permission> {
-  const permissions = new Set<Permission>();
+function normalizeRoleCodes(roles: Iterable<RoleCode>): RoleCode[] {
+  const unique = new Set<RoleCode>();
 
   for (const role of roles) {
-    for (const permission of ROLE_PERMISSIONS[role]) {
-      permissions.add(permission);
-    }
-  }
-
-  return permissions;
-}
-
-function normalizeRoles(roles: Iterable<Role>): Role[] {
-  const unique = new Set<Role>();
-
-  for (const role of roles) {
-    if (!isRole(role)) {
+    if (!isRoleCode(role)) {
       throw new InvalidValueError(`Invalid role: ${role}`);
     }
     unique.add(role);
@@ -86,7 +34,7 @@ export interface UserProps {
   name: string;
   email: string;
   passwordHash: string;
-  roles: readonly Role[];
+  roles: readonly RoleCode[];
   deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -97,14 +45,14 @@ export interface CreateUserInput {
   readonly name: string;
   readonly email: string;
   readonly passwordHash: string;
-  readonly roles: readonly Role[];
+  readonly roles: readonly RoleCode[];
   readonly now: Date;
 }
 
 export interface UpdateUserInput {
   readonly name?: string;
   readonly email?: string;
-  readonly roles?: readonly Role[];
+  readonly roles?: readonly RoleCode[];
   readonly now: Date;
 }
 
@@ -120,7 +68,7 @@ export class User {
       name: requireNonEmptyString(input.name, 'Name', 160),
       email: normalizeEmail(input.email),
       passwordHash,
-      roles: Object.freeze(normalizeRoles(input.roles)),
+      roles: Object.freeze(normalizeRoleCodes(input.roles)),
       deletedAt: null,
       createdAt: now,
       updatedAt: now,
@@ -133,7 +81,7 @@ export class User {
       name: requireNonEmptyString(props.name, 'Name', 160),
       email: normalizeEmail(props.email),
       passwordHash: requireNonEmptyString(props.passwordHash, 'Password hash'),
-      roles: Object.freeze(normalizeRoles(props.roles)),
+      roles: Object.freeze(normalizeRoleCodes(props.roles)),
       deletedAt: props.deletedAt === null ? null : requireValidDate(props.deletedAt, 'Deleted at'),
       createdAt: requireValidDate(props.createdAt, 'Created at'),
       updatedAt: requireValidDate(props.updatedAt, 'Updated at'),
@@ -156,7 +104,7 @@ export class User {
     return this.props.passwordHash;
   }
 
-  get roles(): readonly Role[] {
+  get roles(): readonly RoleCode[] {
     return this.props.roles;
   }
 
@@ -176,7 +124,7 @@ export class User {
     return this.props.deletedAt === null;
   }
 
-  hasRole(role: Role): boolean {
+  hasRole(role: RoleCode): boolean {
     return this.props.roles.includes(role);
   }
 
@@ -196,7 +144,7 @@ export class User {
     }
 
     if (input.roles !== undefined) {
-      this.props.roles = Object.freeze(normalizeRoles(input.roles));
+      this.props.roles = Object.freeze(normalizeRoleCodes(input.roles));
     }
 
     this.props.updatedAt = now;

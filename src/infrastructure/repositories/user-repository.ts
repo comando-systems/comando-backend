@@ -1,13 +1,15 @@
-import { isRole, User } from '@/domain/entity/user';
+import type { RoleCode } from '@/domain/entity/role';
+import { User } from '@/domain/entity/user';
+import type { RoleRepository as RoleRepositoryContract } from '@/domain/repository/role-repository';
 import type {
   CreateUserRecord,
   UserPage,
   UserPageOptions,
   UserRepository as UserRepositoryContract,
 } from '@/domain/repository/user-repository';
-import { UserID } from '@/domain/value-objects/ids';
+import type { UserRoleRepository as UserRoleRepositoryContract } from '@/domain/repository/user-role-repository';
+import { RoleID, UserID } from '@/domain/value-objects/ids';
 import type { DatabaseConnections } from '@/infrastructure/database/connections';
-import type { SqlClient } from '@/infrastructure/database/sql-client';
 import { toDate, toNullableDate } from '@/infrastructure/repositories/mapping';
 
 // Arbitrary constant shared by every change that could remove an administrator.
@@ -21,16 +23,9 @@ interface UserRow {
   deleted_at: Date | string | null;
   created_at: Date | string;
   updated_at: Date | string;
-  roles: string[] | null;
 }
 
-function mapUser(row: UserRow): User {
-  const roles = row.roles ?? [];
-
-  if (!roles.every(isRole)) {
-    throw new Error('User has an unsupported role in the database');
-  }
-
+function mapUser(row: UserRow, roles: readonly RoleCode[]): User {
   return User.restore({
     id: new UserID(row.id),
     name: row.name,
@@ -43,59 +38,49 @@ function mapUser(row: UserRow): User {
   });
 }
 
+/**
+ * Persists the `users` table. Role assignments live in `user_roles` and are delegated to the
+ * dedicated repositories instead of being written here.
+ */
 export class UserRepository implements UserRepositoryContract {
-  constructor(private readonly database: DatabaseConnections) {}
+  constructor(
+    private readonly database: DatabaseConnections,
+    private readonly roles: RoleRepositoryContract,
+    private readonly userRoles: UserRoleRepositoryContract,
+  ) {}
 
   async findById(id: UserID): Promise<User | null> {
-    const sql = this.database.readSql();
-    const rows = await sql.query<UserRow[]>`
+    const rows = await this.database.readSql().query<UserRow[]>`
       SELECT
-        u.id::text AS id,
-        u.name,
-        u.email,
-        u.password_hash,
-        u.deleted_at,
-        u.created_at,
-        u.updated_at,
-        COALESCE(
-          array_agg(r.code ORDER BY r.code) FILTER (WHERE r.code IS NOT NULL),
-          '{}'
-        ) AS roles
-      FROM users u
-      LEFT JOIN user_roles ur ON ur.user_id = u.id
-      LEFT JOIN roles r ON r.id = ur.role_id
-      WHERE u.id = ${id.value}
-      GROUP BY u.id
+        id::text AS id,
+        name,
+        email,
+        password_hash,
+        deleted_at,
+        created_at,
+        updated_at
+      FROM users
+      WHERE id = ${id.value}
     `;
 
-    const row = rows[0];
-    return row === undefined ? null : mapUser(row);
+    return this.hydrate(rows[0]);
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    const sql = this.database.readSql();
-    const rows = await sql.query<UserRow[]>`
+    const rows = await this.database.readSql().query<UserRow[]>`
       SELECT
-        u.id::text AS id,
-        u.name,
-        u.email,
-        u.password_hash,
-        u.deleted_at,
-        u.created_at,
-        u.updated_at,
-        COALESCE(
-          array_agg(r.code ORDER BY r.code) FILTER (WHERE r.code IS NOT NULL),
-          '{}'
-        ) AS roles
-      FROM users u
-      LEFT JOIN user_roles ur ON ur.user_id = u.id
-      LEFT JOIN roles r ON r.id = ur.role_id
-      WHERE u.email = ${email.toLowerCase()}
-      GROUP BY u.id
+        id::text AS id,
+        name,
+        email,
+        password_hash,
+        deleted_at,
+        created_at,
+        updated_at
+      FROM users
+      WHERE email = ${email.toLowerCase()}
     `;
 
-    const row = rows[0];
-    return row === undefined ? null : mapUser(row);
+    return this.hydrate(rows[0]);
   }
 
   async create(record: CreateUserRecord): Promise<User> {
@@ -118,17 +103,17 @@ export class UserRepository implements UserRepositoryContract {
       throw new Error('Failed to create user');
     }
 
-    const user = User.create({
-      id: new UserID(id),
+    const userId = new UserID(id);
+    await this.replaceRoles(userId, record.roles);
+
+    return User.create({
+      id: userId,
       name: record.name,
       email: record.email,
       passwordHash: record.passwordHash,
       roles: record.roles,
       now: record.now,
     });
-
-    await this.replaceRoles(sql, user);
-    return user;
   }
 
   async update(user: User): Promise<void> {
@@ -144,7 +129,7 @@ export class UserRepository implements UserRepositoryContract {
       WHERE id = ${user.id.value}
     `;
 
-    await this.replaceRoles(sql, user);
+    await this.replaceRoles(user.id, user.roles);
   }
 
   async list(options: UserPageOptions): Promise<UserPage> {
@@ -155,58 +140,78 @@ export class UserRepository implements UserRepositoryContract {
     `;
     const rows = await sql.query<UserRow[]>`
       SELECT
-        u.id::text AS id,
-        u.name,
-        u.email,
-        u.password_hash,
-        u.deleted_at,
-        u.created_at,
-        u.updated_at,
-        COALESCE(
-          array_agg(r.code ORDER BY r.code) FILTER (WHERE r.code IS NOT NULL),
-          '{}'
-        ) AS roles
-      FROM users u
-      LEFT JOIN user_roles ur ON ur.user_id = u.id
-      LEFT JOIN roles r ON r.id = ur.role_id
-      GROUP BY u.id
-      ORDER BY u.id
+        id::text AS id,
+        name,
+        email,
+        password_hash,
+        deleted_at,
+        created_at,
+        updated_at
+      FROM users
+      ORDER BY id
       LIMIT ${options.pageSize}
       OFFSET ${offset}
     `;
+    const rolesByUser = await this.rolesForUsers(rows.map((row) => new UserID(row.id)));
 
     return {
-      users: rows.map(mapUser),
+      users: rows.map((row) => mapUser(row, rolesByUser.get(row.id) ?? [])),
       total: Number(countRows[0]?.count ?? 0),
     };
   }
 
-  private async replaceRoles(sql: SqlClient, user: User): Promise<void> {
-    await sql.query`DELETE FROM user_roles WHERE user_id = ${user.id.value}`;
-
-    for (const role of user.roles) {
-      await sql.query`
-        INSERT INTO user_roles (user_id, role_id)
-        SELECT ${user.id.value}, id FROM roles WHERE code = ${role}
-      `;
-    }
-  }
-
   async countActiveAdmins(): Promise<number> {
-    const sql = this.database.readSql();
-    const rows = await sql.query<{ count: string }[]>`
-      SELECT COUNT(DISTINCT u.id)::text AS count
-      FROM users u
-      JOIN user_roles ur ON ur.user_id = u.id
-      JOIN roles r ON r.id = ur.role_id
-      WHERE r.code = 'ADMIN' AND u.deleted_at IS NULL
-    `;
-
-    return Number(rows[0]?.count ?? 0);
+    return this.userRoles.countActiveAdmins();
   }
 
   async lockAdministration(): Promise<void> {
     const sql = this.database.writeSql();
     await sql.query`SELECT pg_advisory_xact_lock(${ADMINISTRATION_LOCK}::bigint)`;
+  }
+
+  private async hydrate(row: UserRow | undefined): Promise<User | null> {
+    if (row === undefined) {
+      return null;
+    }
+
+    const rolesByUser = await this.rolesForUsers([new UserID(row.id)]);
+    return mapUser(row, rolesByUser.get(row.id) ?? []);
+  }
+
+  private async rolesForUsers(ids: readonly UserID[]): Promise<Map<string, readonly RoleCode[]>> {
+    const assignments = await this.userRoles.findByUserIds(ids);
+    const roleIds = [
+      ...new Set(
+        [...assignments.values()].flatMap((list) =>
+          list.map((assignment) => assignment.roleId.value),
+        ),
+      ),
+    ].map((id) => new RoleID(id));
+    const roles = await this.roles.findByIds(roleIds);
+    const codeByRoleId = new Map(roles.map((role) => [role.id.value, role.code]));
+
+    const result = new Map<string, readonly RoleCode[]>();
+    for (const id of ids) {
+      const codes = (assignments.get(id.value) ?? [])
+        .map((assignment) => codeByRoleId.get(assignment.roleId.value))
+        .filter((code): code is RoleCode => code !== undefined)
+        .sort((left, right) => left.localeCompare(right));
+      result.set(id.value, codes);
+    }
+
+    return result;
+  }
+
+  private async replaceRoles(userId: UserID, codes: readonly RoleCode[]): Promise<void> {
+    const roles = await this.roles.findByCodes(codes);
+
+    if (roles.length !== new Set(codes).size) {
+      throw new Error('Failed to resolve user roles');
+    }
+
+    await this.userRoles.replaceForUser(
+      userId,
+      roles.map((role) => role.id),
+    );
   }
 }

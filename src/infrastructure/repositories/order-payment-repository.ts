@@ -1,9 +1,11 @@
 import { isPaymentMethod, OrderPayment } from '@/domain/entity/order';
 import type { OrderPaymentRepository as OrderPaymentRepositoryContract } from '@/domain/repository/order-payment-repository';
-import type { OrderID } from '@/domain/value-objects/ids';
+import { type OrderID, OrderPaymentID } from '@/domain/value-objects/ids';
+import { Money } from '@/domain/value-objects/money';
 import type { DatabaseConnections } from '@/infrastructure/database/connections';
 
 interface OrderPaymentRow {
+  id: string;
   order_id?: string;
   method: string;
   amount_cents: string;
@@ -15,10 +17,11 @@ function mapOrderPayment(row: OrderPaymentRow): OrderPayment {
     throw new Error('Order payment has an unsupported method in the database');
   }
 
-  return OrderPayment.create({
+  return OrderPayment.restore({
+    id: new OrderPaymentID(row.id),
     method: row.method,
-    amountCents: Number(row.amount_cents),
-    receivedCents: row.received_cents === null ? null : Number(row.received_cents),
+    amount: Money.fromCents(Number(row.amount_cents)),
+    received: row.received_cents === null ? null : Money.fromCents(Number(row.received_cents)),
   });
 }
 
@@ -29,6 +32,7 @@ export class OrderPaymentRepository implements OrderPaymentRepositoryContract {
     const sql = this.database.readSql();
     const rows = await sql.query<OrderPaymentRow[]>`
       SELECT
+        id::text AS id,
         method::text AS method,
         amount_cents::text AS amount_cents,
         received_cents::text AS received_cents
@@ -51,6 +55,7 @@ export class OrderPaymentRepository implements OrderPaymentRepositoryContract {
     const sql = this.database.readSql();
     const rows = await sql.query<Array<OrderPaymentRow & { order_id: string }>>`
       SELECT
+        id::text AS id,
         order_id::text AS order_id,
         method::text AS method,
         amount_cents::text AS amount_cents,

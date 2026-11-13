@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { permissionsForRoles, User } from '@/domain/entity/user';
+import { permissionsForRoles } from '@/domain/entity/role';
+import { User } from '@/domain/entity/user';
 import { InvalidValueError, InvariantViolationError } from '@/domain/errors';
 import { UserID } from '@/domain/value-objects/ids';
 

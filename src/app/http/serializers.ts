@@ -1,14 +1,15 @@
 import type { Session } from '@/app/use-cases';
 import type { Item } from '@/domain/entity/item';
 import type { Order, OrderStatus, OrderType, PaymentMethod } from '@/domain/entity/order';
+import type { RoleCode } from '@/domain/entity/role';
 import type { Settings } from '@/domain/entity/settings';
-import type { Role, User } from '@/domain/entity/user';
+import type { User } from '@/domain/entity/user';
 
 export interface UserResponse {
   readonly id: string;
   readonly name: string;
   readonly email: string;
-  readonly roles: readonly Role[];
+  readonly roles: readonly RoleCode[];
   readonly isActive: boolean;
   readonly createdAt: string;
   readonly updatedAt: string;

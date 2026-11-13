@@ -1,5 +1,6 @@
 import { ForbiddenError, UnauthorizedError } from '@/app/errors';
-import type { Permission, User } from '@/domain/entity/user';
+import type { Permission } from '@/domain/entity/role';
+import type { User } from '@/domain/entity/user';
 import type { Repositories } from '@/domain/repository';
 import type { UserID } from '@/domain/value-objects/ids';
 

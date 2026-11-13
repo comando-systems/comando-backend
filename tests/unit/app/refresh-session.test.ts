@@ -1,12 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 import { UnauthorizedError } from '@/app/errors';
 import { LogoutUseCase, RefreshSessionUseCase, SessionIssuer } from '@/app/use-cases';
+import { RefreshToken, type RefreshTokenProps } from '@/domain/entity/refresh-token';
 import type { Repositories } from '@/domain/repository';
-import type {
-  NewRefreshToken,
-  RefreshTokenRecord,
-} from '@/domain/repository/refresh-token-repository';
-import { UserID } from '@/domain/value-objects/ids';
+import type { NewRefreshToken } from '@/domain/repository/refresh-token-repository';
+import { RefreshTokenID, UserID } from '@/domain/value-objects/ids';
 import { RandomRefreshTokenCodec } from '@/infrastructure/authentication';
 import { fakeUnitOfWork, fakeUsers, makeUser, NOW } from '../support/fakes';
 
@@ -14,25 +12,25 @@ const codec = new RandomRefreshTokenCodec();
 const clock = { now: () => NOW };
 const user = makeUser('1', ['SERVER']);
 
-function world(
-  options: { token?: Partial<RefreshTokenRecord> | null; deactivated?: boolean } = {},
-) {
+function world(options: { token?: Partial<RefreshTokenProps> | null; deactivated?: boolean } = {}) {
   const calls = {
     revoked: [] as string[],
     revokedAll: [] as string[],
     created: [] as NewRefreshToken[],
   };
   const member = options.deactivated === true ? makeUser('1', ['SERVER'], true) : user;
-  const record: RefreshTokenRecord | null =
+  const record: RefreshToken | null =
     options.token === null
       ? null
-      : {
-          id: '10',
+      : RefreshToken.restore({
+          id: new RefreshTokenID('10'),
           userId: new UserID('1'),
+          tokenHash: 'hash',
           expiresAt: new Date(NOW.getTime() + 60_000),
           revokedAt: null,
+          createdAt: NOW,
           ...options.token,
-        };
+        });
 
   const unitOfWork = fakeUnitOfWork({
     users: fakeUsers({ findById: async () => member }),
@@ -42,7 +40,7 @@ function world(
       },
       findByHashForUpdate: async () => record,
       revoke: async (id) => {
-        calls.revoked.push(id);
+        calls.revoked.push(id.value);
       },
       revokeAllForUser: async (id) => {
         calls.revokedAll.push(id.value);

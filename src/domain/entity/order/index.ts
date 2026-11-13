@@ -9,7 +9,7 @@ import {
   InvalidValueError,
   InvariantViolationError,
 } from '@/domain/errors';
-import type { ItemID, OrderID, UserID } from '@/domain/value-objects/ids';
+import type { ItemID, OrderID, OrderPaymentID, UserID } from '@/domain/value-objects/ids';
 import { Money } from '@/domain/value-objects/money';
 import { OrderItemKey } from '@/domain/value-objects/order-item-key';
 import {
@@ -140,6 +140,8 @@ export interface OrderPaymentInput {
 }
 
 export interface OrderPaymentProps {
+  // Null until the row is inserted and the database assigns an identifier.
+  readonly id: OrderPaymentID | null;
   readonly method: PaymentMethod;
   readonly amount: Money;
   readonly received: Money | null;
@@ -175,7 +177,37 @@ export class OrderPayment {
       }
     }
 
-    return new OrderPayment({ method: input.method, amount, received });
+    return new OrderPayment({ id: null, method: input.method, amount, received });
+  }
+
+  static restore(props: OrderPaymentProps): OrderPayment {
+    if (!isPaymentMethod(props.method)) {
+      throw new InvalidValueError('Invalid payment method');
+    }
+
+    const amount = Money.fromCents(props.amount.cents);
+    if (amount.isZero() || amount.isNegative()) {
+      throw new InvalidValueError('Payment amount must be positive');
+    }
+
+    if (props.received !== null && props.method !== 'CASH') {
+      throw new InvalidValueError('Only cash payments can record an amount received');
+    }
+
+    if (props.received !== null && props.received.cents < amount.cents) {
+      throw new InvalidValueError('Amount received cannot be less than the payment amount');
+    }
+
+    return new OrderPayment({
+      id: props.id,
+      method: props.method,
+      amount,
+      received: props.received === null ? null : Money.fromCents(props.received.cents),
+    });
+  }
+
+  get id(): OrderPaymentID | null {
+    return this.props.id;
   }
 
   get method(): PaymentMethod {

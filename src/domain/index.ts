@@ -1,4 +1,9 @@
 export {
+  AuditLog,
+  type AuditLogProps,
+  type NewAuditLog,
+} from '@/domain/entity/audit-log';
+export {
   type CreateItemInput,
   DEFAULT_ITEM_CATEGORY,
   Item,
@@ -27,6 +32,16 @@ export {
   type PaymentMethod,
   type PricingBreakdown,
 } from '@/domain/entity/order';
+export { RefreshToken, type RefreshTokenProps } from '@/domain/entity/refresh-token';
+export {
+  isRoleCode,
+  type Permission,
+  permissionsForRoles,
+  ROLE_CODES,
+  Role,
+  type RoleCode,
+  type RoleProps,
+} from '@/domain/entity/role';
 export {
   Settings,
   type SettingsProps,
@@ -34,15 +49,11 @@ export {
 } from '@/domain/entity/settings';
 export {
   type CreateUserInput,
-  isRole,
-  type Permission,
-  permissionsForRoles,
-  ROLES,
-  type Role,
   type UpdateUserInput,
   User,
   type UserProps,
 } from '@/domain/entity/user';
+export { UserRole, type UserRoleProps } from '@/domain/entity/user-role';
 export {
   DomainError,
   InvalidStateTransitionError,
@@ -50,6 +61,7 @@ export {
   InvariantViolationError,
 } from '@/domain/errors';
 export type { Repositories } from '@/domain/repository';
+export type { AuditLogRepository } from '@/domain/repository/audit-log-repository';
 export type {
   ItemPage,
   ItemPageOptions,
@@ -64,23 +76,34 @@ export type {
   OrderRepository,
 } from '@/domain/repository/order-repository';
 export type {
+  NewRefreshToken,
+  RefreshTokenRepository,
+} from '@/domain/repository/refresh-token-repository';
+export type {
   MethodTotal,
   ReportRepository,
   SalesRange,
   SalesSummary,
 } from '@/domain/repository/report-repository';
+export type { RoleRepository } from '@/domain/repository/role-repository';
 export type { SettingsRepository } from '@/domain/repository/settings-repository';
 export type {
   UserPage,
   UserPageOptions,
   UserRepository,
 } from '@/domain/repository/user-repository';
+export type { UserRoleRepository } from '@/domain/repository/user-role-repository';
 export {
+  AuditLogID,
   ID,
   ItemID,
   Money,
   OrderID,
   OrderItemKey,
+  OrderPaymentID,
+  RefreshTokenID,
+  RoleID,
   UserID,
+  UserRoleKey,
   ValueObject,
 } from '@/domain/value-objects';

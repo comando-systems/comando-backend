@@ -9,7 +9,8 @@ import {
   UpdateItemUseCase,
 } from '@/app/use-cases';
 import { Order } from '@/domain/entity/order';
-import type { Role, User } from '@/domain/entity/user';
+import type { RoleCode } from '@/domain/entity/role';
+import type { User } from '@/domain/entity/user';
 import type { Repositories } from '@/domain/repository';
 import { ItemID, OrderID } from '@/domain/value-objects/ids';
 import type { DatabaseConnections } from '@/infrastructure/database/connections';
@@ -53,7 +54,7 @@ describe.skipIf(!TEST_DATABASE_URL)('item administration', () => {
     await database.close();
   });
 
-  async function createUser(roles: readonly Role[]): Promise<User> {
+  async function createUser(roles: readonly RoleCode[]): Promise<User> {
     return unitOfWork.run((repos) =>
       repos.users.create({
         name: `User ${crypto.randomUUID()}`,

@@ -1,17 +1,22 @@
 import { describe, expect, test } from 'bun:test';
 import { recordAudit } from '@/app/audit';
 import { CreateUserUseCase, UpdateSettingsUseCase } from '@/app/use-cases';
+import type { NewAuditLog } from '@/domain/entity/audit-log';
+import { AuditLog } from '@/domain/entity/audit-log';
 import { Settings } from '@/domain/entity/settings';
 import type { Repositories } from '@/domain/repository';
-import type { AuditEvent } from '@/domain/repository/audit-log-repository';
-import { UserID } from '@/domain/value-objects/ids';
+import { AuditLogID, UserID } from '@/domain/value-objects/ids';
 import { fakeUnitOfWork, fakeUsers, makeUser, NOW } from '../support/fakes';
 
 const admin = makeUser('1', ['ADMIN']);
 const clock = { now: () => NOW };
 
+function storedAudit(log: NewAuditLog): AuditLog {
+  return AuditLog.restore({ id: new AuditLogID('1'), ...log, createdAt: NOW });
+}
+
 function auditedWorld() {
-  const events: AuditEvent[] = [];
+  const events: NewAuditLog[] = [];
   const settings = Settings.restore({
     serviceFeeEnabled: false,
     serviceFeeBasisPoints: 1000,
@@ -20,8 +25,9 @@ function auditedWorld() {
   });
   const unitOfWork = fakeUnitOfWork({
     auditLogs: {
-      record: async (event) => {
-        events.push(event);
+      create: async (log) => {
+        events.push(log);
+        return storedAudit(log);
       },
     },
     users: fakeUsers({
@@ -37,11 +43,12 @@ function auditedWorld() {
 
 describe('audit events', () => {
   test('recordAudit maps its arguments onto the repository event', async () => {
-    const events: AuditEvent[] = [];
+    const events: NewAuditLog[] = [];
     const repositories = {
       auditLogs: {
-        record: async (event: AuditEvent) => {
-          events.push(event);
+        create: async (log: NewAuditLog) => {
+          events.push(log);
+          return storedAudit(log);
         },
       },
     } as unknown as Repositories;
