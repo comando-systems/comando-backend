@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { createApp } from '@/app/http/app';
-import { createTestContainer } from '../support/container';
+import { createTestContainer } from '../../support/container';
 
 describe('health endpoints', () => {
   test('returns liveness without exposing configuration', async () => {

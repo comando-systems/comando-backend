@@ -3,6 +3,9 @@ import { z } from 'zod';
 const environmentSchema = z.enum(['development', 'test', 'production']);
 const logLevelSchema = z.enum(['debug', 'info', 'warn', 'error']);
 
+// Internal marker set by the supervisor on the worker processes it spawns.
+const WORKER_ENVIRONMENT_VARIABLE = 'COMANDO_WORKER';
+
 const postgresUrl = z
   .string()
   .min(1)
@@ -13,6 +16,7 @@ const postgresUrl = z
 const configSchema = z
   .object({
     NODE_ENV: environmentSchema.default('development'),
+    [WORKER_ENVIRONMENT_VARIABLE]: z.string().optional(),
     HOST: z.string().min(1).default('0.0.0.0'),
     PORT: z.coerce.number().int().min(1).max(65535).default(3000),
     DATABASE_READ_URL: postgresUrl,
@@ -50,9 +54,11 @@ const configSchema = z
 
 export type Environment = z.infer<typeof environmentSchema>;
 export type LogLevel = z.infer<typeof logLevelSchema>;
+export type EnvironmentSource = Record<string, string | undefined>;
 
 export interface AppConfig {
   readonly environment: Environment;
+  readonly isWorker: boolean;
   readonly host: string;
   readonly port: number;
   readonly databaseReadUrl: string;
@@ -80,9 +86,7 @@ export class ConfigurationError extends Error {
   }
 }
 
-export function loadConfig(
-  environment: Record<string, string | undefined> = process.env,
-): AppConfig {
+export function loadConfig(environment: EnvironmentSource = process.env): AppConfig {
   const parsed = configSchema.safeParse(environment);
 
   if (!parsed.success) {
@@ -96,6 +100,7 @@ export function loadConfig(
 
   return Object.freeze({
     environment: value.NODE_ENV,
+    isWorker: value[WORKER_ENVIRONMENT_VARIABLE] === '1',
     host: value.HOST,
     port: value.PORT,
     databaseReadUrl: value.DATABASE_READ_URL,
@@ -117,4 +122,23 @@ export function loadConfig(
         ? value.NODE_ENV !== 'production'
         : value.API_DOCS_ENABLED === 'true',
   });
+}
+
+/**
+ * Builds the environment for a worker process. Keeping this here means the entrypoint never reads
+ * `process.env` directly.
+ */
+export function workerEnvironment(
+  environment: EnvironmentSource = process.env,
+): Record<string, string> {
+  const result: Record<string, string> = {};
+
+  for (const [key, value] of Object.entries(environment)) {
+    if (value !== undefined) {
+      result[key] = value;
+    }
+  }
+
+  result[WORKER_ENVIRONMENT_VARIABLE] = '1';
+  return result;
 }

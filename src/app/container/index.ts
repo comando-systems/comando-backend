@@ -1,4 +1,4 @@
-import type { AppConfig } from '@/app/config';
+import { type AppConfig, type EnvironmentSource, loadConfig } from '@/app/config';
 import type { AppContainer, IdGenerators } from '@/app/container/types';
 import { systemClock } from '@/app/ports/clock';
 import type { UseCases } from '@/app/use-cases';
@@ -123,7 +123,15 @@ function createUseCases(container: {
   };
 }
 
-export function createContainer(config: AppConfig): AppContainer {
+/**
+ * Validates the environment and builds the whole application graph. Callers pass an environment
+ * source only when they intentionally construct configuration, such as tests and scripts.
+ */
+export function createContainer(environment?: EnvironmentSource): AppContainer {
+  return buildContainer(loadConfig(environment));
+}
+
+function buildContainer(config: AppConfig): AppContainer {
   const logger = new JsonLogger(config.logLevel, { service: 'comando-api' });
   const database = createDatabaseConnections(
     config.databaseReadUrl,

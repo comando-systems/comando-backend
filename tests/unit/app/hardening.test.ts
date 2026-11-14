@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, spyOn, test } from 'bun:test';
 import { createApp } from '@/app/http/app';
-import { createTestContainer } from '../support/container';
+import { createTestContainer } from '../../support/container';
 
 const SECRET_PASSWORD = 'hunter2-very-secret';
 const SECRET_TOKEN = 'eyJhbGciOi.secret-bearer.signature';

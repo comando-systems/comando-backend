@@ -7,14 +7,14 @@ This document describes how Comandô wires dependencies and where environment co
 Environment variables are read and validated in exactly one place: `src/app/config/index.ts` (`loadConfig`).
 
 - `loadConfig(environment = process.env)` parses and validates all environment variables with Zod and returns a frozen `AppConfig`.
-- `process.env` is read only by `src/app/config` (via the default argument of `loadConfig`) and by the entry point `src/index.ts` (to forward variables to worker processes and to detect the worker marker).
+- `process.env` is read only by `src/app/config`. The entry point calls `loadConfig()` and `workerEnvironment()`, both of which read `process.env` through their default argument inside the config module.
 - Routes, use cases, repositories, and middleware never read `process.env` or build their own configuration. They receive validated values through the container.
 
 ## Composition root
 
-`src/app/container/index.ts` is the single composition root. `createContainer(config: AppConfig): AppContainer` is the only place that constructs:
+`src/app/container/index.ts` is the single composition root. `createContainer(environment?: EnvironmentSource): AppContainer` validates configuration with `loadConfig` and is the only place that constructs:
 
-1. Validated configuration (`AppConfig`, from `loadConfig`)
+1. Validated configuration (`AppConfig`)
 2. Database connections (`createDatabaseConnections`)
 3. Repositories (`createRepositories`)
 4. Unit of work (`DatabaseUnitOfWork`)
@@ -23,12 +23,14 @@ Environment variables are read and validated in exactly one place: `src/app/conf
 7. All application use cases
 8. The HTTP app (via `createApp(container)`)
 
+Callers pass an environment source only when they intentionally construct configuration, such as tests and scripts. Invalid configuration fails before any database connection is opened.
+
 Routes and middleware receive the container through dependency injection and never instantiate repositories or use cases themselves.
 
 ```
 src/index.ts (entry point)
   └─ loadConfig()              reads env, validates, returns AppConfig
-  └─ createContainer(config)   builds the full object graph
+  └─ createContainer()         validates env and builds the full object graph
        ├─ config
        ├─ logger (JsonLogger)
        ├─ database (DatabaseConnections)
@@ -57,4 +59,4 @@ The container owns resource cleanup through `container.close()`, which closes th
 
 ## Tests
 
-Tests use the shared test container helper (`tests/unit/support/container.ts` and `tests/e2e/support/harness.ts`) which builds a container against an isolated test database. No test constructs repositories or infrastructure ad hoc.
+Tests share `tests/support/container.ts`: `testEnvironment` provides the common defaults and `createTestContainer` builds a container-shaped double over fake infrastructure. The e2e harness uses `testEnvironment` with the real test database. No test constructs repositories or infrastructure ad hoc.
