@@ -1,10 +1,9 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
-import { loadConfig } from '@/app/config';
-import type { AppContainer } from '@/app/container';
-import { createContainer } from '@/app/container';
+import { type AppContainer, createContainer } from '@/app/container';
 import { createApp } from '@/app/http/app';
 import { UserID } from '@/domain/value-objects/ids';
 import { resetDatabase, TEST_DATABASE_URL } from '../integration/support/database';
+import { testEnvironment } from '../support/container';
 
 interface UserDto {
   id: string;
@@ -76,16 +75,14 @@ const ADMIN_PASSWORD = 'admin-password';
 const CASHIER_PASSWORD = 'cashier-password';
 const SERVER_PASSWORD = 'server-password';
 
-function testConfig() {
+function apiEnvironment(): Record<string, string | undefined> {
   if (!TEST_DATABASE_URL) {
     throw new Error('TEST_DATABASE_URL is required for API tests');
   }
 
-  return loadConfig({
-    NODE_ENV: 'test',
+  return testEnvironment({
     DATABASE_READ_URL: TEST_DATABASE_URL,
     DATABASE_WRITE_URL: TEST_DATABASE_URL,
-    JWT_SECRET: 'a'.repeat(32),
     JWT_ISSUER: 'comando',
     JWT_AUDIENCE: 'comando-api',
     JWT_EXPIRES_IN_SECONDS: '900',
@@ -93,7 +90,6 @@ function testConfig() {
     BODY_LIMIT_BYTES: '1024',
     LOGIN_RATE_LIMIT_MAX: '100',
     LOGIN_RATE_LIMIT_WINDOW_SECONDS: '60',
-    LOG_LEVEL: 'error',
     // This suite asserts exact totals right after writing.
     LIST_COUNT_CACHE_TTL_MS: '0',
   });
@@ -104,7 +100,7 @@ describe.skipIf(!TEST_DATABASE_URL)('HTTP API', () => {
   let app: ReturnType<typeof createApp>;
 
   beforeAll(() => {
-    container = createContainer(testConfig());
+    container = createContainer(apiEnvironment());
     app = createApp(container);
   });
 
@@ -680,12 +676,10 @@ describe.skipIf(!TEST_DATABASE_URL)('HTTP API', () => {
     expect(missing.status).toBe(404);
     expect((await readJson<ErrorDto>(missing)).error.code).toBe('NOT_FOUND');
 
-    const rateContainer = createContainer(
-      loadConfig({
-        ...processEnvForRateLimit(),
-        LOGIN_RATE_LIMIT_MAX: '1',
-      }),
-    );
+    const rateContainer = createContainer({
+      ...processEnvForRateLimit(),
+      LOGIN_RATE_LIMIT_MAX: '1',
+    });
     const rateApp = createApp(rateContainer);
 
     try {
@@ -715,22 +709,19 @@ describe.skipIf(!TEST_DATABASE_URL)('HTTP API', () => {
   });
 });
 
-function processEnvForRateLimit(): Record<string, string> {
+function processEnvForRateLimit(): Record<string, string | undefined> {
   if (!TEST_DATABASE_URL) {
     throw new Error('TEST_DATABASE_URL is required for API tests');
   }
 
-  return {
-    NODE_ENV: 'test',
+  return testEnvironment({
     DATABASE_READ_URL: TEST_DATABASE_URL,
     DATABASE_WRITE_URL: TEST_DATABASE_URL,
-    JWT_SECRET: 'a'.repeat(32),
     JWT_ISSUER: 'comando',
     JWT_AUDIENCE: 'comando-api',
     JWT_EXPIRES_IN_SECONDS: '900',
     CORS_ORIGIN: '*',
     BODY_LIMIT_BYTES: '1024',
     LOGIN_RATE_LIMIT_WINDOW_SECONDS: '60',
-    LOG_LEVEL: 'error',
-  };
+  });
 }

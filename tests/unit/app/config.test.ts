@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { ConfigurationError, loadConfig } from '@/app/config';
+import { ConfigurationError, loadConfig, workerEnvironment } from '@/app/config';
 
 const validEnvironment = {
   DATABASE_READ_URL: 'postgres://reader:password@localhost:5432/comando',
@@ -22,6 +22,22 @@ describe('loadConfig', () => {
     expect(config.webConcurrency).toBe(1);
     expect(config.listCountCacheTtlMs).toBe(2_000);
     expect(config.logLevel).toBe('info');
+  });
+
+  test('detects the internal worker marker', () => {
+    expect(loadConfig(validEnvironment).isWorker).toBe(false);
+    expect(loadConfig({ ...validEnvironment, COMANDO_WORKER: '1' }).isWorker).toBe(true);
+  });
+
+  test('builds a worker environment without copying unset variables', () => {
+    const environment = workerEnvironment({
+      PATH: '/usr/bin',
+      UNSET: undefined,
+    });
+
+    expect(environment.PATH).toBe('/usr/bin');
+    expect(environment.COMANDO_WORKER).toBe('1');
+    expect('UNSET' in environment).toBe(false);
   });
 
   test('rejects missing secrets', () => {

@@ -1,9 +1,8 @@
-import { loadConfig } from '@/app/config';
-import type { AppContainer } from '@/app/container';
-import { createContainer } from '@/app/container';
+import { type AppContainer, createContainer } from '@/app/container';
 import { createApp } from '@/app/http/app';
 import type { RoleCode } from '@/domain/entity/role';
 import { TEST_DATABASE_URL } from '../../integration/support/database';
+import { testEnvironment } from '../../support/container';
 
 export const PASSWORD = 'a-long-enough-password';
 
@@ -21,13 +20,10 @@ export function createHarness() {
 
   function start(environment: Record<string, string> = {}): AppContainer {
     container = createContainer(
-      loadConfig({
-        NODE_ENV: 'test',
+      testEnvironment({
         DATABASE_READ_URL: TEST_DATABASE_URL,
         DATABASE_WRITE_URL: TEST_DATABASE_URL,
-        JWT_SECRET: 'a'.repeat(32),
         LOGIN_RATE_LIMIT_MAX: '1000',
-        LOG_LEVEL: 'error',
         // Suites assert exact totals right after writing.
         LIST_COUNT_CACHE_TTL_MS: '0',
         ...environment,

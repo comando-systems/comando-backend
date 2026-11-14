@@ -1,17 +1,14 @@
-import { ConfigurationError, loadConfig } from '@/app/config';
+import { ConfigurationError, loadConfig, workerEnvironment } from '@/app/config';
 import { createContainer } from '@/app/container';
 import { createApp } from '@/app/http/app';
 import { supervise } from '@/infrastructure/process/supervisor';
-
-// Set on the child processes so they serve instead of supervising again.
-const WORKER_MARKER = 'COMANDO_WORKER';
 
 function runSupervisor(workers: number): void {
   const supervisor = supervise({
     workers,
     start: () => {
       const child = Bun.spawn([process.execPath, Bun.main], {
-        env: { ...process.env, [WORKER_MARKER]: '1' },
+        env: workerEnvironment(),
         stdout: 'inherit',
         stderr: 'inherit',
       });
@@ -30,14 +27,15 @@ function runSupervisor(workers: number): void {
 }
 
 async function main(): Promise<void> {
+  // The supervisor only needs the process mode; createContainer validates and builds the rest.
   const config = loadConfig();
 
-  if (config.webConcurrency > 1 && process.env[WORKER_MARKER] !== '1') {
+  if (config.webConcurrency > 1 && !config.isWorker) {
     runSupervisor(config.webConcurrency);
     return;
   }
 
-  const container = createContainer(config);
+  const container = createContainer();
   const app = createApp(container);
 
   const server = Bun.serve({

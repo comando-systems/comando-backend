@@ -317,6 +317,10 @@ tests/
 
 Contains application use cases and orchestration. It coordinates domain objects and repository contracts, applies authorization policies, and defines transaction boundaries. HTTP route handlers and request validation may live under `app/http`; there is no separate `presentation` layer.
 
+`app/container` is the composition root. `createContainer` validates the environment, builds the database connections, repositories, unit of work, clock, ID generators, authentication adapters, and use cases, and owns resource cleanup. Routes and use cases receive those dependencies through the container; they never read environment variables or construct infrastructure themselves.
+
+`app/config` is the only runtime module that reads `process.env`. Standalone scripts and tests may call `loadConfig` or pass an explicit environment to `createContainer` when they intentionally construct configuration. HTTP-only Hono environment types stay in `app/http`.
+
 ### `domain`
 
 Contains business concepts and rules: entities, Value Objects, IDs, enums, DTOs used as domain contracts where appropriate, repository interfaces, and domain errors. Keep domain code independent from Bun HTTP APIs, database clients, JWT libraries, and environment variables.
@@ -364,6 +368,8 @@ Apply migrations from the root `migrations/` directory in ascending order. Do no
 ## Configuration
 
 Validate the environment at startup. Required variables include `DATABASE_READ_URL`, `DATABASE_WRITE_URL`, and a `JWT_SECRET` with at least 32 characters. See `.env.example` for the complete list and defaults. Secrets must never be committed or logged.
+
+`src/app/config` parses and validates the environment. `createContainer` calls it before building any dependency, so an invalid configuration fails before the process opens database pools. Standalone scripts and tests that need configuration without a full container can call `loadConfig` directly. Tests share their defaults through `tests/support/container.ts`.
 
 | Variable | Default | Notes |
 | --- | --- | --- |

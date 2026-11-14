@@ -3,15 +3,26 @@ import type { AppContainer } from '@/app/container';
 import { JsonLogger } from '@/infrastructure/logging/json-logger';
 import { createRepositories } from '@/infrastructure/repositories';
 
-export function createTestContainer(environment: Record<string, string> = {}): AppContainer {
-  const config = loadConfig({
+export type TestEnvironment = Record<string, string | undefined>;
+
+/** Shared defaults for tests that intentionally construct application configuration. */
+export function testEnvironment(overrides: TestEnvironment = {}): TestEnvironment {
+  return {
     NODE_ENV: 'test',
     DATABASE_READ_URL: 'postgres://user:password@localhost:5432/comando',
     DATABASE_WRITE_URL: 'postgres://user:password@localhost:5432/comando',
     JWT_SECRET: 'a'.repeat(32),
     LOG_LEVEL: 'error',
-    ...environment,
-  });
+    ...overrides,
+  };
+}
+
+/**
+ * Builds a container-shaped test double over fake infrastructure. HTTP tests use this when they
+ * need the container interface but no PostgreSQL instance.
+ */
+export function createTestContainer(environment: TestEnvironment = {}): AppContainer {
+  const config = loadConfig(testEnvironment(environment));
 
   const sql = {} as AppContainer['database']['read'];
   const database: AppContainer['database'] = {
