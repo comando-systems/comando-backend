@@ -68,4 +68,12 @@ export class RefreshTokenRepository implements RefreshTokenRepositoryContract {
       WHERE user_id = ${userId.value} AND revoked_at IS NULL
     `;
   }
+
+  async deleteExpired(now: Date): Promise<number> {
+    const rows = await this.database.writeSql().query<{ id: string }[]>`
+      DELETE FROM refresh_tokens WHERE expires_at <= ${now} RETURNING id::text AS id
+    `;
+
+    return rows.length;
+  }
 }

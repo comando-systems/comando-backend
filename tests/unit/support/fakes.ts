@@ -59,6 +59,7 @@ const noRefreshTokens: RefreshTokenRepository = {
   findByHashForUpdate: async () => null,
   revoke: async () => {},
   revokeAllForUser: async () => {},
+  deleteExpired: async () => 0,
 };
 
 const unused = async (): Promise<never> => {

@@ -15,4 +15,6 @@ export interface RefreshTokenRepository {
   findByHashForUpdate(tokenHash: string): Promise<RefreshToken | null>;
   revoke(id: RefreshTokenID, now: Date): Promise<void>;
   revokeAllForUser(userId: UserID, now: Date): Promise<void>;
+  // Removes only rows past their expiry. Revoked-but-unexpired rows stay for reuse detection.
+  deleteExpired(now: Date): Promise<number>;
 }

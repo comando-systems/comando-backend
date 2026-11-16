@@ -179,4 +179,41 @@ describe.skipIf(!TEST_DATABASE_URL)('refresh tokens', () => {
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
     expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
   });
+
+  test('cleanup removes only expired tokens', async () => {
+    const expired = await signIn();
+    clock.advance(TTL_SECONDS);
+    const active = await signIn();
+
+    const removed = await unitOfWork.run((repos) => repos.refreshTokens.deleteExpired(clock.now()));
+
+    expect(removed).toBe(1);
+    const rows = await database.writeSql().query<{ token_hash: string }[]>`
+      SELECT token_hash FROM refresh_tokens
+    `;
+    expect(rows.map((row) => row.token_hash)).toEqual([codec.hash(active.refreshToken)]);
+    expect(rows.map((row) => row.token_hash)).not.toContain(codec.hash(expired.refreshToken));
+  });
+
+  test('cleanup keeps revoked-but-unexpired tokens and is safe to repeat', async () => {
+    const emptyRun = await unitOfWork.run((repos) =>
+      repos.refreshTokens.deleteExpired(clock.now()),
+    );
+    expect(emptyRun).toBe(0);
+
+    const session = await signIn();
+    await logout.execute({ refreshToken: session.refreshToken });
+
+    for (let run = 0; run < 2; run += 1) {
+      const removed = await unitOfWork.run((repos) =>
+        repos.refreshTokens.deleteExpired(clock.now()),
+      );
+      expect(removed).toBe(0);
+    }
+
+    const rows = await database.writeSql().query<{ count: number }[]>`
+      SELECT count(*)::int AS count FROM refresh_tokens
+    `;
+    expect(rows[0]?.count).toBe(1);
+  });
 });

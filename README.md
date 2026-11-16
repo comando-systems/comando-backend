@@ -449,6 +449,16 @@ bun run dev              # API with hot reload
 
 `bun run docker:up` starts the whole stack (PostgreSQL, migrations, API, nginx) the way it runs in deployment.
 
+### Maintenance jobs
+
+Expired refresh tokens accumulate over time. Run the cleanup job from an external scheduler (cron, a systemd timer, or a platform job); the API never runs it automatically:
+
+```bash
+bun run tokens:cleanup
+```
+
+The job deletes only rows whose expiry has passed. Revoked tokens that have not expired stay in the table so refresh-token reuse detection keeps working, and running the job repeatedly is safe.
+
 ## Testing and CI
 
 | Command | What it runs |
