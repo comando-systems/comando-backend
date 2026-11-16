@@ -1,6 +1,6 @@
 # Comandô
 
-Comandô is a counter and table-order management backend built with TypeScript and Bun.
+Comandô is a counter and table-order management backend built with TypeScript and Bun. This repository contains the backend API only; clients are separate.
 
 The system uses one order model for both service channels. A counter order is created with all its items and payments and is persisted directly as `CLOSED`. A table order remains `OPEN` while the server adds or changes items, until a cashier closes it or a cashier or server cancels it.
 
@@ -8,10 +8,11 @@ The system uses one order model for both service channels. A counter order is cr
 
 - Authenticate users and authorize actions through roles.
 - Support users with one or more roles: `ADMIN`, `CASHIER`, and `SERVER`.
-- Manage users without physically deleting them.
+- Create, edit, and deactivate users only through an administrator; there is no public sign-up, and users are never physically deleted.
 - Manage catalog items.
 - Create completed counter orders.
 - Open, update, close, cancel, and query table orders.
+- Record payment methods and amounts without integrating with a payment gateway.
 - Preserve historical order prices and totals.
 - Keep operational logs and relevant audit information.
 
@@ -20,10 +21,12 @@ The system uses one order model for both service channels. A counter order is cr
 | Role | Permissions |
 |---|---|
 | `ADMIN` | Create and edit users; deactivate users; manage items and settings; run the till (counter orders, history, close, cancel, pricing). Cannot open or edit tables. |
-| `CASHIER` | Create counter orders; view order history; open and edit tables; hand over, close, or cancel table orders. |
+| `CASHIER` | Create completed counter orders (already closed and paid); view order history; open and edit tables; hand over, close, or cancel table orders. |
 | `SERVER` | Open table orders; add items and update quantities; hand a table to the cashier; cancel table orders. Cannot close them. |
 
 A user may have multiple roles. Effective permissions are the union of the permissions granted by their roles. Authorization must be enforced by the backend for every use case.
+
+User registration is administrator-managed: only an `ADMIN` can create users. The API has no public sign-up, password reset, or email verification flow.
 
 ## HTTP API
 
@@ -155,7 +158,7 @@ Close an order:
 }
 ```
 
-Payment methods are `CASH`, `DEBIT_CARD`, `CREDIT_CARD`, `PIX`, and `OTHER`.
+Payment methods are `CASH`, `DEBIT_CARD`, `CREDIT_CARD`, `PIX`, and `OTHER`. The backend records the chosen methods and amounts only; it does not integrate with a payment gateway.
 
 ### Catalog, settings, and users
 
@@ -292,7 +295,6 @@ src/
     config/
   domain/
     entity/
-    types/
     value-objects/
     repository/
     errors/
