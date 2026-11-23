@@ -21,10 +21,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .env.test.local
 .env.production.local
 .env.local
-
-# Versioned environment templates under infra/
-!infra/.env
-!infra/.env.example
+infra/.env
 
 # caches
 .eslintcache
