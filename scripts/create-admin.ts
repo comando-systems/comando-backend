@@ -1,6 +1,5 @@
 // Bootstrap: creating a user through the API needs an administrator, so the first one is created
 // here, straight through the repositories. Safe to run more than once.
-import { loadConfig } from '../src/app/config';
 import { createContainer } from '../src/app/container';
 
 const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
@@ -10,7 +9,7 @@ if (!email || !password || password.length < 12) {
   throw new Error('ADMIN_EMAIL and ADMIN_PASSWORD (12+ characters) are required');
 }
 
-const container = createContainer(loadConfig());
+const container = createContainer();
 
 try {
   const passwordHash = await container.passwordHasher.hash(password);

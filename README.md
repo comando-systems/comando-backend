@@ -1,6 +1,6 @@
 # Comandô
 
-Comandô is a counter and table-order management backend built with TypeScript and Bun.
+Comandô is a counter and table-order management backend built with TypeScript and Bun. This repository contains the backend API only; clients are separate.
 
 The system uses one order model for both service channels. A counter order is created with all its items and payments and is persisted directly as `CLOSED`. A table order remains `OPEN` while the server adds or changes items, until a cashier closes it or a cashier or server cancels it.
 
@@ -8,10 +8,11 @@ The system uses one order model for both service channels. A counter order is cr
 
 - Authenticate users and authorize actions through roles.
 - Support users with one or more roles: `ADMIN`, `CASHIER`, and `SERVER`.
-- Manage users without physically deleting them.
+- Create, edit, and deactivate users only through an administrator; there is no public sign-up, and users are never physically deleted.
 - Manage catalog items.
 - Create completed counter orders.
 - Open, update, close, cancel, and query table orders.
+- Record payment methods and amounts without integrating with a payment gateway.
 - Preserve historical order prices and totals.
 - Keep operational logs and relevant audit information.
 
@@ -20,10 +21,12 @@ The system uses one order model for both service channels. A counter order is cr
 | Role | Permissions |
 |---|---|
 | `ADMIN` | Create and edit users; deactivate users; manage items and settings; run the till (counter orders, history, close, cancel, pricing). Cannot open or edit tables. |
-| `CASHIER` | Create counter orders; view order history; open and edit tables; hand over, close, or cancel table orders. |
+| `CASHIER` | Create completed counter orders (already closed and paid); view order history; open and edit tables; hand over, close, or cancel table orders. |
 | `SERVER` | Open table orders; add items and update quantities; hand a table to the cashier; cancel table orders. Cannot close them. |
 
 A user may have multiple roles. Effective permissions are the union of the permissions granted by their roles. Authorization must be enforced by the backend for every use case.
+
+User registration is administrator-managed: only an `ADMIN` can create users. The API has no public sign-up, password reset, or email verification flow.
 
 ## HTTP API
 
@@ -155,7 +158,7 @@ Close an order:
 }
 ```
 
-Payment methods are `CASH`, `DEBIT_CARD`, `CREDIT_CARD`, `PIX`, and `OTHER`.
+Payment methods are `CASH`, `DEBIT_CARD`, `CREDIT_CARD`, `PIX`, and `OTHER`. The backend records the chosen methods and amounts only; it does not integrate with a payment gateway.
 
 ### Catalog, settings, and users
 
@@ -292,7 +295,6 @@ src/
     config/
   domain/
     entity/
-    types/
     value-objects/
     repository/
     errors/
@@ -316,6 +318,10 @@ tests/
 ### `app`
 
 Contains application use cases and orchestration. It coordinates domain objects and repository contracts, applies authorization policies, and defines transaction boundaries. HTTP route handlers and request validation may live under `app/http`; there is no separate `presentation` layer.
+
+`app/container` is the composition root. `createContainer` validates the environment, builds the database connections, repositories, unit of work, clock, ID generators, authentication adapters, and use cases, and owns resource cleanup. Routes and use cases receive those dependencies through the container; they never read environment variables or construct infrastructure themselves.
+
+`app/config` is the only runtime module that reads `process.env`. Standalone scripts and tests may call `loadConfig` or pass an explicit environment to `createContainer` when they intentionally construct configuration. HTTP-only Hono environment types stay in `app/http`.
 
 ### `domain`
 
@@ -364,6 +370,8 @@ Apply migrations from the root `migrations/` directory in ascending order. Do no
 ## Configuration
 
 Validate the environment at startup. Required variables include `DATABASE_READ_URL`, `DATABASE_WRITE_URL`, and a `JWT_SECRET` with at least 32 characters. See `.env.example` for the complete list and defaults. Secrets must never be committed or logged.
+
+`src/app/config` parses and validates the environment. `createContainer` calls it before building any dependency, so an invalid configuration fails before the process opens database pools. Standalone scripts and tests that need configuration without a full container can call `loadConfig` directly. Tests share their defaults through `tests/support/container.ts`.
 
 | Variable | Default | Notes |
 | --- | --- | --- |
@@ -438,10 +446,21 @@ bun install
 bun run docker:db        # PostgreSQL
 bun run docker:migrate   # apply migrations
 bun run db:create-admin  # first administrator (ADMIN_EMAIL, ADMIN_PASSWORD)
+bun run db:seed-root     # seed the root@comando.com system user (ROOT_EMAIL, ROOT_PASSWORD)
 bun run dev              # API with hot reload
 ```
 
 `bun run docker:up` starts the whole stack (PostgreSQL, migrations, API, nginx) the way it runs in deployment.
+
+### Maintenance jobs
+
+Expired refresh tokens accumulate over time. Run the cleanup job from an external scheduler (cron, a systemd timer, or a platform job); the API never runs it automatically:
+
+```bash
+bun run tokens:cleanup
+```
+
+The job deletes only rows whose expiry has passed. Revoked tokens that have not expired stay in the table so refresh-token reuse detection keeps working, and running the job repeatedly is safe.
 
 ## Testing and CI
 

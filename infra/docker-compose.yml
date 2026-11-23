@@ -59,16 +59,28 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
-    healthcheck:
-      test:
-        - CMD
-        - bun
-        - -e
-        - "fetch('http://127.0.0.1:$PORT/health').then((response) => process.exit(response.ok ? 0: 1)).catch(() => process.exit(1))"
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+
+  seed-root:
+    build:
+      context: ..
+      dockerfile: infra/api/Dockerfile
+    environment:
+      NODE_ENV: $NODE_ENV
+      DATABASE_READ_URL: postgres://$DB_USER:$DB_PASS@$DB_HOST:5432/$DB_NAME?sslmode=disable
+      DATABASE_WRITE_URL: postgres://$DB_USER:$DB_PASS@$DB_HOST:5432/$DB_NAME?sslmode=disable
+      JWT_SECRET: $JWT_SECRET
+      JWT_ISSUER: $JWT_ISSUER
+      JWT_AUDIENCE: $JWT_AUDIENCE
+      JWT_EXPIRES_IN_SECONDS: $JWT_EXPIRES_IN_SECONDS
+      REFRESH_TOKEN_TTL_SECONDS: ${REFRESH_TOKEN_TTL_SECONDS:-2592000}
+      LOG_LEVEL: $LOG_LEVEL
+      ROOT_EMAIL: ${ROOT_EMAIL:-root@comando.com}
+      ROOT_PASSWORD: $ROOT_PASSWORD
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: no
+    command: ["bun", "scripts/seed-root-entrypoint.ts"]
 
   nginx:
     image: nginx:1.27-alpine
@@ -76,7 +88,7 @@ services:
     volumes: [./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro]
     depends_on:
       api:
-        condition: service_healthy
+        condition: service_started
 
 volumes:
   postgres_data:

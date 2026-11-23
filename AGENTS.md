@@ -2,7 +2,7 @@
 
 ## Project goal
 
-Build Comandô, a TypeScript + Bun backend for counter sales and table orders. Follow `README.md` and the implementation sequence in `IMPLEMENTATION_PLAN.md`. The domain has one `Order` model with two channels (`COUNTER`, `TABLE`) and three lifecycle states (`OPEN`, `CLOSED`, `CANCELED`).
+Build Comandô, a TypeScript + Bun backend for counter sales and table orders. Follow `README.md` and the ADRs in `docs/adr`. The domain has one `Order` model with two channels (`COUNTER`, `TABLE`) and three lifecycle states (`OPEN`, `CLOSED`, `CANCELED`).
 
 ## Language and communication
 
@@ -150,7 +150,7 @@ Write tests as each feature is implemented.
 ## Required implementation workflow
 
 1. Inspect the repository, package scripts, Bun version, TypeScript configuration, dependencies, and existing conventions.
-2. Read `README.md`, this file, and `IMPLEMENTATION_PLAN.md` before coding.
+2. Read `README.md`, this file, and the ADRs in `docs/adr` before coding.
 3. Implement the project foundation and tests before domain features.
 4. Implement shared domain primitives before entities that depend on them.
 5. Implement domain entities and repository contracts before concrete persistence adapters.

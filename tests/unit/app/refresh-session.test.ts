@@ -45,6 +45,7 @@ function world(options: { token?: Partial<RefreshTokenProps> | null; deactivated
       revokeAllForUser: async (id) => {
         calls.revokedAll.push(id.value);
       },
+      deleteExpired: async () => 0,
     },
   } as Partial<Repositories>);
   const sessions = new SessionIssuer(

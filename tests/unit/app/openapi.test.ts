@@ -25,7 +25,7 @@ import { Item } from '@/domain/entity/item';
 import { Order } from '@/domain/entity/order';
 import { User } from '@/domain/entity/user';
 import { ItemID, OrderID, UserID } from '@/domain/value-objects/ids';
-import { createTestContainer } from '../support/container';
+import { createTestContainer } from '../../support/container';
 
 type Json = Record<string, unknown>;
 

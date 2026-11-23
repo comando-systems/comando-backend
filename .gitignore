@@ -21,9 +21,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .env.test.local
 .env.production.local
 .env.local
-
-# local implementation checklist
-IMPLEMENTATION_PLAN.md
+infra/.env
 
 # caches
 .eslintcache
