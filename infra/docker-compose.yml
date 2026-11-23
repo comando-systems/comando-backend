@@ -80,7 +80,7 @@ services:
       migrate:
         condition: service_completed_successfully
     restart: no
-    command: ["bun", "scripts/seed-root-user.ts"]
+    command: ["bun", "scripts/seed-root-entrypoint.ts"]
 
   nginx:
     image: nginx:1.27-alpine
