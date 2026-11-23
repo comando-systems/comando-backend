@@ -276,6 +276,12 @@ const operations: readonly OperationSpec[] = [
         description: 'Also return items removed from the catalog.',
         schema: { type: 'boolean', default: false },
       },
+      {
+        name: 'search',
+        in: 'query',
+        description: 'Full-text search over name, description, and category. Accents are ignored.',
+        schema: { type: 'string', minLength: 1, maxLength: 100 },
+      },
     ],
     success: { status: 200, description: 'A page of items.', schema: 'ItemPage' },
     errors: [400, 401],

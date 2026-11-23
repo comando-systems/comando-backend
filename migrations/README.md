@@ -6,6 +6,10 @@ Files live in the repository root `migrations/` directory and are paired by vers
 - `001_initial_schema.down.sql`: removes it.
 - `002_order_surcharge_discount.up.sql`: replaces the generic adjustment columns with explicit surcharge and discount amounts.
 - `002_order_surcharge_discount.down.sql`: restores the generic adjustment columns as their net value.
+- `003_drop_unused_indexes.up.sql`: removes indexes with no matching read path.
+- `003_drop_unused_indexes.down.sql`: restores those indexes.
+- `004_item_search.up.sql`: adds an accent-normalized full-text vector and its index to `items`.
+- `004_item_search.down.sql`: removes the search vector and its index.
 
 The schema was consolidated from the former incremental migrations. A database created before the consolidation is already at the old version 5 and must be recreated or explicitly baselined before version 1 is applied; the migration runner will not replay it on such a database.
 
@@ -35,9 +39,10 @@ Indexes exist only for query paths used by the application:
 - Order history and filtered lists: `orders_history_idx`, `orders_status_created_idx`.
 - Sales summary ranges: `orders_closed_at_idx`, `orders_canceled_at_idx`.
 - Table occupancy: `orders_one_active_per_table_idx`.
-- Payments by order and active refresh tokens per user.
+- Payments by order.
 - Sellable catalog by category and name.
-- Audit log by time for operational inspection.
+- Catalog full-text search: `items_search_vector_idx`.
+- Refresh tokens by hash through the unique constraint.
 
 ## Application responsibilities not expressible as simple constraints
 
@@ -45,4 +50,4 @@ The application must still enforce role permissions, state transitions, price sn
 
 `orders.version` is available for optimistic concurrency control. The application may instead use row-level locking, but it must prevent lost updates.
 
-`refresh_tokens` is included as a persistence foundation. Implement refresh-token flows only with an explicit rotation, expiry, and revocation policy.
+`refresh_tokens` stores SHA-256 hashes and supports rotation, expiry, and revocation. Only the hash lookup is indexed; revoking all tokens of a user is intentionally not indexed because it is infrequent.

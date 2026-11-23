@@ -136,6 +136,59 @@ describe.skipIf(!TEST_DATABASE_URL)('item administration', () => {
     ).rejects.toBeInstanceOf(ConflictError);
   });
 
+  test('searches the catalog case- and accent-insensitively', async () => {
+    const admin = await createUser(['ADMIN']);
+    await createItem.execute({
+      actorUserId: admin.id,
+      name: 'Café com leite',
+      description: 'Bebida quente',
+      category: 'Bebidas',
+      priceCents: 750,
+    });
+    await createItem.execute({
+      actorUserId: admin.id,
+      name: 'Pão de queijo',
+      description: 'Lanche rápido',
+      category: 'Lanches',
+      priceCents: 500,
+    });
+
+    const byName = await listItems.execute({
+      actorUserId: admin.id,
+      page: 1,
+      pageSize: 20,
+      search: 'cafe',
+    });
+    expect(byName.total).toBe(1);
+    expect(byName.items[0]?.name).toBe('Café com leite');
+
+    const byDescription = await listItems.execute({
+      actorUserId: admin.id,
+      page: 1,
+      pageSize: 20,
+      search: 'quente',
+    });
+    expect(byDescription.total).toBe(1);
+    expect(byDescription.items[0]?.name).toBe('Café com leite');
+
+    const byCategory = await listItems.execute({
+      actorUserId: admin.id,
+      page: 1,
+      pageSize: 20,
+      search: 'lanches',
+    });
+    expect(byCategory.total).toBe(1);
+    expect(byCategory.items[0]?.name).toBe('Pão de queijo');
+
+    const noMatch = await listItems.execute({
+      actorUserId: admin.id,
+      page: 1,
+      pageSize: 20,
+      search: 'inexistente',
+    });
+    expect(noMatch.total).toBe(0);
+  });
+
   test('denies item administration to non-admin roles', async () => {
     const admin = await createUser(['ADMIN']);
     const server = await createUser(['SERVER']);

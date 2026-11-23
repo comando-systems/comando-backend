@@ -1,6 +1,6 @@
 // Comandô database schema
 //
-// Current state after migrations 001 and 002.
+// Current state after migrations 001 through 004.
 // Money is always stored as integer minor units (cents). Timestamps are UTC (`timestamptz`).
 // This file is documentation: PostgreSQL remains the source of truth.
 
@@ -73,9 +73,11 @@ Table items {
   deleted_at timestamptz [null, note: 'Soft removal from the catalog']
   created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
   updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  search_vector tsvector [note: 'Generated accent-normalized full-text vector of name, description, and category']
 
   indexes {
     (category, name) [name: 'items_sellable_category_idx', note: 'Partial: WHERE deleted_at IS NULL AND active']
+    search_vector [name: 'items_search_vector_idx', note: 'GIN; partial WHERE deleted_at IS NULL AND active']
   }
 
   Note: 'Catalog item. Price changes affect only future order lines; existing orders keep unit-price snapshots.'
@@ -165,11 +167,7 @@ Table refresh_tokens {
   revoked_at timestamptz [null]
   created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
 
-  indexes {
-    (user_id, expires_at) [name: 'refresh_tokens_user_active_idx', note: 'Partial: WHERE revoked_at IS NULL']
-  }
-
-  Note: 'Refresh-token persistence with rotation and revocation. Reusing a rotated token revokes every token of that user.'
+  Note: 'Refresh-token persistence with rotation and revocation. Reusing a rotated token revokes every token of that user. The unique token_hash index is the only read index.'
 }
 
 // Persistent audit trail for administrative and order-lifecycle actions. Rows are written
@@ -184,11 +182,7 @@ Table audit_logs {
   metadata jsonb [not null, default: `'{}'::jsonb`, note: 'Small non-sensitive context; never credentials or tokens']
   created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
 
-  indexes {
-    created_at [name: 'audit_logs_created_at_idx', note: 'Descending']
-  }
-
-  Note: 'Durable audit events. A rolled-back action leaves no row; a committed action always does.'
+  Note: 'Durable audit events. A rolled-back action leaves no row; a committed action always does. The API has no audit listing endpoint, so no read index is maintained.'
 }
 
 // Singleton application settings row (id is fixed at 1). Currently holds the service fee.

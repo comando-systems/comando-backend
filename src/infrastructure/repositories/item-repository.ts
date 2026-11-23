@@ -24,6 +24,22 @@ interface ItemRow {
   updated_at: Date | string;
 }
 
+const ITEM_COLUMNS = `
+  id::text AS id,
+  name,
+  description,
+  category,
+  price_cents::text AS price_cents,
+  image_url,
+  active,
+  deleted_at,
+  created_at,
+  updated_at
+`;
+
+const SEARCH_ACCENTS_FROM = 'áàâãäéèêëíìîïóòôõöúùûüçñ';
+const SEARCH_ACCENTS_TO = 'aaaaaeeeeiiiiooooouuuucn';
+
 function mapItem(row: ItemRow): Item {
   return Item.restore({
     id: new ItemID(row.id),
@@ -159,34 +175,44 @@ export class ItemRepository implements ItemRepositoryContract {
     const offset = (options.page - 1) * options.pageSize;
     const includeRemoved = options.includeRemoved === true;
     const sellableOnly = options.sellableOnly === true;
-    const total = await this.counts.get(`items|${includeRemoved}|${sellableOnly}`, async () => {
-      const countRows = await sql.query<{ count: string }[]>`
-        SELECT COUNT(*)::text AS count
-        FROM items
-        WHERE (${includeRemoved}::boolean OR deleted_at IS NULL)
-          AND (NOT ${sellableOnly}::boolean OR (deleted_at IS NULL AND active))
-      `;
+    const clauses = [
+      `(${includeRemoved}::boolean OR deleted_at IS NULL)`,
+      `(NOT ${sellableOnly}::boolean OR (deleted_at IS NULL AND active))`,
+    ];
+    const params: unknown[] = [includeRemoved, sellableOnly];
+
+    if (options.search !== undefined) {
+      params.push(options.search);
+      clauses.push(
+        `search_vector @@ websearch_to_tsquery(
+          'simple',
+          translate(
+            lower($${params.length}::text),
+            '${SEARCH_ACCENTS_FROM}',
+            '${SEARCH_ACCENTS_TO}'
+          )
+        )`,
+      );
+    }
+
+    const where = `WHERE ${clauses.join(' AND ')}`;
+    const cacheKey = `items|${includeRemoved}|${sellableOnly}|${options.search ?? ''}`;
+    const total = await this.counts.get(cacheKey, async () => {
+      const countRows = await sql.unsafe<{ count: string }[]>(
+        `SELECT COUNT(*)::text AS count FROM items ${where}`,
+        params,
+      );
       return Number(countRows[0]?.count ?? 0);
     });
-    const rows = await sql.query<ItemRow[]>`
-      SELECT
-        id::text AS id,
-        name,
-        description,
-        category,
-        price_cents::text AS price_cents,
-        image_url,
-        active,
-        deleted_at,
-        created_at,
-        updated_at
+    const rows = await sql.unsafe<ItemRow[]>(
+      `SELECT ${ITEM_COLUMNS}
       FROM items
-      WHERE (${includeRemoved}::boolean OR deleted_at IS NULL)
-        AND (NOT ${sellableOnly}::boolean OR (deleted_at IS NULL AND active))
+      ${where}
       ORDER BY category, name, id
-      LIMIT ${options.pageSize}
-      OFFSET ${offset}
-    `;
+      LIMIT $${params.length + 1}
+      OFFSET $${params.length + 2}`,
+      [...params, options.pageSize, offset],
+    );
 
     return {
       items: rows.map(mapItem),

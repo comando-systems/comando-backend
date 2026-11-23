@@ -140,6 +140,7 @@ export const itemListQuerySchema = paginationQuerySchema.extend({
     .enum(['true', 'false'])
     .optional()
     .transform((value) => value === 'true'),
+  search: z.string().trim().min(1).max(100).optional(),
 });
 
 const orderStatusSchema = z.enum(['OPEN', 'AWAITING_PAYMENT', 'CLOSED', 'CANCELED']);

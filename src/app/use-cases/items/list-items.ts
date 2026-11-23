@@ -10,6 +10,7 @@ export interface ListItemsInput {
   readonly page: number;
   readonly pageSize: number;
   readonly includeRemoved?: boolean;
+  readonly search?: string;
 }
 
 export interface ListItemsResult {
@@ -35,6 +36,7 @@ export class ListItemsUseCase {
         includeRemoved: input.includeRemoved === true && manages,
         // Whoever serves customers only sees what can be sold; administrators see disabled items too.
         sellableOnly: !manages,
+        search: input.search,
       });
     });
   }
