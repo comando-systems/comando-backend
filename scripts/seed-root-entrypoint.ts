@@ -17,7 +17,7 @@ if (!ROOT_PASSWORD || ROOT_PASSWORD.length < 12) {
 
 const sql = new SQL(DATABASE_URL, { max: 5, idleTimeout: 20, connectionTimeout: 10 });
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   try {
     // Verifica se já existe um administrador ativo
     const activeAdmins = await sql`
