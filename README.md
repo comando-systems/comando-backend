@@ -446,6 +446,7 @@ bun install
 bun run docker:db        # PostgreSQL
 bun run docker:migrate   # apply migrations
 bun run db:create-admin  # first administrator (ADMIN_EMAIL, ADMIN_PASSWORD)
+bun run db:seed-root     # seed the root@comando.com system user (ROOT_EMAIL, ROOT_PASSWORD)
 bun run dev              # API with hot reload
 ```
 
