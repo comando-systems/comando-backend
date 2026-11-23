@@ -10,7 +10,6 @@ tests
 
 # Not needed to build or run the image
 docs
-scripts
 migrations
 infra
 biome.json
