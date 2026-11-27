@@ -212,7 +212,7 @@ List endpoints accept `page` (default `1`) and `pageSize` (default `20`, maximum
 }
 ```
 
-`GET /items` accepts `includeRemoved=true`. Only `ADMIN` sees removed items; the flag is ignored for other roles.
+`GET /items` accepts `includeRemoved=true`. Only `ADMIN` sees removed items; the flag is ignored for other roles. It also accepts `search` (1 to 100 characters): a server-side full-text search over name, description, and category that ignores accents. Results stay ordered by category and name. Clients should call this endpoint and keep only a short-lived in-memory cache instead of copying the catalog into local storage.
 
 `GET /orders` accepts optional `status` (`OPEN`, `CLOSED`, `CANCELED`), `type` (`COUNTER`, `TABLE`), `from`, and `to` filters. Results are newest first.
 

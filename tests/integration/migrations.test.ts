@@ -258,16 +258,21 @@ describe.skipIf(!TEST_DATABASE_URL)('migrations', () => {
   });
 
   test('creates only indexes backed by application queries', async () => {
+    const itemColumns = await rows<{ column_name: string }>(
+      `SELECT column_name FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = 'items'`,
+    );
+    expect(itemColumns.map((column) => column.column_name)).toContain('search_vector');
+
     const kept = [
       'items_sellable_category_idx',
+      'items_search_vector_idx',
       'orders_history_idx',
       'orders_status_created_idx',
       'orders_closed_at_idx',
       'orders_canceled_at_idx',
       'orders_one_active_per_table_idx',
       'order_payments_order_id_idx',
-      'refresh_tokens_user_active_idx',
-      'audit_logs_created_at_idx',
     ];
     const removed = [
       'user_roles_role_id_idx',
@@ -276,6 +281,8 @@ describe.skipIf(!TEST_DATABASE_URL)('migrations', () => {
       'order_items_item_id_idx',
       'audit_logs_actor_created_at_idx',
       'audit_logs_target_idx',
+      'audit_logs_created_at_idx',
+      'refresh_tokens_user_active_idx',
     ];
     const present = (names: readonly string[]) =>
       rows<{ indexname: string }>(

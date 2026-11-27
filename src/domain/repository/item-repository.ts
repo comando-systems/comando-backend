@@ -7,6 +7,7 @@ export interface ItemPageOptions {
   readonly includeRemoved?: boolean;
   // Only items that can be put on an order: not removed and enabled.
   readonly sellableOnly?: boolean;
+  readonly search?: string;
 }
 
 export interface ItemPage {

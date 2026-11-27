@@ -351,6 +351,17 @@ describe.skipIf(!TEST_DATABASE_URL)('HTTP API', () => {
     const catalog = await readJson<PageDto<ItemDto>>(cashierCatalog);
     expect(catalog.pagination.total).toBe(1);
 
+    const found = await readJson<PageDto<ItemDto>>(
+      await request('/items?search=hot', { token: cashierToken }),
+    );
+    expect(found.pagination.total).toBe(1);
+    expect(found.data[0]?.id).toBe(item.id);
+
+    const missing = await readJson<PageDto<ItemDto>>(
+      await request('/items?search=missing', { token: cashierToken }),
+    );
+    expect(missing.pagination.total).toBe(0);
+
     const update = await request(`/items/${item.id}`, {
       method: 'PATCH',
       token: adminToken,

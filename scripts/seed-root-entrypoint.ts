@@ -6,12 +6,12 @@ import { SQL } from 'bun';
 
 const DATABASE_URL = process.env.DATABASE_WRITE_URL;
 const ROOT_EMAIL = (process.env.ROOT_EMAIL ?? 'root@comando.com').trim().toLowerCase();
-const ROOT_PASSWORD = process.env.ROOT_PASSWORD;
+const ROOT_PASSWORD = process.env.ROOT_PASSWORD ?? '';
 
 if (!DATABASE_URL) {
   throw new Error('DATABASE_WRITE_URL is required');
 }
-if (!ROOT_PASSWORD || ROOT_PASSWORD.length < 12) {
+if (ROOT_PASSWORD.length < 12) {
   throw new Error('ROOT_PASSWORD (12+ characters) is required');
 }
 
@@ -49,15 +49,18 @@ export async function main(): Promise<void> {
     const now = new Date().toISOString();
 
     await sql.transaction(async (tx) => {
-      const [user] = await tx`
+      const [user] = (await tx`
         INSERT INTO users (name, email, password_hash, created_at, updated_at)
         VALUES ('Root Administrator', ${ROOT_EMAIL}, ${passwordHash}, ${now}, ${now})
         RETURNING id
-      ` as unknown as { id: number }[];
+      `) as unknown as { id: number }[];
+      if (!user) {
+        throw new Error('Failed to create root user');
+      }
 
-      const roles = await tx`
+      const roles = (await tx`
         SELECT id, code FROM roles WHERE code IN ('ADMIN', 'CASHIER', 'SERVER')
-      ` as unknown as { id: number; code: string }[];
+      `) as unknown as { id: number; code: string }[];
 
       const roleIds = roles.map((r) => r.id);
       for (const roleId of roleIds) {
