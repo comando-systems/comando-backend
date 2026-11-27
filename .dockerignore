@@ -11,7 +11,6 @@ tests
 # Not needed to build or run the image
 docs
 migrations
-infra
 biome.json
 commitlint.config.js
 codecov.yml

@@ -18,7 +18,7 @@ services:
 
   migrate:
     image: migrate/migrate:v4.18.3
-    volumes: [../migrations:/migrations:ro]
+    volumes: [./migrations:/migrations:ro]
     command:
       - -path
       - /migrations
@@ -32,8 +32,8 @@ services:
 
   api:
     build:
-      context: ..
-      dockerfile: infra/api/Dockerfile
+      context: .
+      dockerfile: Dockerfile
     environment:
       NODE_ENV: $NODE_ENV
       HOST: $HOST
@@ -62,8 +62,8 @@ services:
 
   seed-root:
     build:
-      context: ..
-      dockerfile: infra/api/Dockerfile
+      context: .
+      dockerfile: Dockerfile
     environment:
       NODE_ENV: $NODE_ENV
       DATABASE_READ_URL: postgres://$DB_USER:$DB_PASS@$DB_HOST:5432/$DB_NAME?sslmode=disable

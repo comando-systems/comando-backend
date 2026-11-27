@@ -439,7 +439,9 @@ TEST_DATABASE_URL=postgres://comando:comando@localhost:55432/comando_test?sslmod
 
 ## Local development and Docker
 
-All Docker files live in `infra/` (see `infra/README.md`). Copy `.env.example` to `.env`, then:
+Docker files live at the repository root: `Dockerfile` (API), `database/Dockerfile`
+(PostgreSQL) and `nginx/nginx.conf` (reverse proxy). Compose is `docker-compose.yml`
+at the root. Copy `.env.example` to `.env`, then:
 
 ```bash
 bun install
