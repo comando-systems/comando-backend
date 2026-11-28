@@ -204,7 +204,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: ./.github/actions/database
-      - run: docker build -f infra/api/Dockerfile -t comando-backend:ci .
+      - run: docker build -f Dockerfile -t comando-backend:ci .
       - name: Start the container
         run: |
           docker run -d --name api --network host \

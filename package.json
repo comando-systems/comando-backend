@@ -26,12 +26,12 @@
     "db:create-admin": "bun scripts/create-admin.ts",
     "db:seed-root": "bun scripts/seed-root-user.ts",
     "tokens:cleanup": "bun scripts/cleanup-refresh-tokens.ts",
-    "docker:build": "docker build -f infra/api/Dockerfile -t comando-backend .",
-    "docker:db": "docker compose -f infra/docker-compose.yml --env-file infra/.env up -d postgres",
-    "docker:migrate": "docker compose -f infra/docker-compose.yml --env-file infra/.env run --rm migrate",
-    "docker:up": "docker compose -f infra/docker-compose.yml --env-file infra/.env up -d --build",
-    "docker:down": "docker compose -f infra/docker-compose.yml --env-file infra/.env down",
-    "docker:logs": "docker compose -f infra/docker-compose.yml --env-file infra/.env logs -f",
+    "docker:build": "docker build -f Dockerfile -t comando-backend .",
+    "docker:db": "docker compose -f docker-compose.yml --env-file .env up -d postgres",
+    "docker:migrate": "docker compose -f docker-compose.yml --env-file .env run --rm migrate",
+    "docker:up": "docker compose -f docker-compose.yml --env-file .env up -d --build",
+    "docker:down": "docker compose -f docker-compose.yml --env-file .env down",
+    "docker:logs": "docker compose -f docker-compose.yml --env-file .env logs -f",
     "prepare": "husky || true"
   },
   "dependencies": {
