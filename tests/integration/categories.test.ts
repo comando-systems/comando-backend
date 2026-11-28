@@ -81,6 +81,19 @@ describe.skipIf(!TEST_DATABASE_URL)('item categories', () => {
     );
   }
 
+  test('checks item names case-insensitively', async () => {
+    const admin = await createAdmin();
+    await createItem.execute({
+      actorUserId: admin.id,
+      name: 'Espresso',
+      priceCents: 750,
+      categories: ['Cafés'],
+    });
+
+    expect(await repositories.items.existsByName('espresso')).toBe(true);
+    expect(await repositories.items.existsByName('Cappuccino')).toBe(false);
+  });
+
   test('persists and hydrates multiple categories', async () => {
     const admin = await createAdmin();
     const item = await createItem.execute({
