@@ -241,6 +241,22 @@ describe.skipIf(!TEST_DATABASE_URL)('migrations', () => {
       ),
     ).rejects.toThrow();
 
+    // A zero total is invalid for a closed order; a negative credit is allowed.
+    await expect(
+      sql.unsafe(
+        `INSERT INTO orders (order_type, status, total_amount_cents, opened_by_user_id)
+         VALUES ('COUNTER', 'CLOSED', 0, $1)`,
+        [userId],
+      ),
+    ).rejects.toThrow('A closed order must have a non-zero total');
+    await expect(
+      sql.unsafe(
+        `INSERT INTO orders (order_type, status, total_amount_cents, opened_by_user_id)
+         VALUES ('TABLE', 'OPEN', -500, $1)`,
+        [userId],
+      ),
+    ).resolves.toBeDefined();
+
     // Cash tender must cover the amount and match the change.
     const [order] = await rows<{ id: string }>('SELECT id::text AS id FROM orders LIMIT 1');
     await expect(

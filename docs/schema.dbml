@@ -110,7 +110,7 @@ Table orders {
   id bigint [pk, increment]
   order_type order_type [not null]
   status order_status [not null]
-  total_amount_cents bigint [not null, default: 0, note: 'Server-calculated total in cents; may be negative; CHECK <> 0 when CLOSED']
+  total_amount_cents bigint [not null, default: 0, note: 'Server-calculated total in cents; may be negative; a trigger rejects new CLOSED rows with zero total']
   table_code varchar(64) [null, note: 'Active table name; cleared on CLOSED or CANCELED, forbidden for COUNTER']
   original_table_code varchar(64) [null, note: 'Name used when the table was opened; kept for history']
   label varchar(160) [null, note: 'Customer label; COUNTER only']

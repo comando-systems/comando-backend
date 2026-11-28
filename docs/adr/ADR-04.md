@@ -23,7 +23,7 @@ The surcharge and the discount are independent, so an order may have a surcharge
 
 Persistence:
 
-- `orders`: `surcharge_cents`, `discount_cents`, `apply_service_fee`, `service_fee_basis_points`, `service_fee_cents`, and the final `total_amount_cents`. Both amount columns are non-negative and default to zero. The applied fee rate and amounts are snapshotted, so later setting changes do not alter existing orders. `total_amount_cents` may be negative; a `CLOSED` row must have a non-zero total.
+- `orders`: `surcharge_cents`, `discount_cents`, `apply_service_fee`, `service_fee_basis_points`, `service_fee_cents`, and the final `total_amount_cents`. Both amount columns are non-negative and default to zero. The applied fee rate and amounts are snapshotted, so later setting changes do not alter existing orders. `total_amount_cents` may be negative; a trigger rejects new `CLOSED` rows with a zero total while legacy rows stay untouched.
 - `settings`: a single row with `service_fee_enabled` and `service_fee_basis_points`.
 - `order_payments`: `received_cents` and `change_cents` for cash, so a receipt can show them. The payment amount still counts toward the exact-sum rule.
 - `apply_service_fee` defaults to true for `TABLE` orders and false for `COUNTER` orders, matching the app.
