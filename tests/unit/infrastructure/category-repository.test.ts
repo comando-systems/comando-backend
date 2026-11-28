@@ -11,6 +11,8 @@ describe('CategoryRepository', () => {
 
     const repository = new CategoryRepository(database);
 
-    expect(repository.findOrCreateByName('Drinks')).rejects.toThrow('Failed to create category');
+    await expect(repository.findOrCreateByName('Drinks')).rejects.toThrow(
+      'Failed to create category',
+    );
   });
 });

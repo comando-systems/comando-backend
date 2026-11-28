@@ -2,11 +2,11 @@ FROM oven/bun:1.4.4-alpine AS build
 WORKDIR /app
 
 COPY package.json bun.lock tsconfig.json ./
-RUN bun install --frozen-lockfile
+RUN bun install --frozen-lockfile --ignore-scripts
 
 COPY src ./src
 RUN bun build src/index.ts --target=bun --outdir=dist \
-    && bun install --frozen-lockfile --production
+    && bun install --frozen-lockfile --production --ignore-scripts
 
 FROM oven/bun:1.4.4-alpine AS runtime
 WORKDIR /app
