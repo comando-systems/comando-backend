@@ -1,6 +1,7 @@
 import { requireActor } from '@/app/authorization';
 import type { Clock } from '@/app/ports/clock';
 import type { UnitOfWork } from '@/app/ports/unit-of-work';
+import { assertTableAvailable } from '@/app/use-cases/orders/assert-table-available';
 import { findTableOrderForUpdate } from '@/app/use-cases/orders/load-order';
 import type { Order } from '@/domain/entity/order';
 import type { Repositories } from '@/domain/repository';
@@ -22,6 +23,7 @@ export class RemoveOrderItemUseCase {
     return this.unitOfWork.run(async (repositories) => {
       await requireActor(repositories, input.actorUserId, 'orders:update');
       const order = await findTableOrderForUpdate(repositories, input.orderId);
+      await assertTableAvailable(repositories, order);
 
       order.removeItem(input.itemId, this.clock.now());
 

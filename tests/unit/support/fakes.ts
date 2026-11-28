@@ -83,7 +83,8 @@ export function fakeOrders(overrides: Partial<OrderRepository>): OrderRepository
   return {
     create: unused,
     findById: unused,
-    findActiveTableByCode: unused,
+    findOccupiedTableByCode: unused,
+    lockTable: async () => {},
     save: unused,
     list: unused,
     ...overrides,

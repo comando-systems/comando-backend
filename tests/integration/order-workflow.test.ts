@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
+import { AddOrderItemsUseCase } from '@/app/use-cases';
 import type { Item } from '@/domain/entity/item';
 import { Order } from '@/domain/entity/order';
 import type { RoleCode } from '@/domain/entity/role';
@@ -197,31 +198,54 @@ describe.skipIf(!TEST_DATABASE_URL)('order workflow persistence', () => {
   });
 
   describe('tables', () => {
-    test('finds the order occupying a table while it is open or awaiting payment', async () => {
+    test('finds the order occupying a table only while it has lines', async () => {
       const coffee = await createItem('Coffee', 500);
       const order = await openTable('T-9', 0);
-      const find = () => unitOfWork.run((repos) => repos.orders.findActiveTableByCode('T-9'));
+      const find = () => unitOfWork.run((repos) => repos.orders.findOccupiedTableByCode('T-9'));
 
-      expect((await find())?.id.value).toBe(order.id.value);
+      expect(await find()).toBeNull();
 
       order.addItem(coffee, 1, now);
       order.requestPayment(server.id, now);
       await unitOfWork.run((repos) => repos.orders.save(order));
+      expect((await find())?.id.value).toBe(order.id.value);
       expect((await find())?.status).toBe('AWAITING_PAYMENT');
 
       order.cancel(cashier.id, later);
       await unitOfWork.run((repos) => repos.orders.save(order));
       expect(await find()).toBeNull();
+      expect(order.tableCode).toBeNull();
+      expect(order.originalTableCode).toBe('T-9');
     });
 
-    test('allows only one active order per table, but reuses it after it closes', async () => {
+    test('occupies a name when lines are added and releases it after finalization', async () => {
+      const coffee = await createItem('Coffee', 100);
+      const addItems = new AddOrderItemsUseCase(unitOfWork, { now: () => now });
       const first = await openTable('T-1');
+      const second = await openTable('T-1');
 
-      await expect(openTable('T-1')).rejects.toThrow();
+      await addItems.execute({
+        actorUserId: server.id,
+        orderId: first.id,
+        lines: [{ itemId: coffee.id, quantity: 1 }],
+      });
+      await expect(
+        addItems.execute({
+          actorUserId: server.id,
+          orderId: second.id,
+          lines: [{ itemId: coffee.id, quantity: 1 }],
+        }),
+      ).rejects.toThrow('Table already has an open order');
 
       first.cancel(cashier.id, later);
       await unitOfWork.run((repos) => repos.orders.save(first));
-      await expect(openTable('T-1')).resolves.toBeDefined();
+      await expect(
+        addItems.execute({
+          actorUserId: server.id,
+          orderId: second.id,
+          lines: [{ itemId: coffee.id, quantity: 1 }],
+        }),
+      ).resolves.toBeDefined();
     });
   });
 

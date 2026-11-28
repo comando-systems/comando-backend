@@ -172,17 +172,26 @@ describe.skipIf(!TEST_DATABASE_URL)('migrations', () => {
     const userId = user?.id as string;
 
     await sql.unsafe(
-      `INSERT INTO orders (order_type, status, table_code, opened_by_user_id,
+      `INSERT INTO orders (order_type, status, table_code, original_table_code, opened_by_user_id,
                            payment_requested_at, payment_requested_by_user_id)
-       VALUES ('TABLE', 'AWAITING_PAYMENT', 'T-1', $1, now(), $1)`,
+       VALUES ('TABLE', 'AWAITING_PAYMENT', 'T-1', 'T-1', $1, now(), $1)`,
       [userId],
     );
 
-    // A table waiting for payment is still occupied.
+    // The database no longer reserves a name at open time; occupancy is an application rule.
+    await expect(
+      sql.unsafe(
+        `INSERT INTO orders (order_type, status, table_code, original_table_code, opened_by_user_id)
+         VALUES ('TABLE', 'OPEN', 'T-1', 'T-1', $1)`,
+        [userId],
+      ),
+    ).resolves.toBeDefined();
+
+    // An active name always keeps its original value for history.
     await expect(
       sql.unsafe(
         `INSERT INTO orders (order_type, status, table_code, opened_by_user_id)
-         VALUES ('TABLE', 'OPEN', 'T-1', $1)`,
+         VALUES ('TABLE', 'OPEN', 'T-2', $1)`,
         [userId],
       ),
     ).rejects.toThrow();
@@ -190,8 +199,8 @@ describe.skipIf(!TEST_DATABASE_URL)('migrations', () => {
     // AWAITING_PAYMENT requires who and when.
     await expect(
       sql.unsafe(
-        `INSERT INTO orders (order_type, status, table_code, opened_by_user_id)
-         VALUES ('TABLE', 'AWAITING_PAYMENT', 'T-2', $1)`,
+        `INSERT INTO orders (order_type, status, table_code, original_table_code, opened_by_user_id)
+         VALUES ('TABLE', 'AWAITING_PAYMENT', 'T-2', 'T-2', $1)`,
         [userId],
       ),
     ).rejects.toThrow();
@@ -209,15 +218,15 @@ describe.skipIf(!TEST_DATABASE_URL)('migrations', () => {
     // Both monetary amounts are non-negative.
     await expect(
       sql.unsafe(
-        `INSERT INTO orders (order_type, status, table_code, opened_by_user_id, surcharge_cents)
-         VALUES ('TABLE', 'OPEN', 'T-3', $1, -1)`,
+        `INSERT INTO orders (order_type, status, table_code, original_table_code, opened_by_user_id, surcharge_cents)
+         VALUES ('TABLE', 'OPEN', 'T-3', 'T-3', $1, -1)`,
         [userId],
       ),
     ).rejects.toThrow();
     await expect(
       sql.unsafe(
-        `INSERT INTO orders (order_type, status, table_code, opened_by_user_id, discount_cents)
-         VALUES ('TABLE', 'OPEN', 'T-4', $1, -1)`,
+        `INSERT INTO orders (order_type, status, table_code, original_table_code, opened_by_user_id, discount_cents)
+         VALUES ('TABLE', 'OPEN', 'T-4', 'T-4', $1, -1)`,
         [userId],
       ),
     ).rejects.toThrow();
@@ -225,9 +234,9 @@ describe.skipIf(!TEST_DATABASE_URL)('migrations', () => {
     // Service fee fields stay zero when the fee is not applied.
     await expect(
       sql.unsafe(
-        `INSERT INTO orders (order_type, status, table_code, opened_by_user_id,
+        `INSERT INTO orders (order_type, status, table_code, original_table_code, opened_by_user_id,
                              apply_service_fee, service_fee_basis_points, service_fee_cents)
-         VALUES ('TABLE', 'OPEN', 'T-5', $1, false, 1000, 50)`,
+         VALUES ('TABLE', 'OPEN', 'T-5', 'T-5', $1, false, 1000, 50)`,
         [userId],
       ),
     ).rejects.toThrow();
@@ -267,11 +276,12 @@ describe.skipIf(!TEST_DATABASE_URL)('migrations', () => {
     const kept = [
       'items_sellable_category_idx',
       'items_search_vector_idx',
+      'item_categories_category_idx',
       'orders_history_idx',
       'orders_status_created_idx',
       'orders_closed_at_idx',
       'orders_canceled_at_idx',
-      'orders_one_active_per_table_idx',
+      'orders_active_table_code_idx',
       'order_payments_order_id_idx',
     ];
     const removed = [

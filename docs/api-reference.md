@@ -55,7 +55,7 @@ Every error has the same shape:
 | 409 | `CANNOT_DEACTIVATE_SELF` | An administrator tried to deactivate themselves. |
 | 409 | `CANNOT_REMOVE_OWN_ADMIN` | An administrator tried to remove their own `ADMIN` role. |
 | 409 | `LAST_ADMIN` | The change would remove the last active administrator. |
-| 409 | `TABLE_OCCUPIED` | The table already has an `OPEN` or `AWAITING_PAYMENT` order. |
+| 409 | `TABLE_OCCUPIED` | Another active order with lines already holds this table name. |
 | 409 | `INVARIANT_VIOLATION` | A domain invariant failed, such as payments not summing to the total. |
 | 409 | `INVALID_STATE_TRANSITION` | The order's current status does not allow the requested action. |
 | 413 | `PAYLOAD_TOO_LARGE` | Request body exceeds `BODY_LIMIT_BYTES`. |
@@ -107,6 +107,7 @@ Every error has the same shape:
   "type": "TABLE",
   "status": "AWAITING_PAYMENT",
   "tableCode": "Mesa 4",
+  "originalTableCode": "Mesa 4",
   "label": null,
   "openedByUserId": "2",
   "closedByUserId": null,
@@ -229,7 +230,7 @@ A `POST` body line is `{ "itemId": positive id string, "quantity": positive inte
 | Route | Auth | Request | Success | Errors |
 |---|---|---|---|---|
 | `POST /orders/counter` | `orders:counter` | `{ "items": [line, ...] (>= 1), "payments": [payment, ...] (default []), "label": string\|null?, "surchargeCents": integer >= 0?, "discountCents": integer >= 0?, "applyServiceFee": boolean? }`. One transaction; prices are snapshotted. | `201` `Order` (`CLOSED`) | `400`, `401`, `403`, `404` (unavailable item), `409 INVALID_VALUE`/`INVARIANT_VIOLATION` (payments must sum to the total, invalid discount) |
-| `POST /orders/table` | `orders:open` | `{ "tableCode": string (required, <= 64 in filters) }` | `201` `Order` (`OPEN`) | `400`, `401`, `403`, `409 TABLE_OCCUPIED` |
+| `POST /orders/table` | `orders:open` | `{ "tableCode"?: string (<= 64, blank/absent = unnamed) }`. Opening does not reserve the name. | `201` `Order` (`OPEN`) | `400`, `401`, `403` |
 | `GET /orders` | See note below | Query: `page`, `pageSize`, `status`, `statuses` (comma-separated), `tableCode`, `type=COUNTER\|TABLE`, `from`, `to` (ISO dates). Without a status filter, requires `orders:history`. | `200` `Page<Order>` | `400 VALIDATION_ERROR` (bad enum/date, `from` after `to`), `401`, `403` |
 | `GET /orders/:id` | Live orders: any live-view permission; history: `orders:history` | Path: decimal `id` | `200` `Order` | `400`, `401`, `403`, `404` |
 | `POST /orders/:id/items` | `orders:update` | `{ "items": [line, ...] (>= 1) }`. Adding an existing line increases its quantity. | `200` `Order` | `400`, `401`, `403`, `404`, `409 INVALID_STATE_TRANSITION`/`INVARIANT_VIOLATION` |
@@ -240,6 +241,8 @@ A `POST` body line is `{ "itemId": positive id string, "quantity": positive inte
 | `POST /orders/:id/close` | `orders:close` | `{ "payments": [payment, ...] (default []) }` | `200` `Order` (`CLOSED`) | `400`, `401`, `403`, `404`, `409 CONFLICT` (only table orders, payments must sum to the total), `409 INVALID_STATE_TRANSITION` |
 | `POST /orders/:id/cancel` | `orders:cancel` | none | `200` `Order` (`CANCELED`) | `401`, `403`, `404`, `409 INVALID_STATE_TRANSITION` |
 | `POST /orders/:id/reopen` | `orders:request-payment` | none | `200` `Order` (`OPEN`) | `401`, `403`, `404`, `409 INVALID_STATE_TRANSITION` |
+
+A named table is occupied only when an active order already has lines. When a line is added, changed, or removed, the use case locks the name and answers `409 TABLE_OCCUPIED` if another active order holds it. An unnamed table has no occupancy rule. On `CLOSED` or `CANCELED`, `tableCode` is cleared and `originalTableCode` keeps the name from opening.
 
 All order mutations are transactional and recalculate the total inside the transaction. Concurrency is controlled with row locking or a version check; a concurrent conflict surfaces as a `409`.
 

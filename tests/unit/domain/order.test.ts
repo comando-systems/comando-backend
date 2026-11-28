@@ -82,14 +82,35 @@ describe('Order', () => {
     ).toThrow(InvalidValueError);
   });
 
-  test('opens an empty table order', () => {
-    const order = createTableOrder();
+  test('opens an empty table order with an optional name', () => {
+    const named = createTableOrder();
+    const unnamed = Order.openTable({
+      id: new OrderID('2'),
+      openedByUserId: new UserID('1'),
+      tableCode: '   ',
+      now,
+    });
 
-    expect(order.type).toBe('TABLE');
-    expect(order.status).toBe('OPEN');
-    expect(order.tableCode).toBe('T-01');
-    expect(order.items).toHaveLength(0);
-    expect(order.total.cents).toBe(0);
+    expect(named.type).toBe('TABLE');
+    expect(named.status).toBe('OPEN');
+    expect(named.tableCode).toBe('T-01');
+    expect(named.originalTableCode).toBe('T-01');
+    expect(unnamed.tableCode).toBeNull();
+    expect(unnamed.originalTableCode).toBeNull();
+    expect(named.items).toHaveLength(0);
+    expect(named.total.cents).toBe(0);
+  });
+
+  test('releases the active name on close and cancel but keeps the original', () => {
+    const closed = createTableOrder();
+    closed.close(new UserID('1'), [], now);
+    expect(closed.tableCode).toBeNull();
+    expect(closed.originalTableCode).toBe('T-01');
+
+    const canceled = createTableOrder();
+    canceled.cancel(new UserID('1'), now);
+    expect(canceled.tableCode).toBeNull();
+    expect(canceled.originalTableCode).toBe('T-01');
   });
 
   test('increments an existing line instead of duplicating it', () => {
@@ -228,6 +249,7 @@ describe('Order', () => {
         type: original.type,
         status: original.status,
         tableCode: original.tableCode,
+        originalTableCode: original.originalTableCode,
         label: original.label,
         openedByUserId: original.openedByUserId,
         closedByUserId: original.closedByUserId,

@@ -91,6 +91,8 @@ function world(orders: readonly Order[], settings?: Settings): World {
     },
     orders: {
       findById: async (id: OrderID) => orders.find((order) => order.id.equals(id)) ?? null,
+      lockTable: async () => {},
+      findOccupiedTableByCode: async () => null,
       save: async (order: Order) => {
         saved.push(order);
       },

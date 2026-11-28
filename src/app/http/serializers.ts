@@ -51,6 +51,7 @@ export interface OrderResponse {
   readonly type: OrderType;
   readonly status: OrderStatus;
   readonly tableCode: string | null;
+  readonly originalTableCode: string | null;
   readonly label: string | null;
   readonly openedByUserId: string;
   readonly closedByUserId: string | null;
@@ -157,6 +158,7 @@ export function toOrderResponse(order: Order): OrderResponse {
     type: order.type,
     status: order.status,
     tableCode: order.tableCode,
+    originalTableCode: order.originalTableCode,
     label: order.label,
     openedByUserId: order.openedByUserId.value,
     closedByUserId: order.closedByUserId?.value ?? null,

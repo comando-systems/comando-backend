@@ -25,8 +25,8 @@ Line edits are allowed only in `OPEN`. Pricing edits (ADR-04) are allowed in `OP
 Persistence:
 
 - Add `AWAITING_PAYMENT` to the `order_status` enum, with `payment_requested_at` and `payment_requested_by_user_id` and matching `CHECK`s.
-- The "one active order per `table_code`" unique index covers `OPEN` and `AWAITING_PAYMENT`: a table waiting for payment is still occupied.
-- Opening a table that already has an active order returns that order.
+- A named table is occupied only when an active order (`OPEN` or `AWAITING_PAYMENT`) has lines. Opening a table does not reserve its name; line mutations check occupancy under an advisory lock and answer `409 TABLE_OCCUPIED` when another order holds the name.
+- `table_code` is optional and cleared on `CLOSED`/`CANCELED`; `original_table_code` keeps the name for history.
 
 ## Consequences
 
