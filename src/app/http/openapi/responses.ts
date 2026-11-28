@@ -24,7 +24,8 @@ export const itemResponseSchema = z.object({
   id: identifier,
   name: z.string(),
   description: z.string().nullable(),
-  category: z.string().describe('Groups the catalog on the sales screen.'),
+  category: z.string().describe('Primary category (first entry of `categories`).'),
+  categories: z.array(z.string()).describe('All categories assigned to the item.'),
   priceCents: cents,
   imageUrl: z.string().nullable(),
   enabled: z

@@ -83,6 +83,26 @@ Table items {
   Note: 'Catalog item. Price changes affect only future order lines; existing orders keep unit-price snapshots.'
 }
 
+// Shared catalog labels. `items.category` remains the primary label for grouping and search.
+Table categories {
+  id bigint [pk, increment]
+  name varchar(80) [not null, note: 'CHECK length(trim(name)) > 0']
+  normalized_name varchar(80) [not null, unique, note: 'Case-insensitive uniqueness key']
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table item_categories {
+  item_id bigint [pk, ref: > items.id, note: 'ON DELETE CASCADE']
+  category_id bigint [pk, ref: > categories.id, note: 'ON DELETE RESTRICT']
+  assigned_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  indexes {
+    (category_id, item_id) [name: 'item_categories_category_idx']
+  }
+
+  Note: 'One row per item/category pair. Removing an item removes only its links.'
+}
+
 // Single order model for both channels. COUNTER orders are inserted directly as CLOSED;
 // TABLE orders move through OPEN -> AWAITING_PAYMENT -> CLOSED or CANCELED.
 // Pricing columns snapshot the surcharge, discount, and service fee applied to the order.

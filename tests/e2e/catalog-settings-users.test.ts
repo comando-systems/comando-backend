@@ -7,6 +7,7 @@ interface ItemDto {
   id: string;
   name: string;
   category: string;
+  categories: string[];
   enabled: boolean;
   isActive: boolean;
   priceCents: number;
@@ -76,7 +77,44 @@ describe.skipIf(!TEST_DATABASE_URL)('catalog, settings, and user administration 
       });
 
       expect(plain).toMatchObject({ category: 'Uncategorized', enabled: true, isActive: true });
+      expect(plain.categories).toEqual([]);
       expect(typed).toMatchObject({ category: 'Drinks', enabled: false, isActive: true });
+      expect(typed.categories).toEqual(['Drinks']);
+    });
+
+    test('stores and updates multiple categories', async () => {
+      const item = await createItem({
+        name: 'Espresso',
+        priceCents: 750,
+        categories: ['Cafés', 'Bebidas quentes', 'Vegano'],
+      });
+
+      expect(item.category).toBe('Cafés');
+      expect(item.categories).toEqual(['Cafés', 'Bebidas quentes', 'Vegano']);
+
+      const response = await request(`/items/${item.id}`, {
+        method: 'PATCH',
+        token: adminToken,
+        body: { categories: ['Bebidas quentes', 'Promoções'] },
+      });
+
+      const updated = await json<ItemDto>(response);
+      expect(updated.category).toBe('Bebidas quentes');
+      expect(updated.categories).toEqual(['Bebidas quentes', 'Promoções']);
+    });
+
+    test('rejects duplicate and oversized category lists', async () => {
+      for (const categories of [
+        ['Drinks', 'drinks'],
+        Array.from({ length: 9 }, (_, i) => `C${i}`),
+      ]) {
+        const response = await request('/items', {
+          method: 'POST',
+          token: adminToken,
+          body: { name: 'Beer', priceCents: 1000, categories },
+        });
+        expect(response.status).toBe(400);
+      }
     });
 
     test('updates the category and switches an item on and off', async () => {

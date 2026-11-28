@@ -18,6 +18,12 @@ export class ItemID extends ID<'Item'> {
   }
 }
 
+export class CategoryID extends ID<'Category'> {
+  constructor(value: string) {
+    super(value);
+  }
+}
+
 export class OrderID extends ID<'Order'> {
   constructor(value: string) {
     super(value);

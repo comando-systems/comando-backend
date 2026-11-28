@@ -99,13 +99,14 @@ Primitives:
   "name": "string",
   "description": "string | null?",
   "category": "string?",
+  "categories": "string[]?",
   "enabled": "boolean?",
   "priceCents": "Cents",
   "imageUrl": "string | null?"
 }
 ```
 
-- `priceCents >= 0`; `category` 1-80 characters.
+- `priceCents >= 0`; `category` 1-80 characters. `categories` accepts at most 8 unique names of 1-80 characters; its first entry becomes the primary `category`.
 
 `UpdateItemRequest`
 
@@ -114,6 +115,7 @@ Primitives:
   "name": "string?",
   "description": "string | null?",
   "category": "string?",
+  "categories": "string[]?",
   "enabled": "boolean?",
   "priceCents": "Cents?",
   "imageUrl": "string | null?"
@@ -291,6 +293,7 @@ Primitives:
   "name": "string",
   "description": "string | null",
   "category": "string",
+  "categories": "string[]",
   "priceCents": "Cents",
   "imageUrl": "string | null",
   "enabled": "boolean",

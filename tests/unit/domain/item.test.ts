@@ -130,4 +130,36 @@ describe('Item', () => {
     expect(() => createItem({ category: 'x'.repeat(81) })).toThrow(InvalidValueError);
     expect(() => createItem().update({ category: ' ', now: later })).toThrow(InvalidValueError);
   });
+
+  test('holds multiple categories and keeps the first as the primary label', () => {
+    const item = createItem({ categories: ['Drinks', 'Cold', 'Vegan'] });
+
+    expect(item.categories).toEqual(['Drinks', 'Cold', 'Vegan']);
+    expect(item.category).toBe('Drinks');
+  });
+
+  test('normalizes a legacy category into a single-item category list', () => {
+    const item = createItem({ category: 'Drinks' });
+
+    expect(item.categories).toEqual(['Drinks']);
+    expect(item.category).toBe('Drinks');
+  });
+
+  test('updates all categories at once', () => {
+    const item = createItem({ categories: ['Drinks', 'Cold'] });
+
+    item.update({ categories: ['Beer', 'Cold', 'Promotions'], now: later });
+
+    expect(item.categories).toEqual(['Beer', 'Cold', 'Promotions']);
+    expect(item.category).toBe('Beer');
+  });
+
+  test('rejects duplicate, blank, oversized, or too many categories', () => {
+    expect(() => createItem({ categories: ['Drinks', ' drinks '] })).toThrow(InvalidValueError);
+    expect(() => createItem({ categories: [' '] })).toThrow(InvalidValueError);
+    expect(() => createItem({ categories: ['x'.repeat(81)] })).toThrow(InvalidValueError);
+    expect(() =>
+      createItem({ categories: Array.from({ length: 9 }, (_, index) => `Category ${index}`) }),
+    ).toThrow(InvalidValueError);
+  });
 });

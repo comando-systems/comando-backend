@@ -20,6 +20,7 @@ export interface ItemResponse {
   readonly name: string;
   readonly description: string | null;
   readonly category: string;
+  readonly categories: readonly string[];
   readonly priceCents: number;
   readonly imageUrl: string | null;
   // The "Active" switch: a disabled item stays editable but cannot be sold.
@@ -138,6 +139,7 @@ export function toItemResponse(item: Item): ItemResponse {
     name: item.name,
     description: item.description,
     category: item.category,
+    categories: item.categories,
     priceCents: item.price.cents,
     imageUrl: item.imageUrl,
     enabled: item.isEnabled,
