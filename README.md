@@ -101,6 +101,9 @@ For a route-by-route reference with request fields, response examples, permissio
 | `GET` | `/items/:id` | Authenticated | Read an active item. |
 | `PATCH` | `/items/:id` | `ADMIN` | Update an item. |
 | `DELETE` | `/items/:id` | `ADMIN` | Remove an item from the active catalog. |
+| `POST` | `/items/:id/image` | `ADMIN` | Upload or replace an item image (`multipart/form-data`, field `file`). |
+| `DELETE` | `/items/:id/image` | `ADMIN` | Clear the item image and delete a stored file. |
+| `GET` | `/images/items/:filename` | Public | Serve a stored item image. |
 | `POST` | `/orders/counter` | `ADMIN`, `CASHIER` | Create a completed counter order. |
 | `POST` | `/orders/table` | `CASHIER`, `SERVER` | Open a table order. |
 | `GET` | `/orders` | `ADMIN`, `CASHIER` (history); `CASHIER`, `SERVER` (open orders) | List orders with filters. |
@@ -167,6 +170,8 @@ Payment methods are `CASH`, `DEBIT_CARD`, `CREDIT_CARD`, `PIX`, and `OTHER`. The
 Items have a list of `categories` (at most 8 unique names of 1-80 characters) and an `enabled` switch. The first category is the primary `category` label (default `Uncategorized`) used for catalog grouping, ordering, and full-text search; the complete set is stored in `categories` and `item_categories`. A disabled item stays editable and visible to administrators, but cannot be sold: it is hidden from everyone else and cannot be added to an order. `isActive` still means "not removed from the catalog". The catalog is ordered by category, then name.
 
 `GET /items` and `GET /items/:id` include `categories`; `POST` and `PATCH /items` accept `categories`. The legacy `category` field remains as a shorthand for a single category.
+
+Items accept an external `imageUrl` link. Optionally, an administrator can upload a JPEG, PNG, or WebP image to `POST /items/:id/image` (multipart field `file`), replace it by uploading again, and clear it with `DELETE /items/:id/image`. Uploads exist only when `IMAGE_STORAGE_DIR` is set; files are served publicly at `${IMAGE_PUBLIC_BASE_URL}/items/:filename`. Without that setting, upload routes answer `503` and link-only usage keeps working. `IMAGE_MAX_BYTES` defaults to 5 MiB.
 
 `GET /settings` and `PUT /settings` manage the service fee. It starts off, `serviceFeeBasisPoints` is 1000 (10%) by default, and an order keeps the rate it snapshotted, so changing the settings never alters existing orders.
 
@@ -388,6 +393,9 @@ Validate the environment at startup. Required variables include `DATABASE_READ_U
 | `LOGIN_RATE_LIMIT_MAX`, `LOGIN_RATE_LIMIT_WINDOW_SECONDS` | `10`, `60` | Applies to login and refresh, per client IP. |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, or `error`. |
 | `API_DOCS_ENABLED` | on outside production | Serves `/docs` and `/openapi.json`. |
+| `IMAGE_STORAGE_DIR` | unset | Enables item image uploads and sets the local storage directory. Empty means uploads are off. |
+| `IMAGE_PUBLIC_BASE_URL` | `/images` | Root-relative prefix for serving stored images. |
+| `IMAGE_MAX_BYTES` | `5242880` | Maximum uploaded image size in bytes (5 MiB). |
 
 An invalid or missing variable stops the process at startup with the list of problems, before it opens a port. Migrations are never applied by the API itself: run `bun run docker:migrate` (or your deployment's migration step) first.
 
@@ -413,6 +421,7 @@ Administrative and order lifecycle actions write a row to `audit_logs` in the sa
 | --- | --- |
 | `user.create`, `user.update`, `user.deactivate` | User administration. |
 | `item.create`, `item.update`, `item.remove` | Catalog administration. |
+| `item.image.upload`, `item.image.remove` | Item image uploads and removals. |
 | `settings.update` | Service fee settings change. |
 | `order.counter.create`, `order.table.open`, `order.pricing.set`, `order.payment.request`, `order.reopen`, `order.close`, `order.cancel` | Order lifecycle. Line edits are not audited. |
 | `auth.refresh.reuse` | A rotated refresh token was presented again; all of that user's tokens were revoked. |

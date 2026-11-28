@@ -11,6 +11,7 @@ import { requestLoggerMiddleware } from '@/app/http/middleware/request-logger';
 import { securityHeadersMiddleware } from '@/app/http/middleware/security-headers';
 import { buildOpenApiDocument } from '@/app/http/openapi/document';
 import { authRoutes } from '@/app/http/routes/auth';
+import { imageRoutes } from '@/app/http/routes/images';
 import { itemRoutes } from '@/app/http/routes/items';
 import { orderRoutes } from '@/app/http/routes/orders';
 import { reportRoutes } from '@/app/http/routes/reports';
@@ -43,7 +44,11 @@ export function createApp(container: AppContainer): Hono<AppEnv> {
   app.use(
     '*',
     bodyLimit({
-      maxSize: container.config.bodyLimitBytes,
+      // Uploads need their own (larger) limit; add room for multipart boundaries.
+      maxSize: Math.max(
+        container.config.bodyLimitBytes,
+        container.imageStorage === null ? 0 : container.config.imageMaxBytes + 65_536,
+      ),
       onError: () => {
         throw new PayloadTooLargeError();
       },
@@ -69,6 +74,7 @@ export function createApp(container: AppContainer): Hono<AppEnv> {
   }
 
   app.route('/auth', authRoutes(container));
+  app.route('/images', imageRoutes(container));
   app.route('/users', userRoutes(container));
   app.route('/items', itemRoutes(container));
   app.route('/orders', orderRoutes(container));

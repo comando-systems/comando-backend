@@ -31,10 +31,14 @@ export {
   type ListItemsInput,
   type ListItemsResult,
   ListItemsUseCase,
+  type RemoveItemImageInput,
+  RemoveItemImageUseCase,
   type RemoveItemInput,
   RemoveItemUseCase,
   type UpdateItemInput,
   UpdateItemUseCase,
+  type UploadItemImageInput,
+  UploadItemImageUseCase,
 } from '@/app/use-cases/items';
 export {
   type AddOrderItemsInput,

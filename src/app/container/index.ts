@@ -1,6 +1,7 @@
 import { type AppConfig, type EnvironmentSource, loadConfig } from '@/app/config';
 import type { AppContainer, IdGenerators } from '@/app/container/types';
 import { systemClock } from '@/app/ports/clock';
+import type { ImageStorage } from '@/app/ports/image-storage';
 import type { UseCases } from '@/app/use-cases';
 import {
   AddOrderItemsUseCase,
@@ -23,6 +24,7 @@ import {
   LogoutUseCase,
   OpenTableOrderUseCase,
   RefreshSessionUseCase,
+  RemoveItemImageUseCase,
   RemoveItemUseCase,
   RemoveOrderItemUseCase,
   ReopenOrderUseCase,
@@ -32,6 +34,7 @@ import {
   UpdateItemUseCase,
   UpdateSettingsUseCase,
   UpdateUserUseCase,
+  UploadItemImageUseCase,
 } from '@/app/use-cases';
 import {
   BunPasswordHasher,
@@ -43,6 +46,7 @@ import { SequenceIdGenerator } from '@/infrastructure/database/sequence-id-gener
 import { DatabaseUnitOfWork } from '@/infrastructure/database/unit-of-work';
 import { JsonLogger } from '@/infrastructure/logging/json-logger';
 import { createRepositories } from '@/infrastructure/repositories';
+import { createImageStorage } from '@/infrastructure/storage/local-image-storage';
 
 function createUseCases(container: {
   unitOfWork: AppContainer['unitOfWork'];
@@ -52,6 +56,7 @@ function createUseCases(container: {
   refreshTokenTtlSeconds: number;
   ids: IdGenerators;
   clock: AppContainer['clock'];
+  imageStorage: ImageStorage | null;
 }): UseCases {
   const sessions = new SessionIssuer(
     container.tokenService,
@@ -90,6 +95,16 @@ function createUseCases(container: {
       remove: new RemoveItemUseCase(container.unitOfWork, container.clock),
       list: new ListItemsUseCase(container.unitOfWork),
       get: new GetItemUseCase(container.unitOfWork),
+      uploadImage: new UploadItemImageUseCase(
+        container.unitOfWork,
+        container.imageStorage,
+        container.clock,
+      ),
+      removeImage: new RemoveItemImageUseCase(
+        container.unitOfWork,
+        container.imageStorage,
+        container.clock,
+      ),
     },
     orders: {
       createCounter: new CreateCounterOrderUseCase(
@@ -153,6 +168,7 @@ function buildContainer(config: AppConfig): AppContainer {
   });
 
   const refreshTokenCodec = new RandomRefreshTokenCodec();
+  const imageStorage = createImageStorage(config);
 
   const ids: IdGenerators = {
     orders: new SequenceIdGenerator(() => database.writeSql(), 'orders_id_seq'),
@@ -166,6 +182,7 @@ function buildContainer(config: AppConfig): AppContainer {
     refreshTokenTtlSeconds: config.refreshTokenTtlSeconds,
     ids,
     clock,
+    imageStorage,
   });
 
   return {
@@ -179,6 +196,7 @@ function buildContainer(config: AppConfig): AppContainer {
     passwordHasher,
     tokenService,
     refreshTokenCodec,
+    imageStorage,
     useCases,
     async close(): Promise<void> {
       await database.close();

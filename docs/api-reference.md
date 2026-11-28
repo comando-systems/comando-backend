@@ -213,8 +213,13 @@ All user routes require `users:manage` (ADMIN only).
 | `GET /items/:id` | Path: decimal `id` | `200` `Item` | `400`, `401`, `404` |
 | `PATCH /items/:id` | At least one of the `POST` fields except that all are optional. `categories` replaces the whole set; the first entry becomes the primary `category`. | `200` `Item` | `400`, `401`, `403`, `404`, `409 CONFLICT` (removed item cannot be edited) |
 | `DELETE /items/:id` | Path: decimal `id`. Soft removal. | `200` `Item` with `isActive: false` | `400`, `401`, `403`, `404`, `409 CONFLICT` (already removed) |
+| `POST /items/:id/image` | `multipart/form-data` with field `file`: JPEG, PNG, or WebP, 1 byte to `IMAGE_MAX_BYTES` (default 5 MiB). Replaces a previous stored image. | `200` `Item` with the new `imageUrl` | `400 VALIDATION_ERROR` (bad body, type, or size), `401`, `403`, `404`, `409`, `503 SERVICE_UNAVAILABLE` when storage is not configured |
+| `DELETE /items/:id/image` | Path: decimal `id`. Clears `imageUrl` and deletes a managed file; an external link is only cleared. | `200` `Item` with `imageUrl: null` | `400`, `401`, `403`, `404`, `409`, `503` |
+| `GET /images/items/:filename` | Public. Server-generated filename; unsafe paths return `404`. | `200` image bytes with the matching `Content-Type` | `404 NOT_FOUND` |
 
 `categories` accepts at most 8 unique names of 1-80 characters; uniqueness is case-insensitive. `category` alone is a shorthand for a single-element list. Non-admin callers see only items that are not removed and are enabled.
+
+Image uploads are optional: `POST`/`PATCH /items` keep accepting an external `imageUrl`. Stored files live under `IMAGE_STORAGE_DIR` and are served from `${IMAGE_PUBLIC_BASE_URL}/items/`. The server generates the filename and validates the file signature, so a client-supplied filename or path is never used.
 
 ## Orders
 

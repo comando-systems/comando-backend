@@ -10,6 +10,7 @@ export interface RequestOptions {
   readonly method?: string;
   readonly token?: string;
   readonly body?: unknown;
+  readonly formData?: FormData;
 }
 
 // One API instance over the test database, shared by the e2e suites so each only holds its
@@ -45,7 +46,12 @@ export function createHarness() {
     return app.request(path, {
       method: options.method ?? 'GET',
       headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body:
+        options.formData !== undefined
+          ? options.formData
+          : options.body === undefined
+            ? undefined
+            : JSON.stringify(options.body),
     });
   }
 

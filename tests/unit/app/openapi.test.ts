@@ -99,6 +99,7 @@ describe('OpenAPI document', () => {
       '/auth/refresh',
       '/health',
       '/health/ready',
+      '/images/items/{filename}',
     ]);
     for (const { operation } of operations) {
       expect(String(operation.description)).toMatch(

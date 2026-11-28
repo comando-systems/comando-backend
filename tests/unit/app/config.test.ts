@@ -22,6 +22,28 @@ describe('loadConfig', () => {
     expect(config.webConcurrency).toBe(1);
     expect(config.listCountCacheTtlMs).toBe(2_000);
     expect(config.logLevel).toBe('info');
+    expect(config.imageStorageDir).toBeUndefined();
+    expect(config.imagePublicBaseUrl).toBe('/images');
+    expect(config.imageMaxBytes).toBe(5_242_880);
+  });
+
+  test('accepts image storage settings and normalizes the public base URL', () => {
+    const config = loadConfig({
+      ...validEnvironment,
+      IMAGE_STORAGE_DIR: '/tmp/comando-images',
+      IMAGE_PUBLIC_BASE_URL: '/media/',
+      IMAGE_MAX_BYTES: '1024',
+    });
+
+    expect(config.imageStorageDir).toBe('/tmp/comando-images');
+    expect(config.imagePublicBaseUrl).toBe('/media');
+    expect(config.imageMaxBytes).toBe(1024);
+  });
+
+  test('rejects an absolute public image base URL', () => {
+    expect(() =>
+      loadConfig({ ...validEnvironment, IMAGE_PUBLIC_BASE_URL: 'https://cdn.example.com' }),
+    ).toThrow(ConfigurationError);
   });
 
   test('detects the internal worker marker', () => {
