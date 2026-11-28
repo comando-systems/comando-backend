@@ -15,7 +15,7 @@ Add `AWAITING_PAYMENT` to `OrderStatus`. Allowed transitions:
 |---|---|---|
 | `OPEN` | `AWAITING_PAYMENT` | `TABLE` only; the order needs at least one line. Records who and when. |
 | `AWAITING_PAYMENT` | `OPEN` | Reopen; clears the request. |
-| `OPEN`, `AWAITING_PAYMENT` | `CLOSED` | Total must be non-zero (`ZERO_TOTAL` otherwise); negative balances need no payments, otherwise payments sum exactly to the total. |
+| `OPEN`, `AWAITING_PAYMENT` | `CLOSED` | Total must be non-zero (`ZERO_TOTAL` in the application, trigger in the database); negative balances need no payments, otherwise payments sum exactly to the total. |
 | `OPEN`, `AWAITING_PAYMENT` | `CANCELED` | |
 
 `CLOSED` and `CANCELED` stay terminal. `COUNTER` orders are created `CLOSED` and never pass through `AWAITING_PAYMENT`.
