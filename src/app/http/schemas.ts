@@ -113,8 +113,14 @@ export const setOrderPricingBodySchema = z
     },
   );
 
+// A table can be opened without a name. Blank is treated as absent.
 export const openTableOrderBodySchema = z.object({
-  tableCode: z.string().min(1, 'Table code is required'),
+  tableCode: z
+    .string()
+    .trim()
+    .max(64)
+    .optional()
+    .transform((value) => (value === undefined || value === '' ? null : value)),
 });
 
 export const addOrderItemsBodySchema = z.object({

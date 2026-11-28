@@ -162,8 +162,10 @@ Primitives:
 `OpenTableOrderRequest`
 
 ```json
-{ "tableCode": "string" }
+{ "tableCode": "string?" }
 ```
+
+- Optional and at most 64 characters; blank or absent opens an unnamed table. Opening does not reserve the name.
 
 `AddOrderItemsRequest`
 
@@ -338,6 +340,7 @@ Primitives:
   "type": "OrderType",
   "status": "OrderStatus",
   "tableCode": "string | null",
+  "originalTableCode": "string | null",
   "label": "string | null",
   "openedByUserId": "Id",
   "closedByUserId": "Id | null",
@@ -444,7 +447,7 @@ Input notation: `path` = URL parameters, `query` = query string, `body` = JSON b
 | Method | Path | Roles | Input | Success | Errors | Rules |
 | --- | --- | --- | --- | --- | --- | --- |
 | POST | `/orders/counter` | CASHIER | body `CreateCounterOrderRequest` | 201 `Order` | 400, 401, 403, 404, 409 | Created as `CLOSED` in one transaction; server calculates totals. |
-| POST | `/orders/table` | SERVER | body `OpenTableOrderRequest` | 201 `Order` | 400, 401, 403, 409 | Starts `OPEN`; occupied table gives 409 `TABLE_OCCUPIED` with `details.orderId`. |
+| POST | `/orders/table` | SERVER | body `OpenTableOrderRequest` | 201 `Order` | 400, 401, 403 | Starts `OPEN`; a name is optional and opening does not reserve it. |
 | GET | `/orders` | Any (live), ADMIN/CASHIER (history) | query `OrderListQuery` | 200 `Page<Order>` | 400, 401, 403 | `OPEN` / `AWAITING_PAYMENT` filters are allowed for SERVER; history needs ADMIN or CASHIER. |
 | GET | `/orders/:id` | Any (live), ADMIN/CASHIER (history) | path `Id` | 200 `Order` | 400, 401, 403, 404 | SERVER can read only live orders. |
 | POST | `/orders/:id/items` | SERVER | path `Id`, body `AddOrderItemsRequest` | 200 `Order` | 400, 401, 403, 404, 409 | `OPEN` only; an existing item increases its line quantity. |
@@ -455,6 +458,8 @@ Input notation: `path` = URL parameters, `query` = query string, `body` = JSON b
 | POST | `/orders/:id/reopen` | SERVER | path `Id` | 200 `Order` | 400, 401, 403, 404, 409 | `AWAITING_PAYMENT` back to `OPEN`. |
 | POST | `/orders/:id/close` | CASHIER, SERVER | path `Id`, body `CloseOrderRequest` | 200 `Order` | 400, 401, 403, 404, 409 | `OPEN` or `AWAITING_PAYMENT`; payments must sum to the total; `CLOSED` is terminal. |
 | POST | `/orders/:id/cancel` | CASHIER, SERVER | path `Id` | 200 `Order` | 400, 401, 403, 404, 409 | `OPEN` or `AWAITING_PAYMENT`; `CANCELED` is terminal. |
+
+A named table is occupied when an active order has lines; line mutations on a name held by another order answer 409 `TABLE_OCCUPIED`. Closing or canceling clears `tableCode` and keeps `originalTableCode` for history.
 
 ### Reports and settings
 

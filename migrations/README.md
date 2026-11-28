@@ -12,6 +12,8 @@ Files live in the repository root `migrations/` directory and are paired by vers
 - `004_item_search.down.sql`: removes the search vector and its index.
 - `005_item_categories.up.sql`: adds `categories` and `item_categories` and migrates existing primary categories.
 - `005_item_categories.down.sql`: drops both tables, leaving `items.category` untouched.
+- `006_optional_table_code.up.sql`: adds `original_table_code`, makes the table name optional, and replaces the open-time unique index with an active-name index.
+- `006_optional_table_code.down.sql`: restores the original unique index and removes the column.
 
 The schema was consolidated from the former incremental migrations. A database created before the consolidation is already at the old version 5 and must be recreated or explicitly baselined before version 1 is applied; the migration runner will not replay it on such a database.
 
@@ -41,7 +43,7 @@ Indexes exist only for query paths used by the application:
 
 - Order history and filtered lists: `orders_history_idx`, `orders_status_created_idx`.
 - Sales summary ranges: `orders_closed_at_idx`, `orders_canceled_at_idx`.
-- Table occupancy: `orders_one_active_per_table_idx`.
+- Active table names: `orders_active_table_code_idx`; occupancy with lines is checked in the application under an advisory lock.
 - Payments by order.
 - Sellable catalog by category and name.
 - Item lookup by category through `item_categories_category_idx`.

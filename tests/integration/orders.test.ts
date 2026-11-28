@@ -185,27 +185,44 @@ describe.skipIf(!TEST_DATABASE_URL)('order application use cases', () => {
     ).rejects.toThrow('Invalid payment method');
   });
 
-  test('opens table orders and rejects duplicate open tables', async () => {
+  test('opens named or unnamed tables and occupies a name only when it has lines', async () => {
     const server = await createUser(['SERVER']);
     const admin = await createUser(['ADMIN']);
+    const coffee = await createItem('Coffee', 750);
 
     const order = await openTableOrder.execute({ actorUserId: server.id, tableCode: ' T-01 ' });
+    const unnamed = await openTableOrder.execute({ actorUserId: server.id });
 
     expect(order.status).toBe('OPEN');
     expect(order.type).toBe('TABLE');
     expect(order.tableCode).toBe('T-01');
+    expect(order.originalTableCode).toBe('T-01');
+    expect(unnamed.tableCode).toBeNull();
+    expect(unnamed.originalTableCode).toBeNull();
     expect(order.total.cents).toBe(0);
 
+    // Opening an already named table does not reserve it while both are empty.
+    const second = await openTableOrder.execute({ actorUserId: server.id, tableCode: 'T-01' });
+    await addOrderItems.execute({
+      actorUserId: server.id,
+      orderId: second.id,
+      lines: [{ itemId: coffee.id, quantity: 1 }],
+    });
+
     await expect(
-      openTableOrder.execute({ actorUserId: server.id, tableCode: 'T-01' }),
+      addOrderItems.execute({
+        actorUserId: server.id,
+        orderId: order.id,
+        lines: [{ itemId: coffee.id, quantity: 1 }],
+      }),
     ).rejects.toThrow('Table already has an open order');
 
     await expect(
       openTableOrder.execute({ actorUserId: admin.id, tableCode: 'T-02' }),
     ).rejects.toThrow('You are not allowed');
 
-    const open = await unitOfWork.run((repos) => repos.orders.findActiveTableByCode('T-01'));
-    expect(open?.id.value).toBe(order.id.value);
+    const occupied = await unitOfWork.run((repos) => repos.orders.findOccupiedTableByCode('T-01'));
+    expect(occupied?.id.value).toBe(second.id.value);
   });
 
   test('adds items, increments existing lines, and changes quantities', async () => {

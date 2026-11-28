@@ -470,38 +470,55 @@ describe.skipIf(!TEST_DATABASE_URL)('order workflow API', () => {
   describe('opening a table', () => {
     test('tells the client which order already occupies the table', async () => {
       const order = await openTable('T-1');
+      await addCoffee(order.id, 1);
 
       const again = await request('/orders/table', {
         method: 'POST',
         token: serverToken,
         body: { tableCode: 'T-1' },
       });
-      const body = await json<ErrorDto>(again);
+      expect(again.status).toBe(201);
+      const second = await json<OrderDto>(again);
 
-      expect(again.status).toBe(409);
+      const conflict = await request(`/orders/${second.id}/items`, {
+        method: 'POST',
+        token: serverToken,
+        body: { items: [{ itemId, quantity: 1 }] },
+      });
+      const body = await json<ErrorDto>(conflict);
+
+      expect(conflict.status).toBe(409);
       expect(body.error.code).toBe('TABLE_OCCUPIED');
       expect(body.error.details?.orderId).toBe(order.id);
     });
 
-    test('the table stays occupied while it awaits payment, and frees up once closed', async () => {
+    test('the table stays occupied while it awaits payment, and frees up once canceled', async () => {
       const order = await openTable('T-1');
       await addCoffee(order.id, 1);
       await request(`/orders/${order.id}/request-payment`, { method: 'POST', token: serverToken });
 
-      const occupied = await request('/orders/table', {
+      const second = await json<OrderDto>(
+        await request('/orders/table', {
+          method: 'POST',
+          token: serverToken,
+          body: { tableCode: 'T-1' },
+        }),
+      );
+      const conflict = await request(`/orders/${second.id}/items`, {
         method: 'POST',
         token: serverToken,
-        body: { tableCode: 'T-1' },
+        body: { items: [{ itemId, quantity: 1 }] },
       });
-      expect(occupied.status).toBe(409);
+      expect(conflict.status).toBe(409);
 
       await request(`/orders/${order.id}/cancel`, { method: 'POST', token: cashierToken });
-      const reopened = await request('/orders/table', {
+      const released = await request(`/orders/${second.id}/items`, {
         method: 'POST',
         token: serverToken,
-        body: { tableCode: 'T-1' },
+        body: { items: [{ itemId, quantity: 1 }] },
       });
-      expect(reopened.status).toBe(201);
+      expect(released.status).toBe(200);
+      expect((await json<OrderDto>(released)).items).toHaveLength(1);
     });
   });
 

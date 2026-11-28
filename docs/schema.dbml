@@ -111,7 +111,8 @@ Table orders {
   order_type order_type [not null]
   status order_status [not null]
   total_amount_cents bigint [not null, default: 0, note: 'Server-calculated total in cents; CHECK >= 0']
-  table_code varchar(64) [null, note: 'Required for TABLE, forbidden for COUNTER']
+  table_code varchar(64) [null, note: 'Active table name; cleared on CLOSED or CANCELED, forbidden for COUNTER']
+  original_table_code varchar(64) [null, note: 'Name used when the table was opened; kept for history']
   label varchar(160) [null, note: 'Customer label; COUNTER only']
   opened_by_user_id bigint [not null]
   closed_by_user_id bigint [null, note: 'Required when status = CLOSED']
@@ -135,7 +136,7 @@ Table orders {
     (status, created_at, id) [name: 'orders_status_created_idx', note: 'created_at DESC, id DESC']
     closed_at [name: 'orders_closed_at_idx', note: 'Partial: WHERE status = CLOSED']
     canceled_at [name: 'orders_canceled_at_idx', note: 'Partial: WHERE status = CANCELED']
-    table_code [unique, name: 'orders_one_active_per_table_idx', note: 'Partial unique: one TABLE order per table_code while status IN (OPEN, AWAITING_PAYMENT)']
+    table_code [name: 'orders_active_table_code_idx', note: 'Partial index; occupancy with lines is enforced in the application']
   }
 
   Note: 'One order concept for counter sales and table service. Lifecycle, actor and timestamp checks are enforced by CHECK constraints. A TABLE order occupies its table while OPEN or AWAITING_PAYMENT.'

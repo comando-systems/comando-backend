@@ -6,6 +6,7 @@ import {
   type OrderLineInput,
   resolveActiveOrderLines,
 } from '@/app/use-cases/orders/active-order-lines';
+import { assertTableAvailable } from '@/app/use-cases/orders/assert-table-available';
 import { findTableOrderForUpdate } from '@/app/use-cases/orders/load-order';
 import type { Order } from '@/domain/entity/order';
 import type { Repositories } from '@/domain/repository';
@@ -32,6 +33,7 @@ export class AddOrderItemsUseCase {
       await requireActor(repositories, input.actorUserId, 'orders:update');
 
       const order = await findTableOrderForUpdate(repositories, input.orderId);
+      await assertTableAvailable(repositories, order);
       const lines = await resolveActiveOrderLines(repositories, input.lines);
       const now = this.clock.now();
 

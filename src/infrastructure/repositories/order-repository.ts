@@ -18,6 +18,7 @@ interface OrderRow {
   order_type: OrderType;
   status: OrderStatus;
   table_code: string | null;
+  original_table_code: string | null;
   label: string | null;
   opened_by_user_id: string;
   closed_by_user_id: string | null;
@@ -42,6 +43,7 @@ const ORDER_COLUMNS = `
   order_type,
   status,
   table_code,
+  original_table_code,
   label,
   opened_by_user_id::text AS opened_by_user_id,
   closed_by_user_id::text AS closed_by_user_id,
@@ -75,6 +77,7 @@ function mapOrderRow(
       type: row.order_type,
       status: row.status,
       tableCode: row.table_code,
+      originalTableCode: row.original_table_code,
       label: row.label,
       openedByUserId: new UserID(row.opened_by_user_id),
       closedByUserId: optionalUserId(row.closed_by_user_id),
@@ -139,6 +142,7 @@ export class OrderRepository implements OrderRepositoryContract {
         status,
         total_amount_cents,
         table_code,
+        original_table_code,
         label,
         opened_by_user_id,
         closed_by_user_id,
@@ -163,6 +167,7 @@ export class OrderRepository implements OrderRepositoryContract {
         ${order.status},
         ${pricing.total.cents},
         ${order.tableCode},
+        ${order.originalTableCode},
         ${order.label},
         ${order.openedByUserId.value},
         ${order.closedByUserId?.value ?? null},
@@ -201,18 +206,30 @@ export class OrderRepository implements OrderRepositoryContract {
     return this.hydrate(rows[0]);
   }
 
-  async findActiveTableByCode(tableCode: string): Promise<Order | null> {
+  async findOccupiedTableByCode(
+    tableCode: string,
+    excludeOrderId?: OrderID,
+  ): Promise<Order | null> {
     const sql = this.database.readSql();
     const rows = await sql.unsafe<OrderRow[]>(
       `SELECT ${ORDER_COLUMNS}
-      FROM orders
-      WHERE order_type = 'TABLE'
-        AND status IN ('OPEN', 'AWAITING_PAYMENT')
-        AND table_code = $1`,
-      [tableCode],
+      FROM orders o
+      WHERE o.order_type = 'TABLE'
+        AND o.status IN ('OPEN', 'AWAITING_PAYMENT')
+        AND o.table_code = $1
+        AND ($2::text IS NULL OR o.id <> $2::bigint)
+        AND EXISTS (SELECT 1 FROM order_items oi WHERE oi.order_id = o.id)
+      ORDER BY o.id
+      LIMIT 1`,
+      [tableCode, excludeOrderId?.value ?? null],
     );
 
     return this.hydrate(rows[0]);
+  }
+
+  async lockTable(tableCode: string): Promise<void> {
+    const sql = this.database.writeSql();
+    await sql.query`SELECT pg_advisory_xact_lock(hashtextextended(${tableCode}, 0))`;
   }
 
   async save(order: Order): Promise<void> {
@@ -225,6 +242,7 @@ export class OrderRepository implements OrderRepositoryContract {
         status = ${order.status},
         total_amount_cents = ${pricing.total.cents},
         table_code = ${order.tableCode},
+        original_table_code = ${order.originalTableCode},
         label = ${order.label},
         opened_by_user_id = ${order.openedByUserId.value},
         closed_by_user_id = ${order.closedByUserId?.value ?? null},

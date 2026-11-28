@@ -57,7 +57,11 @@ export const orderResponseSchema = z.object({
   id: identifier,
   type: z.enum(['COUNTER', 'TABLE']),
   status: z.enum(['OPEN', 'AWAITING_PAYMENT', 'CLOSED', 'CANCELED']),
-  tableCode: z.string().nullable(),
+  tableCode: z
+    .string()
+    .nullable()
+    .describe('Active table name; cleared when the order is closed or canceled.'),
+  originalTableCode: z.string().nullable().describe('Original table name kept for history.'),
   label: z.string().nullable().describe('Customer name of a counter sale.'),
   openedByUserId: identifier,
   closedByUserId: identifier.nullable(),

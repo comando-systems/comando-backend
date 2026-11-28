@@ -2,7 +2,7 @@
 
 Comandô is a counter and table-order management backend built with TypeScript and Bun. This repository contains the backend API only; clients are separate.
 
-The system uses one order model for both service channels. A counter order is created with all its items and payments and is persisted directly as `CLOSED`. A table order remains `OPEN` while the server adds or changes items, until a cashier closes it or a cashier or server cancels it.
+The system uses one order model for both service channels. A counter order is created with all its items and payments and is persisted directly as `CLOSED`. A table order remains `OPEN` while the server adds or changes items, until a cashier or server closes or cancels it. A table may be opened with or without a name; the active name is released on finalization while `originalTableCode` keeps the original name for history.
 
 ## Main capabilities
 
@@ -134,7 +134,7 @@ Create a counter order:
 }
 ```
 
-Open a table order:
+Open a table order (the name is optional; an empty body opens an unnamed table):
 
 ```json
 { "tableCode": "T-01" }
@@ -183,7 +183,7 @@ Passwords need 8 to 128 characters. A deactivated user can only be edited by sen
 
 ### Order workflow
 
-A table order goes `OPEN` to `AWAITING_PAYMENT` when the server hands it to the cashier, who closes it with the payments. While it awaits payment the lines are locked and only the pricing can change; `reopen` returns it to `OPEN`. A table stays occupied while its order is open or awaiting payment, and opening it again answers `409 TABLE_OCCUPIED` with the existing order in `error.details.orderId`.
+A table order goes `OPEN` to `AWAITING_PAYMENT` when the server hands it to the till. While it awaits payment the lines are locked and only the pricing can change; `reopen` returns it to `OPEN`. A named table is considered occupied only when an active order already has lines; adding, changing, or removing a line on a name taken by another order answers `409 TABLE_OCCUPIED` with the existing order in `error.details.orderId`. Opening an empty table with a name does not reserve it. On `CLOSED` or `CANCELED`, `tableCode` becomes `null` and `originalTableCode` preserves the name used at opening.
 
 The server calculates every amount in integer cents: the subtotal, plus an optional surcharge, minus an optional discount, then the service fee on the adjusted amount, rounding half up. The surcharge and the discount are independent and may be set at once; the discount cannot exceed the subtotal plus the surcharge. `totalCents` is the result, and the fee rate is a snapshot taken when the order is opened or the fee is switched, so changing the settings later does not alter existing orders. The service fee starts switched off in the settings.
 

@@ -25,8 +25,10 @@ export interface FindOrderOptions {
 export interface OrderRepository {
   create(order: Order): Promise<void>;
   findById(id: OrderID, options?: FindOrderOptions): Promise<Order | null>;
-  // The order occupying the table: open or awaiting payment.
-  findActiveTableByCode(tableCode: string): Promise<Order | null>;
+  // A table is occupied only by an active order that already has lines.
+  findOccupiedTableByCode(tableCode: string, excludeOrderId?: OrderID): Promise<Order | null>;
+  // Serializes occupancy checks for the same name across concurrent transactions.
+  lockTable(tableCode: string): Promise<void>;
   save(order: Order): Promise<void>;
   list(filters: OrderFilters): Promise<OrderPage>;
 }

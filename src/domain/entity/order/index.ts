@@ -252,6 +252,8 @@ export interface OrderProps {
   type: OrderType;
   status: OrderStatus;
   tableCode: string | null;
+  // The original name stays in history after the active name is cleared on finalization.
+  originalTableCode?: string | null;
   label: string | null;
   openedByUserId: UserID;
   closedByUserId: UserID | null;
@@ -304,10 +306,18 @@ export interface CreateCounterOrderInput {
 export interface OpenTableOrderInput {
   readonly id: OrderID;
   readonly openedByUserId: UserID;
-  readonly tableCode: string;
+  readonly tableCode?: string | null;
   // Current rate from the settings; table orders charge the fee by default.
   readonly serviceFeeBasisPoints?: number;
   readonly now: Date;
+}
+
+function normalizeTableCode(value: string | null | undefined): string | null {
+  if (value === null || value === undefined || value.trim() === '') {
+    return null;
+  }
+
+  return requireNonEmptyString(value, 'Table code', 64);
 }
 
 function normalizeLabel(value: string | null | undefined): string | null {
@@ -341,6 +351,7 @@ export class Order {
         type: 'COUNTER',
         status: 'CLOSED',
         tableCode: null,
+        originalTableCode: null,
         label: normalizeLabel(input.label),
         openedByUserId: input.openedByUserId,
         closedByUserId: input.openedByUserId,
@@ -383,13 +394,15 @@ export class Order {
 
   static openTable(input: OpenTableOrderInput): Order {
     const now = requireValidDate(input.now, 'Now');
+    const tableCode = normalizeTableCode(input.tableCode);
 
     return new Order(
       {
         id: input.id,
         type: 'TABLE',
         status: 'OPEN',
-        tableCode: requireNonEmptyString(input.tableCode, 'Table code', 64),
+        tableCode,
+        originalTableCode: tableCode,
         label: null,
         openedByUserId: input.openedByUserId,
         closedByUserId: null,
@@ -428,6 +441,8 @@ export class Order {
     const order = new Order(
       {
         ...props,
+        tableCode: normalizeTableCode(props.tableCode),
+        originalTableCode: normalizeTableCode(props.originalTableCode ?? props.tableCode),
         label: normalizeLabel(props.label),
         surcharge: requireNonNegativeMoney(props.surcharge, 'Surcharge'),
         discount: requireNonNegativeMoney(props.discount, 'Discount'),
@@ -484,6 +499,10 @@ export class Order {
 
   get tableCode(): string | null {
     return this.props.tableCode;
+  }
+
+  get originalTableCode(): string | null {
+    return this.props.originalTableCode ?? null;
   }
 
   get label(): string | null {
@@ -685,6 +704,8 @@ export class Order {
 
     this.paymentList = normalizedPayments;
     this.props.status = 'CLOSED';
+    // The active label is released; the original name remains for history.
+    this.props.tableCode = null;
     this.props.closedByUserId = byUserId;
     this.props.closedAt = timestamp;
     this.touch(timestamp);
@@ -695,6 +716,7 @@ export class Order {
     const timestamp = requireValidDate(now, 'Now');
 
     this.props.status = 'CANCELED';
+    this.props.tableCode = null;
     this.props.canceledByUserId = byUserId;
     this.props.canceledAt = timestamp;
     this.touch(timestamp);

@@ -543,15 +543,15 @@ describe.skipIf(!TEST_DATABASE_URL)('HTTP API', () => {
     expect(order.status).toBe('OPEN');
     expect(order.totalCents).toBe(0);
 
-    expect(
-      (
-        await request('/orders/table', {
-          method: 'POST',
-          token: serverToken,
-          body: { tableCode: 'T-01' },
-        })
-      ).status,
-    ).toBe(409);
+    // Opening an already named table is allowed; only adding lines occupies it.
+    const duplicate = await readJson<OrderDto>(
+      await request('/orders/table', {
+        method: 'POST',
+        token: serverToken,
+        body: { tableCode: 'T-01' },
+      }),
+    );
+    expect(duplicate.status).toBe('OPEN');
 
     expect(
       (
@@ -570,6 +570,15 @@ describe.skipIf(!TEST_DATABASE_URL)('HTTP API', () => {
     });
     expect(added.status).toBe(200);
     expect((await readJson<OrderDto>(added)).items[0]?.quantity).toBe(2);
+    expect(
+      (
+        await request(`/orders/${duplicate.id}/items`, {
+          method: 'POST',
+          token: serverToken,
+          body: { items: [{ itemId: coffee.id, quantity: 1 }] },
+        })
+      ).status,
+    ).toBe(409);
 
     const incremented = await request(`/orders/${order.id}/items`, {
       method: 'POST',
