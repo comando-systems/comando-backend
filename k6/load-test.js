@@ -5,8 +5,8 @@
 //          -e LOAD_EMAIL=load@example.com -e LOAD_PASSWORD=... k6/load-test.js
 //
 // The user must already exist with the ADMIN, CASHIER, and SERVER roles
-// (bun run db:create-admin). Start the API with a high LOGIN_RATE_LIMIT_MAX, otherwise the login
-// rate limit (429) will fail the run.
+// (ROOT_EMAIL/ROOT_PASSWORD with bun run db:seed-root). Start the API with a high
+// LOGIN_RATE_LIMIT_MAX, otherwise the login rate limit (429) will fail the run.
 import { check, sleep } from 'k6';
 import http from 'k6/http';
 

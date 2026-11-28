@@ -1,7 +1,5 @@
-// Entrypoint para o serviço `seed-root` do docker-compose.
-// Importa módulos usando caminhos relativos diretos para evitar dependência
-// do alias `@/` (definido em tsconfig.json), que o Bun não resolve ao rodar
-// scripts diretamente fora de `bun test`.
+// Entrypoint for the Compose `seed-root` service. Relative imports avoid the `@/` alias,
+// which Bun does not resolve when running scripts directly outside of `bun test`.
 import { SQL } from 'bun';
 
 const DATABASE_URL = process.env.DATABASE_WRITE_URL;
@@ -19,7 +17,7 @@ const sql = new SQL(DATABASE_URL, { max: 5, idleTimeout: 20, connectionTimeout: 
 
 export async function main(): Promise<void> {
   try {
-    // Verifica se já existe um administrador ativo
+    // An active administrator already means the bootstrap has happened.
     const activeAdmins = await sql`
       SELECT COUNT(*) AS count FROM users u
       JOIN user_roles ur ON ur.user_id = u.id
@@ -33,7 +31,7 @@ export async function main(): Promise<void> {
       return;
     }
 
-    // Verifica se o email já existe (mesmo inativo)
+    // A deactivated root user must not be recreated under the same email.
     const existing = await sql`
       SELECT id FROM users WHERE email = ${ROOT_EMAIL}
     `;
@@ -77,7 +75,10 @@ export async function main(): Promise<void> {
   }
 }
 
-main().catch((error) => {
-  process.stderr.write(`${error.message}\n`);
-  process.exit(1);
-});
+// Only run when invoked as an entrypoint. The local script imports `main` and runs it itself.
+if (import.meta.main) {
+  main().catch((error) => {
+    process.stderr.write(`${error.message}\n`);
+    process.exit(1);
+  });
+}

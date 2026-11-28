@@ -23,7 +23,6 @@
     "test:coverage": "bun test --coverage --coverage-reporter=text --coverage-reporter=lcov --coverage-dir=coverage",
     "db:migrate:up": "migrate -path migrations -database \"$DATABASE_WRITE_URL\" up",
     "db:migrate:down": "migrate -path migrations -database \"$DATABASE_WRITE_URL\" down 1",
-    "db:create-admin": "bun scripts/create-admin.ts",
     "db:seed-root": "bun scripts/seed-root-user.ts",
     "tokens:cleanup": "bun scripts/cleanup-refresh-tokens.ts",
     "docker:build": "docker build -f Dockerfile -t comando-backend .",
