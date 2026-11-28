@@ -185,6 +185,8 @@ Passwords need 8 to 128 characters. A deactivated user can only be edited by sen
 
 A table order goes `OPEN` to `AWAITING_PAYMENT` when the server hands it to the till. While it awaits payment the lines are locked and only the pricing can change; `reopen` returns it to `OPEN`. A named table is considered occupied only when an active order already has lines; adding, changing, or removing a line on a name taken by another order answers `409 TABLE_OCCUPIED` with the existing order in `error.details.orderId`. Opening an empty table with a name does not reserve it. On `CLOSED` or `CANCELED`, `tableCode` becomes `null` and `originalTableCode` preserves the name used at opening.
 
+`bun run db:seed-tables` creates `Mesa 01` through `Mesa 20` as empty `OPEN` orders. It is idempotent: a name with an active order is skipped, so rerunning never duplicates tables.
+
 The server calculates every amount in integer cents: the subtotal, plus an optional surcharge, minus an optional discount, then the service fee on the adjusted amount, rounding half up. The surcharge and the discount are independent and may be set at once; the discount cannot exceed the subtotal plus the surcharge. `totalCents` is the result, and the fee rate is a snapshot taken when the order is opened or the fee is switched, so changing the settings later does not alter existing orders. The service fee starts switched off in the settings.
 
 Request examples:
@@ -462,6 +464,7 @@ bun run docker:db        # PostgreSQL
 bun run docker:migrate   # apply migrations
 bun run db:seed-root     # first administrator (ROOT_EMAIL, ROOT_PASSWORD)
 bun run db:seed-items    # curated demo catalog (idempotent)
+bun run db:seed-tables   # 20 ready-to-use open tables (idempotent)
 bun run dev              # API with hot reload
 ```
 

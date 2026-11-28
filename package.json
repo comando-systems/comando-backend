@@ -25,6 +25,7 @@
     "db:migrate:down": "migrate -path migrations -database \"$DATABASE_WRITE_URL\" down 1",
     "db:seed-root": "bun scripts/seed-root-user.ts",
     "db:seed-items": "bun scripts/seed-items.ts",
+    "db:seed-tables": "bun scripts/seed-tables.ts",
     "tokens:cleanup": "bun scripts/cleanup-refresh-tokens.ts",
     "docker:build": "docker build -f Dockerfile -t comando-backend .",
     "docker:db": "docker compose -f docker-compose.yml --env-file .env up -d postgres",
