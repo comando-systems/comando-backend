@@ -187,7 +187,9 @@ A table order goes `OPEN` to `AWAITING_PAYMENT` when the server hands it to the 
 
 `bun run db:seed-tables` creates `Mesa 01` through `Mesa 20` as empty `OPEN` orders. It is idempotent: a name with an active order is skipped, so rerunning never duplicates tables.
 
-The server calculates every amount in integer cents: the subtotal, plus an optional surcharge, minus an optional discount, then the service fee on the adjusted amount, rounding half up. The surcharge and the discount are independent and may be set at once; the discount cannot exceed the subtotal plus the surcharge. `totalCents` is the result, and the fee rate is a snapshot taken when the order is opened or the fee is switched, so changing the settings later does not alter existing orders. The service fee starts switched off in the settings.
+The server calculates every amount in integer cents: the subtotal, plus an optional surcharge, minus an optional discount, then the service fee on the positive adjusted amount, rounding half up. The surcharge and the discount are independent and may be set at once; a discount larger than the adjusted amount leaves a negative credit balance (for example a gift to spend) and charges no fee. `totalCents` is the result, and the fee rate is a snapshot taken when the order is opened or the fee is switched, so changing the settings later does not alter existing orders. The service fee starts switched off in the settings.
+
+Closing a counter or table order requires a non-zero total: a zero total answers `409 ZERO_TOTAL`. Canceling has no such requirement. A negative balance closes with no payments; otherwise payments must sum exactly to the total.
 
 Request examples:
 

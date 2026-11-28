@@ -8,6 +8,7 @@ import {
   InvalidStateTransitionError,
   InvalidValueError,
   InvariantViolationError,
+  ZeroTotalError,
 } from '@/domain/errors';
 import type { ItemID, OrderID, OrderPaymentID, UserID } from '@/domain/value-objects/ids';
 import { Money } from '@/domain/value-objects/money';
@@ -278,6 +279,13 @@ function normalizePayments(inputs: readonly OrderPaymentInput[]): readonly Order
 }
 
 function assertPaymentsMatchTotal(payments: readonly OrderPayment[], total: Money): void {
+  if (total.isNegative()) {
+    if (payments.length > 0) {
+      throw new InvalidValueError('Negative totals cannot have payments');
+    }
+    return;
+  }
+
   const paid = payments.reduce((sum, payment) => sum.add(payment.amount), Money.zero());
 
   if (!paid.equals(total)) {
@@ -386,6 +394,11 @@ export class Order {
     }
 
     order.assertAmountsValid();
+
+    if (order.total.isZero()) {
+      throw new ZeroTotalError();
+    }
+
     order.paymentList = normalizePayments(input.payments);
     assertPaymentsMatchTotal(order.paymentList, order.total);
 
@@ -698,8 +711,12 @@ export class Order {
   close(byUserId: UserID, payments: readonly OrderPaymentInput[], now: Date): void {
     this.assertActive();
     const timestamp = requireValidDate(now, 'Now');
-    const normalizedPayments = normalizePayments(payments);
 
+    if (this.total.isZero()) {
+      throw new ZeroTotalError();
+    }
+
+    const normalizedPayments = normalizePayments(payments);
     assertPaymentsMatchTotal(normalizedPayments, this.total);
 
     this.paymentList = normalizedPayments;

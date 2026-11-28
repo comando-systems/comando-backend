@@ -6,6 +6,7 @@ import {
   InvalidStateTransitionError,
   InvalidValueError,
   InvariantViolationError,
+  ZeroTotalError,
 } from '@/domain/errors';
 
 export interface ErrorBody {
@@ -33,7 +34,11 @@ function domainErrorStatus(error: DomainError): number {
     return 400;
   }
 
-  if (error instanceof InvariantViolationError || error instanceof InvalidStateTransitionError) {
+  if (
+    error instanceof InvariantViolationError ||
+    error instanceof InvalidStateTransitionError ||
+    error instanceof ZeroTotalError
+  ) {
     return 409;
   }
 

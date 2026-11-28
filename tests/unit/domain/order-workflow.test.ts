@@ -5,6 +5,7 @@ import {
   InvalidStateTransitionError,
   InvalidValueError,
   InvariantViolationError,
+  ZeroTotalError,
 } from '@/domain/errors';
 import { ItemID, OrderID, UserID } from '@/domain/value-objects/ids';
 import { Money } from '@/domain/value-objects/money';
@@ -174,14 +175,29 @@ describe('closing and canceling', () => {
     expect(order.payments[1]?.changeCents).toBeNull();
   });
 
-  test('a zero-total order needs no payments', () => {
+  test('refuses to close a zero-total order but still allows canceling it', () => {
     const order = table(0);
     order.addItem(item('1', 0), 1, now);
 
-    order.close(cashier, [], later);
+    expect(() => order.close(cashier, [], later)).toThrow(ZeroTotalError);
+    expect(order.status).toBe('OPEN');
 
+    order.cancel(cashier, later);
+    expect(order.status).toBe('CANCELED');
+  });
+
+  test('closes a negative balance without payments and rejects payments on it', () => {
+    const order = table(0);
+    order.setAmounts(Money.zero(), Money.fromCents(500), now);
+
+    expect(order.total.cents).toBe(-500);
+    expect(() => order.close(cashier, [{ method: 'PIX', amountCents: 500 }], later)).toThrow(
+      InvalidValueError,
+    );
+
+    order.close(cashier, [], later);
     expect(order.status).toBe('CLOSED');
-    expect(order.total.cents).toBe(0);
+    expect(order.payments).toHaveLength(0);
   });
 
   test('cancels an open order and one awaiting payment', () => {
@@ -230,7 +246,7 @@ describe('lines', () => {
     expect(() => order.removeItem(coffee.id, later)).toThrow(InvariantViolationError);
   });
 
-  test('refuses a line change that would leave the discount above the adjusted subtotal', () => {
+  test('allows a line change that leaves a negative credit balance', () => {
     const order = table(0);
     const coffee = item('1', 500);
     const cake = item('2', 300);
@@ -238,8 +254,10 @@ describe('lines', () => {
     order.addItem(cake, 1, now);
     order.setAmounts(Money.zero(), Money.fromCents(700), later);
 
-    expect(() => order.removeItem(coffee.id, later)).toThrow(InvalidValueError);
-    expect(order.items).toHaveLength(2);
+    order.removeItem(coffee.id, later);
+
+    expect(order.items).toHaveLength(1);
+    expect(order.total.cents).toBe(-400);
   });
 
   test('adding the same item again updates the single line', () => {
@@ -289,15 +307,14 @@ describe('pricing changes', () => {
     expect(order.total.cents).toBe(1000);
   });
 
-  test('rejects a discount above the adjusted subtotal without changing the order', () => {
+  test('accepts a discount above the adjusted subtotal as a credit', () => {
     const order = table(0);
     order.addItem(item('1', 1000), 1, now);
 
-    expect(() => order.setAmounts(Money.fromCents(200), Money.fromCents(1201), later)).toThrow(
-      InvalidValueError,
-    );
-    expect(order.surcharge.cents).toBe(0);
-    expect(order.discount.cents).toBe(0);
+    order.setAmounts(Money.fromCents(200), Money.fromCents(1201), later);
+
+    expect(order.discount.cents).toBe(1201);
+    expect(order.total.cents).toBe(-1);
   });
 
   test('rejects negative amounts', () => {
@@ -358,18 +375,19 @@ describe('counter orders', () => {
     expect(order.payments[0]?.changeCents).toBe(350);
   });
 
-  test('rejects a discount above the adjusted subtotal', () => {
-    expect(() =>
-      Order.createCounter({
-        id: new OrderID('11'),
-        openedByUserId: cashier,
-        lines: [{ item: coffee, quantity: 1 }],
-        surchargeCents: 100,
-        discountCents: 1101,
-        payments: [],
-        now,
-      }),
-    ).toThrow(InvalidValueError);
+  test('allows a negative counter balance without payments', () => {
+    const order = Order.createCounter({
+      id: new OrderID('11'),
+      openedByUserId: cashier,
+      lines: [{ item: coffee, quantity: 1 }],
+      surchargeCents: 100,
+      discountCents: 1101,
+      payments: [],
+      now,
+    });
+
+    expect(order.total.cents).toBe(-1);
+    expect(order.payments).toHaveLength(0);
   });
 
   test('has no fee unless one is requested, and treats a blank label as none', () => {

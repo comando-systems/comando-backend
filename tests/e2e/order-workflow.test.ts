@@ -293,7 +293,6 @@ describe.skipIf(!TEST_DATABASE_URL)('order workflow API', () => {
       ['an empty body', {}],
       ['a negative surcharge', { surchargeCents: -1 }],
       ['a negative discount', { discountCents: -1 }],
-      ['a discount above the adjusted subtotal', { discountCents: 1001 }],
     ])('rejects %s', async (_label, body) => {
       const order = await openTable();
       await addCoffee(order.id, 1);
@@ -305,6 +304,20 @@ describe.skipIf(!TEST_DATABASE_URL)('order workflow API', () => {
       });
 
       expect(response.status).toBe(400);
+    });
+
+    test('accepts a gift credit that leaves a negative total', async () => {
+      const order = await openTable();
+      await addCoffee(order.id, 1);
+
+      const response = await request(`/orders/${order.id}/pricing`, {
+        method: 'PATCH',
+        token: serverToken,
+        body: { discountCents: 1100 },
+      });
+
+      expect(response.status).toBe(200);
+      expect((await json<OrderDto>(response)).totalCents).toBe(-100);
     });
 
     test('the cashier at the till may adjust the price too', async () => {

@@ -189,7 +189,7 @@ Primitives:
 { "payments": "PaymentInput[]" }
 ```
 
-- Payments must sum to the total; `[]` is valid only for zero-total orders.
+- Closing requires a non-zero total (`409 ZERO_TOTAL`). A negative balance closes with no payments; otherwise payments must sum to the total.
 
 `SetPricingRequest`
 
@@ -459,7 +459,7 @@ Input notation: `path` = URL parameters, `query` = query string, `body` = JSON b
 | POST | `/orders/:id/close` | CASHIER, SERVER | path `Id`, body `CloseOrderRequest` | 200 `Order` | 400, 401, 403, 404, 409 | `OPEN` or `AWAITING_PAYMENT`; payments must sum to the total; `CLOSED` is terminal. |
 | POST | `/orders/:id/cancel` | CASHIER, SERVER | path `Id` | 200 `Order` | 400, 401, 403, 404, 409 | `OPEN` or `AWAITING_PAYMENT`; `CANCELED` is terminal. |
 
-A named table is occupied when an active order has lines; line mutations on a name held by another order answer 409 `TABLE_OCCUPIED`. Closing or canceling clears `tableCode` and keeps `originalTableCode` for history.
+A named table is occupied when an active order has lines; line mutations on a name held by another order answer 409 `TABLE_OCCUPIED`. Closing or canceling clears `tableCode` and keeps `originalTableCode` for history. Closing a zero-total order answers 409 `ZERO_TOTAL`; canceling does not require a non-zero total.
 
 ### Reports and settings
 

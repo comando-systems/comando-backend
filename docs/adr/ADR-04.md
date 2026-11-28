@@ -14,16 +14,16 @@ Total calculation, in this order:
 
 1. `subtotal` = sum of line totals.
 2. `surcharge` = a non-negative amount in cents added to the subtotal.
-3. `discount` = a non-negative amount in cents removed from the subtotal plus the surcharge. It cannot exceed `subtotal + surcharge`.
+3. `discount` = a non-negative amount in cents removed from the subtotal plus the surcharge. It may exceed the adjusted amount and leave a negative credit balance (for example a gift to spend).
 4. `base` = `subtotal + surcharge - discount`.
-5. `serviceFee` = `round(base * serviceFeeBasisPoints / 10000)` when the order applies the fee and settings have it enabled; otherwise 0.
+5. `serviceFee` = `round(base * serviceFeeBasisPoints / 10000)` when the order applies the fee and settings have it enabled and `base > 0`; otherwise 0.
 6. `total` = `base + serviceFee`.
 
-The surcharge and the discount are independent, so an order may have a surcharge, a discount, both, or neither. Rounding is half-up on integer cents. No floating point is used for money.
+The surcharge and the discount are independent, so an order may have a surcharge, a discount, both, or neither. A negative `base` charges no fee. Closing requires a non-zero total; a negative balance closes with no payments. Rounding is half-up on integer cents. No floating point is used for money.
 
 Persistence:
 
-- `orders`: `surcharge_cents`, `discount_cents`, `apply_service_fee`, `service_fee_basis_points`, `service_fee_cents`, and the final `total_amount_cents`. Both amount columns are non-negative and default to zero. The applied fee rate and amounts are snapshotted, so later setting changes do not alter existing orders.
+- `orders`: `surcharge_cents`, `discount_cents`, `apply_service_fee`, `service_fee_basis_points`, `service_fee_cents`, and the final `total_amount_cents`. Both amount columns are non-negative and default to zero. The applied fee rate and amounts are snapshotted, so later setting changes do not alter existing orders. `total_amount_cents` may be negative; a `CLOSED` row must have a non-zero total.
 - `settings`: a single row with `service_fee_enabled` and `service_fee_basis_points`.
 - `order_payments`: `received_cents` and `change_cents` for cash, so a receipt can show them. The payment amount still counts toward the exact-sum rule.
 - `apply_service_fee` defaults to true for `TABLE` orders and false for `COUNTER` orders, matching the app.

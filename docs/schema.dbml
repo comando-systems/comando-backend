@@ -110,7 +110,7 @@ Table orders {
   id bigint [pk, increment]
   order_type order_type [not null]
   status order_status [not null]
-  total_amount_cents bigint [not null, default: 0, note: 'Server-calculated total in cents; CHECK >= 0']
+  total_amount_cents bigint [not null, default: 0, note: 'Server-calculated total in cents; may be negative; CHECK <> 0 when CLOSED']
   table_code varchar(64) [null, note: 'Active table name; cleared on CLOSED or CANCELED, forbidden for COUNTER']
   original_table_code varchar(64) [null, note: 'Name used when the table was opened; kept for history']
   label varchar(160) [null, note: 'Customer label; COUNTER only']
@@ -175,7 +175,7 @@ Table order_payments {
     order_id [name: 'order_payments_order_id_idx']
   }
 
-  Note: 'Payment methods and amounts of a closed order. The application requires payments to sum exactly to the order total (zero-total orders need none).'
+  Note: 'Payment methods and amounts of a closed order. Non-zero totals must match the payments exactly; negative balances need none.'
 }
 
 // Opaque refresh tokens. Only a SHA-256 hash is stored. Tokens are rotated on use,

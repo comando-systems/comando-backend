@@ -25,3 +25,9 @@ export class InvalidStateTransitionError extends DomainError {
     super(message, 'INVALID_STATE_TRANSITION');
   }
 }
+
+export class ZeroTotalError extends DomainError {
+  constructor(message = 'Order total must not be zero') {
+    super(message, 'ZERO_TOTAL');
+  }
+}

@@ -57,7 +57,7 @@ This plan is the implementation checklist and decision record. Keep decisions he
 - Reject changes to `CLOSED` and `CANCELED` orders.
 - Preserve unit price snapshots.
 - Update line data and order total in the same transaction.
-- Closing requires payments that sum exactly to the order total; zero-total orders allow no payments.
+- Closing requires a non-zero total; negative balances allow no payments, otherwise payments sum exactly to the total.
 - Record actor and relevant timestamps.
 - Enforce role permissions in application use cases.
 
@@ -124,8 +124,8 @@ Use this compact format for each unresolved decision:
 ### DEC-02 - Empty table orders
 - Status: ACCEPTED
 - Context: It is not specified whether a server can open a table order before adding its first item.
-- Decision: An empty `OPEN` table order is valid and may be closed with a zero total. Counter orders still require at least one line.
-- Consequences: Closing an empty table order is allowed; no minimum-line constraint is added to table orders.
+- Decision: An empty `OPEN` table order is valid and may be canceled, but not closed while its total is zero. Counter orders still require at least one line.
+- Consequences: No minimum-line constraint is added to table orders; closing requires a non-zero total.
 
 ### DEC-03 - Order history access
 - Status: ACCEPTED
@@ -154,7 +154,7 @@ Use this compact format for each unresolved decision:
 ### DEC-09 - Payment recording
 - Status: ACCEPTED
 - Context: Counter orders are closed immediately and table orders are closed later, but the payment breakdown was unspecified.
-- Decision: `payment_method` is an enum (`CASH`, `DEBIT_CARD`, `CREDIT_CARD`, `PIX`, `OTHER`). Counter creation and table close accept one or more payments with positive amounts. Payments must sum exactly to the order total; zero-total orders accept no payments.
+- Decision: `payment_method` is an enum (`CASH`, `DEBIT_CARD`, `CREDIT_CARD`, `PIX`, `OTHER`). Counter creation and table close require a non-zero total. Negative balances accept no payments; otherwise payments must sum exactly to the order total.
 - Consequences: `order_payments` stores one row per payment method/amount; the application enforces the total and the database enforces positive amounts and valid methods.
 
 ### DEC-10 - Database connections and repository lifetime
