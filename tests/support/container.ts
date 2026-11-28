@@ -67,6 +67,7 @@ export function createTestContainer(environment: TestEnvironment = {}): AppConta
       generate: () => 'refresh-token',
       hash: (token) => `hash:${token}`,
     },
+    imageStorage: null,
     useCases: {} as AppContainer['useCases'],
     async close() {},
   };

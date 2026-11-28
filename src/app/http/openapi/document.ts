@@ -55,11 +55,13 @@ interface OperationSpec {
   readonly public?: boolean;
   readonly parameters?: readonly ParameterSpec[];
   readonly request?: string;
+  readonly multipart?: boolean;
   readonly success: {
     readonly status: number;
     readonly description: string;
     // Omitted for a response without a body (204).
     readonly schema?: string;
+    readonly binary?: boolean;
   };
   readonly errors: readonly number[];
 }
@@ -320,6 +322,53 @@ const operations: readonly OperationSpec[] = [
     parameters: [idParameter('id', 'Item identifier.')],
     success: { status: 200, description: 'The removed item.', schema: 'Item' },
     errors: [400, 401, 403, 404, 409],
+  },
+  {
+    method: 'post',
+    path: '/items/{id}/image',
+    operationId: 'uploadItemImage',
+    tag: 'Items',
+    summary: 'Upload an item image',
+    description:
+      'Stores a JPEG, PNG, or WebP image and sets the item `imageUrl`. Replaces the previous stored image. Answers 503 when `IMAGE_STORAGE_DIR` is not configured; external links keep working without it.',
+    roles: ['ADMIN'],
+    parameters: [idParameter('id', 'Item identifier.')],
+    multipart: true,
+    success: { status: 200, description: 'The item with its new image URL.', schema: 'Item' },
+    errors: [400, 401, 403, 404, 409, 503],
+  },
+  {
+    method: 'delete',
+    path: '/items/{id}/image',
+    operationId: 'removeItemImage',
+    tag: 'Items',
+    summary: 'Remove an item image',
+    description:
+      'Clears `imageUrl` and deletes a stored file when the URL points at managed storage. Answers 503 when storage is not configured.',
+    roles: ['ADMIN'],
+    parameters: [idParameter('id', 'Item identifier.')],
+    success: { status: 200, description: 'The item without an image.', schema: 'Item' },
+    errors: [400, 401, 403, 404, 409, 503],
+  },
+  {
+    method: 'get',
+    path: '/images/items/{filename}',
+    operationId: 'getItemImage',
+    tag: 'Items',
+    summary: 'Serve a stored item image',
+    description: 'Public. Server-generated filenames only; unsafe paths return 404.',
+    public: true,
+    parameters: [
+      {
+        name: 'filename',
+        in: 'path',
+        description: 'Stored image filename.',
+        required: true,
+        schema: { type: 'string' },
+      },
+    ],
+    success: { status: 200, description: 'The image bytes.', binary: true },
+    errors: [404],
   },
   {
     method: 'get',
@@ -593,7 +642,11 @@ function buildOperation(spec: OperationSpec): JsonObject {
   const responses: Record<string, JsonObject> = {
     [String(spec.success.status)]: {
       description: spec.success.description,
-      ...(spec.success.schema === undefined ? {} : { content: jsonContent(spec.success.schema) }),
+      ...(spec.success.binary === true
+        ? { content: { 'image/*': { schema: { type: 'string', format: 'binary' } } } }
+        : spec.success.schema === undefined
+          ? {}
+          : { content: jsonContent(spec.success.schema) }),
     },
   };
   for (const status of spec.errors) {
@@ -611,9 +664,30 @@ function buildOperation(spec: OperationSpec): JsonObject {
     ...(spec.public === true ? { security: [] } : {}),
     ...(spec.roles === undefined ? {} : { 'x-roles': spec.roles }),
     ...(spec.parameters === undefined ? {} : { parameters: spec.parameters }),
-    ...(spec.request === undefined
-      ? {}
-      : { requestBody: { required: true, content: jsonContent(spec.request) } }),
+    ...(spec.multipart === true
+      ? {
+          requestBody: {
+            required: true,
+            content: {
+              'multipart/form-data': {
+                schema: {
+                  type: 'object',
+                  required: ['file'],
+                  properties: {
+                    file: {
+                      type: 'string',
+                      format: 'binary',
+                      description: 'JPEG, PNG, or WebP image.',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        }
+      : spec.request === undefined
+        ? {}
+        : { requestBody: { required: true, content: jsonContent(spec.request) } }),
     responses,
   };
 }

@@ -8,6 +8,8 @@ export type AuditAction =
   | 'item.create'
   | 'item.update'
   | 'item.remove'
+  | 'item.image.upload'
+  | 'item.image.remove'
   | 'settings.update'
   | 'order.counter.create'
   | 'order.table.open'

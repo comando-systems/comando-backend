@@ -435,6 +435,9 @@ Input notation: `path` = URL parameters, `query` = query string, `body` = JSON b
 | GET | `/items/:id` | Any | path `Id` | 200 `Item` | 400, 401, 404 | - |
 | PATCH | `/items/:id` | ADMIN | path `Id`, body `UpdateItemRequest` | 200 `Item` | 400, 401, 403, 404, 409 | Existing orders keep their price. |
 | DELETE | `/items/:id` | ADMIN | path `Id` | 200 `Item` | 400, 401, 403, 404, 409 | Soft removal; past orders keep the item snapshot. |
+| POST | `/items/:id/image` | ADMIN | path `Id`, `multipart/form-data` field `file` | 200 `Item` | 400, 401, 403, 404, 409, 503 | JPEG/PNG/WebP up to `IMAGE_MAX_BYTES`; replaces a stored image; 503 when storage is disabled. |
+| DELETE | `/items/:id/image` | ADMIN | path `Id` | 200 `Item` | 400, 401, 403, 404, 409, 503 | Clears `imageUrl` and deletes a managed file. |
+| GET | `/images/items/:filename` | Public | path `filename` | 200 image bytes | 404 | Server-generated filenames only; unsafe paths return 404. |
 
 ### Orders
 

@@ -1,6 +1,7 @@
 import type { AppConfig } from '@/app/config';
 import type { Clock } from '@/app/ports/clock';
 import type { IdGenerator } from '@/app/ports/id-generator';
+import type { ImageStorage } from '@/app/ports/image-storage';
 import type { Logger } from '@/app/ports/logger';
 import type { PasswordHasher } from '@/app/ports/password-hasher';
 import type { RefreshTokenCodec } from '@/app/ports/refresh-token-codec';
@@ -25,6 +26,8 @@ export interface AppContainer {
   readonly passwordHasher: PasswordHasher;
   readonly tokenService: TokenService;
   readonly refreshTokenCodec: RefreshTokenCodec;
+  // Null when uploads are not configured; external image links still work.
+  readonly imageStorage: ImageStorage | null;
   readonly useCases: UseCases;
   close(): Promise<void>;
 }

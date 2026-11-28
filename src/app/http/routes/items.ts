@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import type { AppContainer } from '@/app/container';
+import { ServiceUnavailableError } from '@/app/errors';
 import { authMiddleware } from '@/app/http/middleware/auth';
 import {
   createItemBodySchema,
@@ -8,7 +9,7 @@ import {
 } from '@/app/http/schemas';
 import { toItemResponse, toPageResponse } from '@/app/http/serializers';
 import type { AppEnv } from '@/app/http/types';
-import { parseJson, parseQuery } from '@/app/http/validation';
+import { parseImageUpload, parseJson, parseQuery } from '@/app/http/validation';
 import { ItemID } from '@/domain/value-objects/ids';
 
 export function itemRoutes(container: AppContainer): Hono<AppEnv> {
@@ -61,6 +62,36 @@ export function itemRoutes(container: AppContainer): Hono<AppEnv> {
 
   routes.delete('/:id', async (context) => {
     const item = await container.useCases.items.remove.execute({
+      requestId: context.get('requestId'),
+      actorUserId: context.get('actorUserId'),
+      itemId: new ItemID(context.req.param('id')),
+    });
+
+    return context.json(toItemResponse(item));
+  });
+
+  routes.post('/:id/image', async (context) => {
+    if (container.imageStorage === null) {
+      throw new ServiceUnavailableError('Image storage is not configured');
+    }
+
+    const file = await parseImageUpload(context, container.config.imageMaxBytes);
+    const item = await container.useCases.items.uploadImage.execute({
+      requestId: context.get('requestId'),
+      actorUserId: context.get('actorUserId'),
+      itemId: new ItemID(context.req.param('id')),
+      ...file,
+    });
+
+    return context.json(toItemResponse(item));
+  });
+
+  routes.delete('/:id/image', async (context) => {
+    if (container.imageStorage === null) {
+      throw new ServiceUnavailableError('Image storage is not configured');
+    }
+
+    const item = await container.useCases.items.removeImage.execute({
       requestId: context.get('requestId'),
       actorUserId: context.get('actorUserId'),
       itemId: new ItemID(context.req.param('id')),

@@ -35,6 +35,13 @@ const configSchema = z
     LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(10_000).default(10),
     LOGIN_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().min(1).max(86_400).default(60),
     LOG_LEVEL: logLevelSchema.default('info'),
+    // Uploads are off until a directory is configured. Links in `imageUrl` work either way.
+    IMAGE_STORAGE_DIR: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.string().min(1).optional(),
+    ),
+    IMAGE_PUBLIC_BASE_URL: z.string().min(1).default('/images'),
+    IMAGE_MAX_BYTES: z.coerce.number().int().min(1).max(52_428_800).default(5_242_880),
     // Empty counts as unset (Compose passes an empty string). Unset means on outside production.
     API_DOCS_ENABLED: z.preprocess(
       (value) => (value === '' ? undefined : value),
@@ -42,6 +49,14 @@ const configSchema = z
     ),
   })
   .superRefine((value, context) => {
+    if (!value.IMAGE_PUBLIC_BASE_URL.startsWith('/')) {
+      context.addIssue({
+        code: 'custom',
+        path: ['IMAGE_PUBLIC_BASE_URL'],
+        message: 'IMAGE_PUBLIC_BASE_URL must be a root-relative path',
+      });
+    }
+
     // A wildcard origin is fine for local work but not for a deployed API.
     if (value.NODE_ENV === 'production' && value.CORS_ORIGIN === '*') {
       context.addIssue({
@@ -75,6 +90,9 @@ export interface AppConfig {
   readonly loginRateLimitMax: number;
   readonly loginRateLimitWindowSeconds: number;
   readonly logLevel: LogLevel;
+  readonly imageStorageDir?: string;
+  readonly imagePublicBaseUrl: string;
+  readonly imageMaxBytes: number;
   // Serves /docs and /openapi.json without authentication.
   readonly docsEnabled: boolean;
 }
@@ -117,6 +135,10 @@ export function loadConfig(environment: EnvironmentSource = process.env): AppCon
     loginRateLimitMax: value.LOGIN_RATE_LIMIT_MAX,
     loginRateLimitWindowSeconds: value.LOGIN_RATE_LIMIT_WINDOW_SECONDS,
     logLevel: value.LOG_LEVEL,
+    imageStorageDir: value.IMAGE_STORAGE_DIR,
+    imagePublicBaseUrl:
+      value.IMAGE_PUBLIC_BASE_URL === '/' ? '' : value.IMAGE_PUBLIC_BASE_URL.replace(/\/+$/, ''),
+    imageMaxBytes: value.IMAGE_MAX_BYTES,
     docsEnabled:
       value.API_DOCS_ENABLED === undefined
         ? value.NODE_ENV !== 'production'
