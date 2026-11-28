@@ -10,6 +10,7 @@ import {
   GetOrderUseCase,
   ListOrdersUseCase,
   OpenTableOrderUseCase,
+  SetOrderPricingUseCase,
 } from '@/app/use-cases';
 import type { Item } from '@/domain/entity/item';
 import type { PaymentMethod } from '@/domain/entity/order';
@@ -377,7 +378,7 @@ describe.skipIf(!TEST_DATABASE_URL)('order application use cases', () => {
     ).rejects.toThrow('Order not found');
   });
 
-  test('lets the cashier and the server close, either role cancel, and closes zero-total orders', async () => {
+  test('lets the cashier and the server close, either role cancel, and rejects zero-total closes', async () => {
     const server = await createUser(['SERVER']);
     const cashier = await createUser(['CASHIER']);
     const coffee = await createItem('Coffee', 500);
@@ -421,15 +422,32 @@ describe.skipIf(!TEST_DATABASE_URL)('order application use cases', () => {
     expect(canceled.canceledByUserId?.value).toBe(server.id.value);
 
     const empty = await openTableOrder.execute({ actorUserId: server.id, tableCode: 'T-03' });
-    const closedEmpty = await closeOrder.execute({
+    await expect(
+      closeOrder.execute({ actorUserId: cashier.id, orderId: empty.id, payments: [] }),
+    ).rejects.toThrow('Order total must not be zero');
+
+    const canceledEmpty = await cancelOrder.execute({
       actorUserId: cashier.id,
       orderId: empty.id,
+    });
+    expect(canceledEmpty.status).toBe('CANCELED');
+    expect(canceledEmpty.total.cents).toBe(0);
+
+    const credit = await openTableOrder.execute({ actorUserId: server.id, tableCode: 'T-GIFT' });
+    const setPricing = new SetOrderPricingUseCase(unitOfWork, clock);
+    const credited = await setPricing.execute({
+      actorUserId: server.id,
+      orderId: credit.id,
+      discountCents: 500,
+    });
+    expect(credited.total.cents).toBe(-500);
+    const closedCredit = await closeOrder.execute({
+      actorUserId: cashier.id,
+      orderId: credit.id,
       payments: [],
     });
-
-    expect(closedEmpty.status).toBe('CLOSED');
-    expect(closedEmpty.total.cents).toBe(0);
-    expect(closedEmpty.payments).toHaveLength(0);
+    expect(closedCredit.status).toBe('CLOSED');
+    expect(closedCredit.payments).toHaveLength(0);
   });
 
   test('lists and reads order history with filters and permissions', async () => {

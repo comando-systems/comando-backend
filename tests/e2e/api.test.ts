@@ -664,13 +664,36 @@ describe.skipIf(!TEST_DATABASE_URL)('HTTP API', () => {
         body: { tableCode: 'T-03' },
       }),
     );
-    const closedEmpty = await request(`/orders/${empty.id}/close`, {
+    const rejectedEmpty = await request(`/orders/${empty.id}/close`, {
       method: 'POST',
       token: cashierToken,
       body: { payments: [] },
     });
-    expect(closedEmpty.status).toBe(200);
-    expect((await readJson<OrderDto>(closedEmpty)).totalCents).toBe(0);
+    expect(rejectedEmpty.status).toBe(409);
+    expect((await readJson<ErrorDto>(rejectedEmpty)).error.code).toBe('ZERO_TOTAL');
+    expect(
+      (await request(`/orders/${empty.id}/cancel`, { method: 'POST', token: cashierToken })).status,
+    ).toBe(200);
+
+    const credit = await readJson<OrderDto>(
+      await request('/orders/table', {
+        method: 'POST',
+        token: serverToken,
+        body: { tableCode: 'T-GIFT' },
+      }),
+    );
+    await request(`/orders/${credit.id}/pricing`, {
+      method: 'PATCH',
+      token: serverToken,
+      body: { discountCents: 500 },
+    });
+    const closedCredit = await request(`/orders/${credit.id}/close`, {
+      method: 'POST',
+      token: cashierToken,
+      body: { payments: [] },
+    });
+    expect(closedCredit.status).toBe(200);
+    expect((await readJson<OrderDto>(closedCredit)).totalCents).toBe(-500);
   });
 
   test('applies payload limits, CORS, rate limiting, and unknown-route handling', async () => {

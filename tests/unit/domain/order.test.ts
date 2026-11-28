@@ -5,6 +5,7 @@ import {
   InvalidStateTransitionError,
   InvalidValueError,
   InvariantViolationError,
+  ZeroTotalError,
 } from '@/domain/errors';
 import { ItemID, OrderID, UserID } from '@/domain/value-objects/ids';
 
@@ -82,6 +83,32 @@ describe('Order', () => {
     ).toThrow(InvalidValueError);
   });
 
+  test('rejects a counter order with a zero total', () => {
+    expect(() =>
+      Order.createCounter({
+        id: new OrderID('1'),
+        openedByUserId: new UserID('1'),
+        lines: [{ item: createItem('1', 0), quantity: 1 }],
+        payments: [],
+        now,
+      }),
+    ).toThrow(ZeroTotalError);
+  });
+
+  test('allows a negative counter balance without payments', () => {
+    const order = Order.createCounter({
+      id: new OrderID('1'),
+      openedByUserId: new UserID('1'),
+      lines: [{ item: createItem('1', 1000), quantity: 1 }],
+      discountCents: 1500,
+      payments: [],
+      now,
+    });
+
+    expect(order.total.cents).toBe(-500);
+    expect(order.payments).toHaveLength(0);
+  });
+
   test('opens an empty table order with an optional name', () => {
     const named = createTableOrder();
     const unnamed = Order.openTable({
@@ -103,7 +130,8 @@ describe('Order', () => {
 
   test('releases the active name on close and cancel but keeps the original', () => {
     const closed = createTableOrder();
-    closed.close(new UserID('1'), [], now);
+    closed.addItem(createItem('1', 750), 1, now);
+    closed.close(new UserID('1'), [{ method: 'PIX', amountCents: 750 }], now);
     expect(closed.tableCode).toBeNull();
     expect(closed.originalTableCode).toBe('T-01');
 
@@ -155,8 +183,9 @@ describe('Order', () => {
 
   test('closes an open table order and rejects further changes', () => {
     const order = createTableOrder();
+    order.addItem(createItem('1', 750), 1, now);
 
-    order.close(new UserID('2'), [], later);
+    order.close(new UserID('2'), [{ method: 'PIX', amountCents: 750 }], later);
 
     expect(order.status).toBe('CLOSED');
     expect(order.closedByUserId?.value).toBe('2');
@@ -178,14 +207,14 @@ describe('Order', () => {
     expect(() => order.close(new UserID('2'), [], later)).toThrow(InvalidStateTransitionError);
   });
 
-  test('allows closing an empty table order', () => {
+  test('refuses to close an empty table order but allows canceling it', () => {
     const order = createTableOrder();
 
-    order.close(new UserID('2'), [], later);
+    expect(() => order.close(new UserID('2'), [], later)).toThrow(ZeroTotalError);
+    expect(order.status).toBe('OPEN');
 
-    expect(order.status).toBe('CLOSED');
-    expect(order.total.cents).toBe(0);
-    expect(order.payments).toHaveLength(0);
+    order.cancel(new UserID('2'), later);
+    expect(order.status).toBe('CANCELED');
   });
 
   test('records split payments that match the order total', () => {

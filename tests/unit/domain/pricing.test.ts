@@ -72,9 +72,15 @@ describe('pricing', () => {
     });
   });
 
-  test('rejects a discount above the subtotal plus the surcharge', () => {
-    expect(() => price(1000, 0, 1001)).toThrow(InvalidValueError);
-    expect(() => price(1000, 200, 1201)).toThrow(InvalidValueError);
+  test('allows a discount above the adjusted amount, leaving a negative credit', () => {
+    // A gift credit of R$10,01 on a R$10,00 sale leaves -1 cent and charges no fee.
+    expect(price(1000, 0, 1001, 1000)).toEqual({
+      subtotal: 1000,
+      surcharge: 0,
+      discount: 1001,
+      serviceFee: 0,
+      total: -1,
+    });
   });
 
   test('rounds half up on integer cents', () => {

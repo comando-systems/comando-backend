@@ -42,25 +42,17 @@ function percentOf(cents: number, basisPoints: number): number {
 }
 
 /**
- * subtotal + surcharge - discount, then the service fee on the adjusted amount. The surcharge and
- * the discount are independent, so both may apply at once, and a discount never exceeds the
- * adjusted subtotal.
+ * subtotal + surcharge - discount, then the service fee on the adjusted amount. The discount may
+ * exceed the adjusted subtotal, leaving a negative balance (for example a gift credit); no fee is
+ * charged on a negative balance.
  */
 export function calculatePricing(input: PricingInput): PricingBreakdown {
   const subtotal = input.subtotal.cents;
   const surcharge = requireNonNegativeMoney(input.surcharge, 'Surcharge').cents;
   const discount = requireNonNegativeMoney(input.discount, 'Discount').cents;
-  const adjusted = subtotal + surcharge;
-
-  if (discount > adjusted) {
-    throw new InvalidValueError('Discount cannot exceed the subtotal plus the surcharge');
-  }
-
-  const base = adjusted - discount;
-  const serviceFee = percentOf(
-    base,
-    requireBasisPoints(input.serviceFeeBasisPoints, 'Service fee'),
-  );
+  requireBasisPoints(input.serviceFeeBasisPoints, 'Service fee');
+  const base = subtotal + surcharge - discount;
+  const serviceFee = base > 0 ? percentOf(base, input.serviceFeeBasisPoints) : 0;
 
   return {
     subtotal: Money.fromCents(subtotal),

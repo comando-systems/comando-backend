@@ -427,7 +427,7 @@ const operations: readonly OperationSpec[] = [
     tag: 'Orders',
     summary: 'Create a counter order',
     description:
-      'Creates the order with all its lines and persists it as `CLOSED` in one transaction. The server calculates the total, and the payments must add up to it exactly. A zero-total order needs no payments.',
+      'Creates the order with all its lines and persists it as `CLOSED` in one transaction. The server calculates the total, which must be non-zero. Negative balances need no payments; otherwise payments must add up to the total exactly.',
     roles: ['CASHIER'],
     request: 'CreateCounterOrderRequest',
     success: { status: 201, description: 'The closed order.', schema: 'Order' },
@@ -596,7 +596,7 @@ const operations: readonly OperationSpec[] = [
     tag: 'Orders',
     summary: 'Close a table order',
     description:
-      'Closes an order that is open or awaiting payment. The payments must add up to the total exactly, including the service fee. For cash, send `receivedCents` and the server derives the change. `CLOSED` is terminal.',
+      'Closes an order that is open or awaiting payment with a non-zero total (`ZERO_TOTAL` otherwise). Negative balances need no payments; otherwise payments must add up to the total exactly, including the service fee. For cash, send `receivedCents` and the server derives the change. `CLOSED` is terminal.',
     roles: ['CASHIER', 'SERVER'],
     parameters: [idParameter('id', 'Order identifier.')],
     request: 'CloseOrderRequest',

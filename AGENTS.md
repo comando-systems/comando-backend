@@ -90,7 +90,7 @@ Do not add feature-local copies of these layers. Do not create `modules/<feature
 - Calculate totals on the server; never trust client-submitted totals.
 - A `COUNTER` order is created with its complete set of lines and persisted directly as `CLOSED` in one transaction.
 - A `TABLE` order is opened as `OPEN`. A `SERVER` can add items/change quantities. Both `CASHIER` and `SERVER` can close or cancel it.
-- Closing an order records its payment methods and amounts. Payments must sum exactly to the order total; zero-total orders require no payments.
+- Closing an order requires a non-zero total; canceling does not. A discount may create a negative credit balance (for example a gift), which closes with no payments. Otherwise payments must sum exactly to the order total.
 - `CLOSED` and `CANCELED` are terminal states in the initial scope.
 - Users must be deactivated/soft-deleted, never physically deleted.
 - Removing an item from the active catalog must not destroy historical order data.

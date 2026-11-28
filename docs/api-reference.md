@@ -47,7 +47,7 @@ Every error has the same shape:
 | Status | Code | When |
 |---|---|---|
 | 400 | `VALIDATION_ERROR` | Malformed JSON, invalid query/path/body, or an explicit validation failure (for example `From must be before To`). |
-| 400 | `INVALID_VALUE` | A domain value invariant failed (negative price, non-positive quantity, invalid payment method, discount above subtotal plus surcharge, and so on). |
+| 400 | `INVALID_VALUE` | A domain value invariant failed (negative price, non-positive quantity, invalid payment method, payments on a negative balance, and so on). |
 | 401 | `UNAUTHORIZED` | Missing, malformed, expired, or invalid access token; disabled user; invalid credentials; invalid/expired/reused refresh token. |
 | 403 | `FORBIDDEN` | The user is active but lacks the permission required by the use case. |
 | 404 | `NOT_FOUND` | Unknown route, user, item, or order; an order line refers to an unavailable item. |
@@ -56,6 +56,7 @@ Every error has the same shape:
 | 409 | `CANNOT_REMOVE_OWN_ADMIN` | An administrator tried to remove their own `ADMIN` role. |
 | 409 | `LAST_ADMIN` | The change would remove the last active administrator. |
 | 409 | `TABLE_OCCUPIED` | Another active order with lines already holds this table name. |
+| 409 | `ZERO_TOTAL` | Closing a counter or table order whose total is zero. Canceling is still allowed. |
 | 409 | `INVARIANT_VIOLATION` | A domain invariant failed, such as payments not summing to the total. |
 | 409 | `INVALID_STATE_TRANSITION` | The order's current status does not allow the requested action. |
 | 413 | `PAYLOAD_TOO_LARGE` | Request body exceeds `BODY_LIMIT_BYTES`. |
@@ -241,6 +242,8 @@ A `POST` body line is `{ "itemId": positive id string, "quantity": positive inte
 | `POST /orders/:id/close` | `orders:close` | `{ "payments": [payment, ...] (default []) }` | `200` `Order` (`CLOSED`) | `400`, `401`, `403`, `404`, `409 CONFLICT` (only table orders, payments must sum to the total), `409 INVALID_STATE_TRANSITION` |
 | `POST /orders/:id/cancel` | `orders:cancel` | none | `200` `Order` (`CANCELED`) | `401`, `403`, `404`, `409 INVALID_STATE_TRANSITION` |
 | `POST /orders/:id/reopen` | `orders:request-payment` | none | `200` `Order` (`OPEN`) | `401`, `403`, `404`, `409 INVALID_STATE_TRANSITION` |
+
+Closing requires a non-zero total; a zero total answers `409 ZERO_TOTAL`. A discount may exceed items plus surcharge, leaving a negative credit balance; such an order closes with no payments and no service fee. Otherwise payments must sum exactly to the total. Canceling has no total requirement.
 
 A named table is occupied only when an active order already has lines. When a line is added, changed, or removed, the use case locks the name and answers `409 TABLE_OCCUPIED` if another active order holds it. An unnamed table has no occupancy rule. On `CLOSED` or `CANCELED`, `tableCode` is cleared and `originalTableCode` keeps the name from opening.
 
