@@ -447,12 +447,13 @@ at the root. Copy `.env.example` to `.env`, then:
 bun install
 bun run docker:db        # PostgreSQL
 bun run docker:migrate   # apply migrations
-bun run db:create-admin  # first administrator (ADMIN_EMAIL, ADMIN_PASSWORD)
-bun run db:seed-root     # seed the root@comando.com system user (ROOT_EMAIL, ROOT_PASSWORD)
+bun run db:seed-root     # first administrator (ROOT_EMAIL, ROOT_PASSWORD)
 bun run dev              # API with hot reload
 ```
 
-`bun run docker:up` starts the whole stack (PostgreSQL, migrations, API, nginx) the way it runs in deployment.
+`ROOT_EMAIL` defaults to `root@comando.com`. The seed is idempotent and creates the root user with the `ADMIN`, `CASHIER`, and `SERVER` roles; it is the only bootstrap user. After logging in as root, create any further administrators through the API.
+
+`bun run docker:up` starts the whole stack (PostgreSQL, migrations, API, nginx) the way it runs in deployment, including the root seed.
 
 ### Maintenance jobs
 

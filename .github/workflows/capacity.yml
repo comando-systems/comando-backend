@@ -53,8 +53,8 @@ jobs:
           echo "DATABASE_READ_URL=${url}" >> "$GITHUB_ENV"
           echo "DATABASE_WRITE_URL=${url}" >> "$GITHUB_ENV"
       - run: bun run build
-      - name: Create the capacity user
-        run: ADMIN_EMAIL="$LOAD_EMAIL" ADMIN_PASSWORD="$LOAD_PASSWORD" bun run db:create-admin
+      - name: Seed the root user
+        run: ROOT_EMAIL="$LOAD_EMAIL" ROOT_PASSWORD="$LOAD_PASSWORD" bun run db:seed-root
       - name: Start the production build
         env:
           WEB_CONCURRENCY: ${{ inputs.web_concurrency }}
