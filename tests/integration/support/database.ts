@@ -23,6 +23,8 @@ export async function resetDatabase(database: DatabaseConnections): Promise<void
       order_items,
       orders,
       items,
+      item_categories,
+      categories,
       user_roles,
       users
     RESTART IDENTITY CASCADE

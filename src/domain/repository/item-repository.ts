@@ -19,6 +19,7 @@ export interface CreateItemRecord {
   readonly name: string;
   readonly description: string | null;
   readonly category?: string;
+  readonly categories?: readonly string[];
   readonly priceCents: number;
   readonly imageUrl: string | null;
   readonly active?: boolean;
@@ -26,6 +27,7 @@ export interface CreateItemRecord {
 }
 
 export interface ItemRepository {
+  existsByName(name: string): Promise<boolean>;
   findById(id: ItemID): Promise<Item | null>;
   findSellableByIds(ids: readonly ItemID[]): Promise<readonly Item[]>;
   create(record: CreateItemRecord): Promise<Item>;

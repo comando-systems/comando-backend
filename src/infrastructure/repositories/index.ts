@@ -2,6 +2,7 @@ import type { Repositories } from '@/domain/repository';
 import type { DatabaseConnections } from '@/infrastructure/database/connections';
 import { CountCache } from '@/infrastructure/database/count-cache';
 import { AuditLogRepository } from '@/infrastructure/repositories/audit-log-repository';
+import { CategoryRepository } from '@/infrastructure/repositories/category-repository';
 import { ItemRepository } from '@/infrastructure/repositories/item-repository';
 import { OrderItemRepository } from '@/infrastructure/repositories/order-item-repository';
 import { OrderPaymentRepository } from '@/infrastructure/repositories/order-payment-repository';
@@ -23,6 +24,7 @@ export function createRepositories(
   options: RepositoryOptions = {},
 ): Repositories {
   const counts = new CountCache(options.countCacheTtlMs ?? 0);
+  const categories = new CategoryRepository(database);
   const roles = new RoleRepository(database);
   const userRoles = new UserRoleRepository(database);
   const orderItems = new OrderItemRepository(database);
@@ -33,7 +35,8 @@ export function createRepositories(
     users: new UserRepository(database, roles, userRoles),
     roles,
     userRoles,
-    items: new ItemRepository(database, counts),
+    categories,
+    items: new ItemRepository(database, counts, categories),
     orders: new OrderRepository(database, orderItems, orderPayments, counts),
     orderItems,
     orderPayments,

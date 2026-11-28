@@ -1,6 +1,7 @@
 export { ID } from '@/domain/value-objects/id';
 export {
   AuditLogID,
+  CategoryID,
   ItemID,
   OrderID,
   OrderPaymentID,

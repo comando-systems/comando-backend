@@ -77,6 +77,8 @@ Both are public. They are on by default outside production and off in production
 
 The document is built in code (`src/app/http/openapi/`). Request bodies reuse the same `zod` schemas the API validates with, response schemas are checked against the real serializers in the tests, and a test fails when a registered route is missing from the document or the document lists a route that does not exist. When you add or change an endpoint, update `src/app/http/openapi/document.ts` in the same change.
 
+For a route-by-route reference with request fields, response examples, permissions, and error codes, see `docs/api-reference.md`.
+
 ### Endpoints
 
 | Method | Path | Allowed roles | Description |
@@ -162,7 +164,9 @@ Payment methods are `CASH`, `DEBIT_CARD`, `CREDIT_CARD`, `PIX`, and `OTHER`. The
 
 ### Catalog, settings, and users
 
-Items have a `category` (default `Uncategorized`) and an `enabled` switch. A disabled item stays editable and visible to administrators, but cannot be sold: it is hidden from everyone else and cannot be added to an order. `isActive` still means "not removed from the catalog". The catalog is ordered by category, then name.
+Items have a list of `categories` (at most 8 unique names of 1-80 characters) and an `enabled` switch. The first category is the primary `category` label (default `Uncategorized`) used for catalog grouping, ordering, and full-text search; the complete set is stored in `categories` and `item_categories`. A disabled item stays editable and visible to administrators, but cannot be sold: it is hidden from everyone else and cannot be added to an order. `isActive` still means "not removed from the catalog". The catalog is ordered by category, then name.
+
+`GET /items` and `GET /items/:id` include `categories`; `POST` and `PATCH /items` accept `categories`. The legacy `category` field remains as a shorthand for a single category.
 
 `GET /settings` and `PUT /settings` manage the service fee. It starts off, `serviceFeeBasisPoints` is 1000 (10%) by default, and an order keeps the rate it snapshotted, so changing the settings never alters existing orders.
 
@@ -448,10 +452,13 @@ bun install
 bun run docker:db        # PostgreSQL
 bun run docker:migrate   # apply migrations
 bun run db:seed-root     # first administrator (ROOT_EMAIL, ROOT_PASSWORD)
+bun run db:seed-items    # curated demo catalog (idempotent)
 bun run dev              # API with hot reload
 ```
 
 `ROOT_EMAIL` defaults to `root@comando.com`. The seed is idempotent and creates the root user with the `ADMIN`, `CASHIER`, and `SERVER` roles; it is the only bootstrap user. After logging in as root, create any further administrators through the API.
+
+`bun run db:seed-items` loads 20 demo products with multiple categories and image URLs after the root seed. It is manual and idempotent: an item whose name already exists is skipped, so rerunning does not duplicate products. Image credits and licenses are recorded in `scripts/data/catalog.ts` (Open Food Facts product photos under CC BY-SA 3.0 and Pexels photos under the Pexels License); the API only stores the URLs. Because Pexels asks for visible attribution, a client displaying these photos should link back to Pexels and credit the photographer named in the dataset. Seeding never calls either API at runtime.
 
 `bun run docker:up` starts the whole stack (PostgreSQL, migrations, API, nginx) the way it runs in deployment, including the root seed.
 

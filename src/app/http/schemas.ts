@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MAX_ITEM_CATEGORIES } from '@/domain/entity/item';
 
 const positiveId = z.string().regex(/^[1-9]\d*$/, 'Must be a positive integer identifier');
 
@@ -37,10 +38,19 @@ export const updateUserBodySchema = z
     message: 'At least one field is required',
   });
 
+const categoriesSchema = z
+  .array(z.string().trim().min(1, 'Category cannot be empty').max(80))
+  .max(MAX_ITEM_CATEGORIES, `Item cannot have more than ${MAX_ITEM_CATEGORIES} categories`)
+  .refine(
+    (values) => new Set(values.map((value) => value.toLocaleLowerCase())).size === values.length,
+    'Duplicate category',
+  );
+
 export const createItemBodySchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.string().nullable().optional(),
   category: z.string().trim().min(1, 'Category cannot be empty').max(80).optional(),
+  categories: categoriesSchema.optional(),
   enabled: z.boolean().optional(),
   priceCents: z.number().int().min(0, 'Price cannot be negative'),
   imageUrl: z.string().nullable().optional(),
@@ -51,6 +61,7 @@ export const updateItemBodySchema = z
     name: z.string().min(1).optional(),
     description: z.string().nullable().optional(),
     category: z.string().trim().min(1, 'Category cannot be empty').max(80).optional(),
+    categories: categoriesSchema.optional(),
     enabled: z.boolean().optional(),
     priceCents: z.number().int().min(0, 'Price cannot be negative').optional(),
     imageUrl: z.string().nullable().optional(),

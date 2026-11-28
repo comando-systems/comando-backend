@@ -1,4 +1,5 @@
-import { DEFAULT_ITEM_CATEGORY, Item } from '@/domain/entity/item';
+import { Item } from '@/domain/entity/item';
+import type { CategoryRepository } from '@/domain/repository/category-repository';
 import type {
   CreateItemRecord,
   ItemPage,
@@ -9,6 +10,7 @@ import { ItemID } from '@/domain/value-objects/ids';
 import { Money } from '@/domain/value-objects/money';
 import type { DatabaseConnections } from '@/infrastructure/database/connections';
 import type { CountCache } from '@/infrastructure/database/count-cache';
+import type { SqlClient } from '@/infrastructure/database/sql-client';
 import { toDate, toNullableDate } from '@/infrastructure/repositories/mapping';
 
 interface ItemRow {
@@ -40,12 +42,43 @@ const ITEM_COLUMNS = `
 const SEARCH_ACCENTS_FROM = 'áàâãäéèêëíìîïóòôõöúùûüçñ';
 const SEARCH_ACCENTS_TO = 'aaaaaeeeeiiiiooooouuuucn';
 
-function mapItem(row: ItemRow): Item {
+async function loadCategories(
+  sql: SqlClient,
+  itemIds: readonly string[],
+): Promise<Map<string, string[]>> {
+  if (itemIds.length === 0) {
+    return new Map();
+  }
+
+  const rows = await sql.query<{ item_id: string; name: string }[]>`
+    SELECT ic.item_id::text AS item_id, c.name
+    FROM item_categories ic
+    JOIN categories c ON c.id = ic.category_id
+    WHERE ic.item_id = ANY(${sql.array([...itemIds], 'BIGINT')})
+    ORDER BY c.name, c.id
+  `;
+
+  const byItem = new Map<string, string[]>();
+  for (const row of rows) {
+    const names = byItem.get(row.item_id) ?? [];
+    names.push(row.name);
+    byItem.set(row.item_id, names);
+  }
+  return byItem;
+}
+
+function orderedCategories(row: ItemRow, names: readonly string[]): readonly string[] {
+  const unique = [...new Set(names)];
+  return [row.category, ...unique.filter((name) => name !== row.category)];
+}
+
+function mapItem(row: ItemRow, categories: readonly string[]): Item {
   return Item.restore({
     id: new ItemID(row.id),
     name: row.name,
     description: row.description,
     category: row.category,
+    categories: orderedCategories(row, categories),
     price: Money.fromCents(Number(row.price_cents)),
     imageUrl: row.image_url,
     active: row.active,
@@ -59,28 +92,33 @@ export class ItemRepository implements ItemRepositoryContract {
   constructor(
     private readonly database: DatabaseConnections,
     private readonly counts: CountCache,
+    private readonly categories: CategoryRepository,
   ) {}
+
+  async existsByName(name: string): Promise<boolean> {
+    const rows = await this.database.readSql().query<{ exists: boolean }[]>`
+      SELECT EXISTS(
+        SELECT 1 FROM items WHERE lower(name) = lower(${name})
+      ) AS exists
+    `;
+
+    return rows[0]?.exists === true;
+  }
 
   async findById(id: ItemID): Promise<Item | null> {
     const sql = this.database.readSql();
-    const rows = await sql.query<ItemRow[]>`
-      SELECT
-        id::text AS id,
-        name,
-        description,
-        category,
-        price_cents::text AS price_cents,
-        image_url,
-        active,
-        deleted_at,
-        created_at,
-        updated_at
-      FROM items
-      WHERE id = ${id.value}
-    `;
+    const rows = await sql.unsafe<ItemRow[]>(`SELECT ${ITEM_COLUMNS} FROM items WHERE id = $1`, [
+      id.value,
+    ]);
 
     const row = rows[0];
-    return row === undefined ? null : mapItem(row);
+
+    if (row === undefined) {
+      return null;
+    }
+
+    const byItem = await loadCategories(sql, [row.id]);
+    return mapItem(row, byItem.get(row.id) ?? []);
   }
 
   async findSellableByIds(ids: readonly ItemID[]): Promise<readonly Item[]> {
@@ -89,48 +127,55 @@ export class ItemRepository implements ItemRepositoryContract {
     }
 
     const sql = this.database.readSql();
-    const rows = await sql.query<ItemRow[]>`
-      SELECT
-        id::text AS id,
-        name,
-        description,
-        category,
-        price_cents::text AS price_cents,
-        image_url,
-        active,
-        deleted_at,
-        created_at,
-        updated_at
+    const rows = await sql.unsafe<ItemRow[]>(
+      `SELECT ${ITEM_COLUMNS}
       FROM items
-      WHERE id = ANY(${sql.array(
-        ids.map((id) => id.value),
-        'BIGINT',
-      )})
+      WHERE id = ANY($1::bigint[])
         AND deleted_at IS NULL
         AND active
-      ORDER BY id
-    `;
+      ORDER BY id`,
+      [
+        sql.array(
+          ids.map((id) => id.value),
+          'BIGINT',
+        ),
+      ],
+    );
 
-    return rows.map(mapItem);
+    const byItem = await loadCategories(
+      sql,
+      rows.map((row) => row.id),
+    );
+    return rows.map((row) => mapItem(row, byItem.get(row.id) ?? []));
   }
 
   async create(record: CreateItemRecord): Promise<Item> {
     const sql = this.database.writeSql();
-    const category = record.category ?? DEFAULT_ITEM_CATEGORY;
-    const active = record.active ?? true;
+    const draft = Item.create({
+      id: new ItemID('1'),
+      name: record.name,
+      description: record.description,
+      category: record.category,
+      categories: record.categories,
+      priceCents: record.priceCents,
+      imageUrl: record.imageUrl,
+      active: record.active,
+      now: record.now,
+    });
+
     const rows = await sql.query<{ id: string }[]>`
       INSERT INTO items (
         name, description, category, price_cents, image_url, active, created_at, updated_at
       )
       VALUES (
-        ${record.name},
-        ${record.description},
-        ${category},
-        ${record.priceCents},
-        ${record.imageUrl},
-        ${active},
-        ${record.now},
-        ${record.now}
+        ${draft.name},
+        ${draft.description},
+        ${draft.category},
+        ${draft.price.cents},
+        ${draft.imageUrl},
+        ${draft.isEnabled},
+        ${draft.createdAt},
+        ${draft.updatedAt}
       )
       RETURNING id::text AS id
     `;
@@ -141,15 +186,17 @@ export class ItemRepository implements ItemRepositoryContract {
       throw new Error('Failed to create item');
     }
 
+    await this.replaceCategories(id, draft.categories);
+
     return Item.create({
       id: new ItemID(id),
-      name: record.name,
-      description: record.description,
-      category,
-      priceCents: record.priceCents,
-      imageUrl: record.imageUrl,
-      active,
-      now: record.now,
+      name: draft.name,
+      description: draft.description,
+      categories: draft.categories,
+      priceCents: draft.price.cents,
+      imageUrl: draft.imageUrl,
+      active: draft.isEnabled,
+      now: draft.createdAt,
     });
   }
 
@@ -168,6 +215,8 @@ export class ItemRepository implements ItemRepositoryContract {
         updated_at = ${item.updatedAt}
       WHERE id = ${item.id.value}
     `;
+
+    await this.replaceCategories(item.id.value, item.categories);
   }
 
   async list(options: ItemPageOptions): Promise<ItemPage> {
@@ -214,9 +263,28 @@ export class ItemRepository implements ItemRepositoryContract {
       [...params, options.pageSize, offset],
     );
 
+    const byItem = await loadCategories(
+      sql,
+      rows.map((row) => row.id),
+    );
+
     return {
-      items: rows.map(mapItem),
+      items: rows.map((row) => mapItem(row, byItem.get(row.id) ?? [])),
       total,
     };
+  }
+
+  private async replaceCategories(itemId: string, names: readonly string[]): Promise<void> {
+    const sql = this.database.writeSql();
+    await sql.query`DELETE FROM item_categories WHERE item_id = ${itemId}`;
+
+    for (const name of names) {
+      const category = await this.categories.findOrCreateByName(name);
+      await sql.query`
+        INSERT INTO item_categories (item_id, category_id)
+        VALUES (${itemId}, ${category.id.value})
+        ON CONFLICT (item_id, category_id) DO NOTHING
+      `;
+    }
   }
 }

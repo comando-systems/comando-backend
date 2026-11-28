@@ -12,6 +12,7 @@ export interface CreateItemInput {
   readonly name: string;
   readonly description?: string | null;
   readonly category?: string;
+  readonly categories?: readonly string[];
   readonly priceCents: number;
   readonly imageUrl?: string | null;
   readonly enabled?: boolean;
@@ -31,6 +32,7 @@ export class CreateItemUseCase {
         name: input.name,
         description: input.description ?? null,
         category: input.category,
+        categories: input.categories,
         priceCents: input.priceCents,
         imageUrl: input.imageUrl ?? null,
         active: input.enabled,

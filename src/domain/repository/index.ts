@@ -1,4 +1,5 @@
 import type { AuditLogRepository } from '@/domain/repository/audit-log-repository';
+import type { CategoryRepository } from '@/domain/repository/category-repository';
 import type { ItemRepository } from '@/domain/repository/item-repository';
 import type { OrderItemRepository } from '@/domain/repository/order-item-repository';
 import type { OrderPaymentRepository } from '@/domain/repository/order-payment-repository';
@@ -15,6 +16,7 @@ export interface Repositories {
   readonly users: UserRepository;
   readonly roles: RoleRepository;
   readonly userRoles: UserRoleRepository;
+  readonly categories: CategoryRepository;
   readonly items: ItemRepository;
   readonly orders: OrderRepository;
   readonly orderItems: OrderItemRepository;
