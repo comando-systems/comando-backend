@@ -360,7 +360,7 @@ describe.skipIf(!TEST_DATABASE_URL)('order application use cases', () => {
     ).rejects.toThrow('Order not found');
   });
 
-  test('lets the cashier close, either role cancel, and closes zero-total orders', async () => {
+  test('lets the cashier and the server close, either role cancel, and closes zero-total orders', async () => {
     const server = await createUser(['SERVER']);
     const cashier = await createUser(['CASHIER']);
     const coffee = await createItem('Coffee', 500);
@@ -372,18 +372,26 @@ describe.skipIf(!TEST_DATABASE_URL)('order application use cases', () => {
       lines: [{ itemId: coffee.id, quantity: 1 }],
     });
 
-    // The server hands the table over; taking the payment belongs to the cashier.
-    await expect(
-      closeOrder.execute({
-        actorUserId: server.id,
-        orderId: toClose.id,
-        payments: [{ method: 'CASH', amountCents: 500 }],
-      }),
-    ).rejects.toBeInstanceOf(ForbiddenError);
+    // Both the cashier at the till and the server who owns the table can close it.
+    const closedByServer = await closeOrder.execute({
+      actorUserId: server.id,
+      orderId: toClose.id,
+      payments: [{ method: 'CASH', amountCents: 500 }],
+    });
+    expect(closedByServer.closedByUserId?.value).toBe(server.id.value);
 
+    const cashierTable = await openTableOrder.execute({
+      actorUserId: server.id,
+      tableCode: 'T-CASHIER',
+    });
+    await addOrderItems.execute({
+      actorUserId: server.id,
+      orderId: cashierTable.id,
+      lines: [{ itemId: coffee.id, quantity: 1 }],
+    });
     const closed = await closeOrder.execute({
       actorUserId: cashier.id,
-      orderId: toClose.id,
+      orderId: cashierTable.id,
       payments: [{ method: 'CASH', amountCents: 500 }],
     });
     expect(closed.closedByUserId?.value).toBe(cashier.id.value);

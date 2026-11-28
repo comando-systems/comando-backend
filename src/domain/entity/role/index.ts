@@ -22,26 +22,18 @@ export type Permission =
 // The table from ADR-02. A server takes the order and hands the table over; the cashier takes the
 // payment. Administrators manage the business and may also run the till.
 const ROLE_PERMISSIONS: Readonly<Record<RoleCode, readonly Permission[]>> = {
-  ADMIN: [
-    'users:manage',
-    'items:manage',
-    'settings:manage',
-    'reports:view',
-    'orders:counter',
-    'orders:history',
-    'orders:close',
-    'orders:cancel',
-  ],
-  CASHIER: [
-    'orders:counter',
-    'orders:history',
+  // Administrative work and history only: the floor and the till belong to CASHIER and SERVER.
+  ADMIN: ['users:manage', 'items:manage', 'settings:manage', 'reports:view', 'orders:history'],
+  // The till: completed counter sales, plus closing and canceling orders opened by servers.
+  CASHIER: ['orders:counter', 'orders:history', 'orders:close', 'orders:cancel'],
+  // The floor: the whole table lifecycle, from opening to payment and closing.
+  SERVER: [
     'orders:open',
     'orders:update',
     'orders:request-payment',
     'orders:close',
     'orders:cancel',
   ],
-  SERVER: ['orders:open', 'orders:update', 'orders:request-payment', 'orders:cancel'],
 };
 
 export function isRoleCode(value: string): value is RoleCode {

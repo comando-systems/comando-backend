@@ -41,53 +41,39 @@ describe('User', () => {
   test.each([
     [
       'ADMIN',
-      [
-        'users:manage',
-        'items:manage',
-        'settings:manage',
-        'reports:view',
-        'orders:counter',
-        'orders:history',
-        'orders:close',
-        'orders:cancel',
-      ],
+      ['users:manage', 'items:manage', 'settings:manage', 'reports:view', 'orders:history'],
     ],
+    ['CASHIER', ['orders:counter', 'orders:history', 'orders:close', 'orders:cancel']],
     [
-      'CASHIER',
-      [
-        'orders:counter',
-        'orders:history',
-        'orders:open',
-        'orders:update',
-        'orders:request-payment',
-        'orders:close',
-        'orders:cancel',
-      ],
+      'SERVER',
+      ['orders:open', 'orders:update', 'orders:request-payment', 'orders:close', 'orders:cancel'],
     ],
-    ['SERVER', ['orders:open', 'orders:update', 'orders:request-payment', 'orders:cancel']],
   ] as const)('grants %s exactly its permissions', (role, permissions) => {
     expect(permissionsForRoles([role])).toEqual(new Set(permissions));
   });
 
-  test('a server hands tables over but cannot take payment', () => {
+  test('a server owns the whole table lifecycle but cannot run the till', () => {
     const server = createUser({ roles: ['SERVER'] });
 
     expect(server.hasPermission('orders:request-payment')).toBe(true);
-    expect(server.hasPermission('orders:close')).toBe(false);
+    expect(server.hasPermission('orders:close')).toBe(true);
+    expect(server.hasPermission('orders:open')).toBe(true);
     expect(server.hasPermission('orders:counter')).toBe(false);
     expect(server.hasPermission('orders:history')).toBe(false);
   });
 
-  test('a cashier also opens and edits tables, and an administrator can run the till', () => {
+  test('a cashier runs the till and closes tables, while an administrator is administrative only', () => {
     const cashier = createUser({ roles: ['CASHIER'] });
     const admin = createUser({ roles: ['ADMIN'] });
 
-    expect(cashier.hasPermission('orders:open')).toBe(true);
-    expect(cashier.hasPermission('orders:update')).toBe(true);
-    expect(admin.hasPermission('orders:counter')).toBe(true);
-    expect(admin.hasPermission('orders:close')).toBe(true);
-    expect(admin.hasPermission('orders:open')).toBe(false);
-    expect(admin.hasPermission('orders:request-payment')).toBe(false);
+    expect(cashier.hasPermission('orders:counter')).toBe(true);
+    expect(cashier.hasPermission('orders:close')).toBe(true);
+    expect(cashier.hasPermission('orders:open')).toBe(false);
+    expect(cashier.hasPermission('orders:update')).toBe(false);
+    expect(admin.hasPermission('orders:counter')).toBe(false);
+    expect(admin.hasPermission('orders:close')).toBe(false);
+    expect(admin.hasPermission('orders:history')).toBe(true);
+    expect(admin.hasPermission('items:manage')).toBe(true);
   });
 
   test('rejects invalid data', () => {

@@ -20,9 +20,10 @@ This document lists every registered route with its inputs, outputs, and errors.
 | Permission | ADMIN | CASHIER | SERVER |
 |---|---|---|---|
 | `users:manage`, `items:manage`, `settings:manage`, `reports:view` | yes | no | no |
-| `orders:counter`, `orders:history` | yes | yes | no |
-| `orders:close`, `orders:cancel` | yes | yes | yes |
-| `orders:open`, `orders:update`, `orders:request-payment` | no | yes | yes |
+| `orders:history` | yes | yes | no |
+| `orders:counter` | no | yes | no |
+| `orders:close`, `orders:cancel` | no | yes | yes |
+| `orders:open`, `orders:update`, `orders:request-payment` | no | no | yes |
 
 Live orders (`OPEN`, `AWAITING_PAYMENT`) are visible to any authenticated user who holds at least one of `orders:history`, `orders:open`, `orders:update`, or `orders:close`. Closed and canceled history requires `orders:history`.
 

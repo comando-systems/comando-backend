@@ -428,7 +428,7 @@ const operations: readonly OperationSpec[] = [
     summary: 'Create a counter order',
     description:
       'Creates the order with all its lines and persists it as `CLOSED` in one transaction. The server calculates the total, and the payments must add up to it exactly. A zero-total order needs no payments.',
-    roles: ['ADMIN', 'CASHIER'],
+    roles: ['CASHIER'],
     request: 'CreateCounterOrderRequest',
     success: { status: 201, description: 'The closed order.', schema: 'Order' },
     errors: [400, 401, 403, 404, 409],
@@ -441,7 +441,7 @@ const operations: readonly OperationSpec[] = [
     summary: 'Open a table order',
     description:
       'A table is occupied while its order is open or awaiting payment. Opening it again answers `409` with code `TABLE_OCCUPIED` and the existing order in `error.details.orderId`.',
-    roles: ['CASHIER', 'SERVER'],
+    roles: ['SERVER'],
     request: 'OpenTableOrderRequest',
     success: { status: 201, description: 'The open order.', schema: 'Order' },
     errors: [400, 401, 403, 409],
@@ -453,7 +453,7 @@ const operations: readonly OperationSpec[] = [
     tag: 'Orders',
     summary: 'List orders',
     description:
-      'Newest first. Servers and cashiers may list the orders still being served (`OPEN`, `AWAITING_PAYMENT`) by passing `status` or `statuses` with only those values. Anything that can include a closed or canceled order is history and needs the cashier role.',
+      'Newest first. Any role may list the orders still being served (`OPEN`, `AWAITING_PAYMENT`) by passing `status` or `statuses` with only those values. Anything that can include a closed or canceled order is history and needs `ADMIN` or `CASHIER`.',
     roles: ['ADMIN', 'CASHIER', 'SERVER'],
     parameters: [
       ...pagination,
@@ -516,7 +516,7 @@ const operations: readonly OperationSpec[] = [
     tag: 'Orders',
     summary: 'Add items to an open table order',
     description: 'Adding an item that is already on the order increases the quantity of its line.',
-    roles: ['CASHIER', 'SERVER'],
+    roles: ['SERVER'],
     parameters: [idParameter('id', 'Order identifier.')],
     request: 'AddOrderItemsRequest',
     success: { status: 200, description: 'The updated order.', schema: 'Order' },
@@ -528,7 +528,7 @@ const operations: readonly OperationSpec[] = [
     operationId: 'changeOrderItemQuantity',
     tag: 'Orders',
     summary: 'Set the quantity of a line',
-    roles: ['CASHIER', 'SERVER'],
+    roles: ['SERVER'],
     parameters: [
       idParameter('id', 'Order identifier.'),
       idParameter('itemId', 'Identifier of the item on the line.'),
@@ -543,7 +543,7 @@ const operations: readonly OperationSpec[] = [
     operationId: 'removeOrderItem',
     tag: 'Orders',
     summary: 'Remove a line from a table order',
-    roles: ['CASHIER', 'SERVER'],
+    roles: ['SERVER'],
     parameters: [
       idParameter('id', 'Order identifier.'),
       idParameter('itemId', 'Identifier of the item on the line.'),
@@ -559,7 +559,7 @@ const operations: readonly OperationSpec[] = [
     summary: 'Set the surcharge, the discount, or the service fee',
     description:
       'Sets or clears (`null`) the surcharge and the discount, and switches the service fee. Both amounts are independent and may be set at once. The server calculates the total: subtotal plus surcharge minus discount, then the fee on the adjusted amount. Allowed while the order is open or awaiting payment.',
-    roles: ['ADMIN', 'CASHIER', 'SERVER'],
+    roles: ['CASHIER', 'SERVER'],
     parameters: [idParameter('id', 'Order identifier.')],
     request: 'SetOrderPricingRequest',
     success: { status: 200, description: 'The updated order.', schema: 'Order' },
@@ -570,10 +570,10 @@ const operations: readonly OperationSpec[] = [
     path: '/orders/{id}/request-payment',
     operationId: 'requestOrderPayment',
     tag: 'Orders',
-    summary: 'Hand a table order to the cashier',
+    summary: 'Hand a table order to the till',
     description:
       'Moves an open order with at least one line to `AWAITING_PAYMENT`. The lines are locked until the order is reopened or closed.',
-    roles: ['CASHIER', 'SERVER'],
+    roles: ['SERVER'],
     parameters: [idParameter('id', 'Order identifier.')],
     success: { status: 200, description: 'The order awaiting payment.', schema: 'Order' },
     errors: [400, 401, 403, 404, 409],
@@ -584,7 +584,7 @@ const operations: readonly OperationSpec[] = [
     operationId: 'reopenOrder',
     tag: 'Orders',
     summary: 'Return an order awaiting payment to open',
-    roles: ['CASHIER', 'SERVER'],
+    roles: ['SERVER'],
     parameters: [idParameter('id', 'Order identifier.')],
     success: { status: 200, description: 'The open order.', schema: 'Order' },
     errors: [400, 401, 403, 404, 409],
@@ -597,7 +597,7 @@ const operations: readonly OperationSpec[] = [
     summary: 'Close a table order',
     description:
       'Closes an order that is open or awaiting payment. The payments must add up to the total exactly, including the service fee. For cash, send `receivedCents` and the server derives the change. `CLOSED` is terminal.',
-    roles: ['ADMIN', 'CASHIER'],
+    roles: ['CASHIER', 'SERVER'],
     parameters: [idParameter('id', 'Order identifier.')],
     request: 'CloseOrderRequest',
     success: { status: 200, description: 'The closed order.', schema: 'Order' },
@@ -610,7 +610,7 @@ const operations: readonly OperationSpec[] = [
     tag: 'Orders',
     summary: 'Cancel a table order',
     description: 'Cancels an order that is open or awaiting payment. `CANCELED` is terminal.',
-    roles: ['ADMIN', 'CASHIER', 'SERVER'],
+    roles: ['CASHIER', 'SERVER'],
     parameters: [idParameter('id', 'Order identifier.')],
     success: { status: 200, description: 'The canceled order.', schema: 'Order' },
     errors: [400, 401, 403, 404, 409],

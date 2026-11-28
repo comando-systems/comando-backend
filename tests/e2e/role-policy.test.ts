@@ -9,15 +9,15 @@ type Actor = 'ADMIN' | 'CASHIER' | 'SERVER';
 // The table from ADR-02, as seen from the HTTP API.
 const POLICY: ReadonlyArray<{ operation: string; ADMIN: number; CASHIER: number; SERVER: number }> =
   [
-    { operation: 'open a table', ADMIN: 403, CASHIER: 201, SERVER: 201 },
-    { operation: 'add items', ADMIN: 403, CASHIER: 200, SERVER: 200 },
-    { operation: 'change a quantity', ADMIN: 403, CASHIER: 200, SERVER: 200 },
-    { operation: 'remove a line', ADMIN: 403, CASHIER: 200, SERVER: 200 },
-    { operation: 'set the pricing', ADMIN: 200, CASHIER: 200, SERVER: 200 },
-    { operation: 'request payment', ADMIN: 403, CASHIER: 200, SERVER: 200 },
-    { operation: 'close', ADMIN: 200, CASHIER: 200, SERVER: 403 },
-    { operation: 'cancel', ADMIN: 200, CASHIER: 200, SERVER: 200 },
-    { operation: 'create a counter order', ADMIN: 201, CASHIER: 201, SERVER: 403 },
+    { operation: 'open a table', ADMIN: 403, CASHIER: 403, SERVER: 201 },
+    { operation: 'add items', ADMIN: 403, CASHIER: 403, SERVER: 200 },
+    { operation: 'change a quantity', ADMIN: 403, CASHIER: 403, SERVER: 200 },
+    { operation: 'remove a line', ADMIN: 403, CASHIER: 403, SERVER: 200 },
+    { operation: 'set the pricing', ADMIN: 403, CASHIER: 200, SERVER: 200 },
+    { operation: 'request payment', ADMIN: 403, CASHIER: 403, SERVER: 200 },
+    { operation: 'close', ADMIN: 403, CASHIER: 200, SERVER: 200 },
+    { operation: 'cancel', ADMIN: 403, CASHIER: 200, SERVER: 200 },
+    { operation: 'create a counter order', ADMIN: 403, CASHIER: 201, SERVER: 403 },
     { operation: 'list the history', ADMIN: 200, CASHIER: 200, SERVER: 403 },
     { operation: 'read a closed order', ADMIN: 200, CASHIER: 200, SERVER: 403 },
   ];

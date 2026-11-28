@@ -149,7 +149,7 @@ describe.skipIf(!TEST_DATABASE_URL)('order workflow API', () => {
 
       const reopened = await request(`/orders/${order.id}/reopen`, {
         method: 'POST',
-        token: cashierToken,
+        token: serverToken,
       });
       const open = await json<OrderDto>(reopened);
       expect(open.status).toBe('OPEN');
@@ -169,7 +169,7 @@ describe.skipIf(!TEST_DATABASE_URL)('order workflow API', () => {
 
       const notWaiting = await request(`/orders/${order.id}/reopen`, {
         method: 'POST',
-        token: cashierToken,
+        token: serverToken,
       });
       expect(notWaiting.status).toBe(409);
     });
@@ -307,13 +307,13 @@ describe.skipIf(!TEST_DATABASE_URL)('order workflow API', () => {
       expect(response.status).toBe(400);
     });
 
-    test('an administrator at the till may adjust the price too', async () => {
+    test('the cashier at the till may adjust the price too', async () => {
       const order = await openTable();
       await addCoffee(order.id, 1);
 
       const response = await request(`/orders/${order.id}/pricing`, {
         method: 'PATCH',
-        token: adminToken,
+        token: cashierToken,
         body: { discountCents: 100 },
       });
 
@@ -395,7 +395,7 @@ describe.skipIf(!TEST_DATABASE_URL)('order workflow API', () => {
       expect(again.status).toBe(409);
     });
 
-    test('the cashier may remove a line too, but an administrator may not', async () => {
+    test('the server may remove a line too, but an administrator may not', async () => {
       const order = await openTable();
       await addCoffee(order.id, 1);
 
@@ -405,7 +405,7 @@ describe.skipIf(!TEST_DATABASE_URL)('order workflow API', () => {
       });
       const allowed = await request(`/orders/${order.id}/items/${itemId}`, {
         method: 'DELETE',
-        token: cashierToken,
+        token: serverToken,
       });
 
       expect(forbidden.status).toBe(403);

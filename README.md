@@ -20,9 +20,9 @@ The system uses one order model for both service channels. A counter order is cr
 
 | Role | Permissions |
 |---|---|
-| `ADMIN` | Create and edit users; deactivate users; manage items and settings; run the till (counter orders, history, close, cancel, pricing). Cannot open or edit tables. |
-| `CASHIER` | Create completed counter orders (already closed and paid); view order history; open and edit tables; hand over, close, or cancel table orders. |
-| `SERVER` | Open table orders; add items and update quantities; hand a table to the cashier; cancel table orders. Cannot close them. |
+| `ADMIN` | Create and edit users; deactivate users; manage items, settings, and reports; view order history. Does not run the till or the floor. |
+| `CASHIER` | Create completed counter orders (already closed and paid); view order history; close or cancel table orders opened by servers. |
+| `SERVER` | Own the floor: open table orders, add items and change quantities, set pricing, request payment, reopen, close, and cancel them. |
 
 A user may have multiple roles. Effective permissions are the union of the permissions granted by their roles. Authorization must be enforced by the backend for every use case.
 
@@ -104,18 +104,18 @@ For a route-by-route reference with request fields, response examples, permissio
 | `POST` | `/items/:id/image` | `ADMIN` | Upload or replace an item image (`multipart/form-data`, field `file`). |
 | `DELETE` | `/items/:id/image` | `ADMIN` | Clear the item image and delete a stored file. |
 | `GET` | `/images/items/:filename` | Public | Serve a stored item image. |
-| `POST` | `/orders/counter` | `ADMIN`, `CASHIER` | Create a completed counter order. |
-| `POST` | `/orders/table` | `CASHIER`, `SERVER` | Open a table order. |
-| `GET` | `/orders` | `ADMIN`, `CASHIER` (history); `CASHIER`, `SERVER` (open orders) | List orders with filters. |
+| `POST` | `/orders/counter` | `CASHIER` | Create a completed counter order. |
+| `POST` | `/orders/table` | `SERVER` | Open a table order. |
+| `GET` | `/orders` | `ADMIN`, `CASHIER` (history); any role (open orders) | List orders with filters. |
 | `GET` | `/orders/:id` | `ADMIN`, `CASHIER`; `SERVER` while the order is open | Read an order. |
-| `POST` | `/orders/:id/items` | `CASHIER`, `SERVER` | Add items, incrementing existing lines. |
-| `PATCH` | `/orders/:id/items/:itemId` | `CASHIER`, `SERVER` | Set an absolute line quantity. |
-| `DELETE` | `/orders/:id/items/:itemId` | `CASHIER`, `SERVER` | Remove a line from an open table order. |
-| `PATCH` | `/orders/:id/pricing` | `ADMIN`, `CASHIER`, `SERVER` | Set or clear the surcharge or discount, or switch the service fee. |
-| `POST` | `/orders/:id/request-payment` | `CASHIER`, `SERVER` | Hand an open table order to the cashier (`AWAITING_PAYMENT`). |
-| `POST` | `/orders/:id/reopen` | `CASHIER`, `SERVER` | Return an order awaiting payment to `OPEN`. |
-| `POST` | `/orders/:id/close` | `ADMIN`, `CASHIER` | Close a table order that is open or awaiting payment. |
-| `POST` | `/orders/:id/cancel` | `ADMIN`, `CASHIER`, `SERVER` | Cancel an open table order. |
+| `POST` | `/orders/:id/items` | `SERVER` | Add items, incrementing existing lines. |
+| `PATCH` | `/orders/:id/items/:itemId` | `SERVER` | Set an absolute line quantity. |
+| `DELETE` | `/orders/:id/items/:itemId` | `SERVER` | Remove a line from an open table order. |
+| `PATCH` | `/orders/:id/pricing` | `CASHIER`, `SERVER` | Set or clear the surcharge or discount, or switch the service fee. |
+| `POST` | `/orders/:id/request-payment` | `SERVER` | Hand an open table order to the till (`AWAITING_PAYMENT`). |
+| `POST` | `/orders/:id/reopen` | `SERVER` | Return an order awaiting payment to `OPEN`. |
+| `POST` | `/orders/:id/close` | `CASHIER`, `SERVER` | Close a table order that is open or awaiting payment. |
+| `POST` | `/orders/:id/cancel` | `CASHIER`, `SERVER` | Cancel an open table order. |
 
 ### Request examples
 

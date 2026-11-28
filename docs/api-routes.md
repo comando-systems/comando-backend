@@ -443,18 +443,18 @@ Input notation: `path` = URL parameters, `query` = query string, `body` = JSON b
 
 | Method | Path | Roles | Input | Success | Errors | Rules |
 | --- | --- | --- | --- | --- | --- | --- |
-| POST | `/orders/counter` | ADMIN, CASHIER | body `CreateCounterOrderRequest` | 201 `Order` | 400, 401, 403, 404, 409 | Created as `CLOSED` in one transaction; server calculates totals. |
-| POST | `/orders/table` | CASHIER, SERVER | body `OpenTableOrderRequest` | 201 `Order` | 400, 401, 403, 409 | Starts `OPEN`; occupied table gives 409 `TABLE_OCCUPIED` with `details.orderId`. |
-| GET | `/orders` | Any | query `OrderListQuery` | 200 `Page<Order>` | 400, 401, 403 | `OPEN` / `AWAITING_PAYMENT` filters are allowed for SERVER; history needs ADMIN or CASHIER. |
-| GET | `/orders/:id` | Any | path `Id` | 200 `Order` | 400, 401, 403, 404 | SERVER can read only live orders. |
-| POST | `/orders/:id/items` | CASHIER, SERVER | path `Id`, body `AddOrderItemsRequest` | 200 `Order` | 400, 401, 403, 404, 409 | `OPEN` only; an existing item increases its line quantity. |
-| PATCH | `/orders/:id/items/:itemId` | CASHIER, SERVER | path `Id`, `ItemId`, body `ChangeQuantityRequest` | 200 `Order` | 400, 401, 403, 404, 409 | `OPEN` only. |
-| DELETE | `/orders/:id/items/:itemId` | CASHIER, SERVER | path `Id`, `ItemId` | 200 `Order` | 400, 401, 403, 404, 409 | `OPEN` only. |
-| PATCH | `/orders/:id/pricing` | ADMIN, CASHIER, SERVER | path `Id`, body `SetPricingRequest` | 200 `Order` | 400, 401, 403, 404, 409 | `OPEN` or `AWAITING_PAYMENT`; fee rate is snapshotted on the order. |
-| POST | `/orders/:id/request-payment` | CASHIER, SERVER | path `Id` | 200 `Order` | 400, 401, 403, 404, 409 | TABLE, `OPEN`, at least one line; locks the lines. |
-| POST | `/orders/:id/reopen` | CASHIER, SERVER | path `Id` | 200 `Order` | 400, 401, 403, 404, 409 | `AWAITING_PAYMENT` back to `OPEN`. |
-| POST | `/orders/:id/close` | ADMIN, CASHIER | path `Id`, body `CloseOrderRequest` | 200 `Order` | 400, 401, 403, 404, 409 | `OPEN` or `AWAITING_PAYMENT`; payments must sum to the total; `CLOSED` is terminal. |
-| POST | `/orders/:id/cancel` | ADMIN, CASHIER, SERVER | path `Id` | 200 `Order` | 400, 401, 403, 404, 409 | `OPEN` or `AWAITING_PAYMENT`; `CANCELED` is terminal. |
+| POST | `/orders/counter` | CASHIER | body `CreateCounterOrderRequest` | 201 `Order` | 400, 401, 403, 404, 409 | Created as `CLOSED` in one transaction; server calculates totals. |
+| POST | `/orders/table` | SERVER | body `OpenTableOrderRequest` | 201 `Order` | 400, 401, 403, 409 | Starts `OPEN`; occupied table gives 409 `TABLE_OCCUPIED` with `details.orderId`. |
+| GET | `/orders` | Any (live), ADMIN/CASHIER (history) | query `OrderListQuery` | 200 `Page<Order>` | 400, 401, 403 | `OPEN` / `AWAITING_PAYMENT` filters are allowed for SERVER; history needs ADMIN or CASHIER. |
+| GET | `/orders/:id` | Any (live), ADMIN/CASHIER (history) | path `Id` | 200 `Order` | 400, 401, 403, 404 | SERVER can read only live orders. |
+| POST | `/orders/:id/items` | SERVER | path `Id`, body `AddOrderItemsRequest` | 200 `Order` | 400, 401, 403, 404, 409 | `OPEN` only; an existing item increases its line quantity. |
+| PATCH | `/orders/:id/items/:itemId` | SERVER | path `Id`, `ItemId`, body `ChangeQuantityRequest` | 200 `Order` | 400, 401, 403, 404, 409 | `OPEN` only. |
+| DELETE | `/orders/:id/items/:itemId` | SERVER | path `Id`, `ItemId` | 200 `Order` | 400, 401, 403, 404, 409 | `OPEN` only. |
+| PATCH | `/orders/:id/pricing` | CASHIER, SERVER | path `Id`, body `SetPricingRequest` | 200 `Order` | 400, 401, 403, 404, 409 | `OPEN` or `AWAITING_PAYMENT`; fee rate is snapshotted on the order. |
+| POST | `/orders/:id/request-payment` | SERVER | path `Id` | 200 `Order` | 400, 401, 403, 404, 409 | TABLE, `OPEN`, at least one line; locks the lines. |
+| POST | `/orders/:id/reopen` | SERVER | path `Id` | 200 `Order` | 400, 401, 403, 404, 409 | `AWAITING_PAYMENT` back to `OPEN`. |
+| POST | `/orders/:id/close` | CASHIER, SERVER | path `Id`, body `CloseOrderRequest` | 200 `Order` | 400, 401, 403, 404, 409 | `OPEN` or `AWAITING_PAYMENT`; payments must sum to the total; `CLOSED` is terminal. |
+| POST | `/orders/:id/cancel` | CASHIER, SERVER | path `Id` | 200 `Order` | 400, 401, 403, 404, 409 | `OPEN` or `AWAITING_PAYMENT`; `CANCELED` is terminal. |
 
 ### Reports and settings
 

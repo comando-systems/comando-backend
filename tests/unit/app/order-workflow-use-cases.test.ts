@@ -116,12 +116,12 @@ describe('requesting payment', () => {
     expect(w.saved).toHaveLength(1);
   });
 
-  test('the cashier may also hand a table over', async () => {
+  test('the cashier cannot hand a table over', async () => {
     const useCase = new RequestOrderPaymentUseCase(unitOfWorkOf(world([tableWith(1)])), clock);
 
     await expect(
       useCase.execute({ actorUserId: cashier.id, orderId: new OrderID('10') }),
-    ).resolves.toBeDefined();
+    ).rejects.toBeInstanceOf(ForbiddenError);
   });
 
   test('refuses an administrator, an empty order, and a counter order', async () => {
@@ -158,7 +158,7 @@ describe('reopening', () => {
     order.requestPayment(server.id, now);
     const useCase = new ReopenOrderUseCase(unitOfWorkOf(world([order])), clock);
 
-    const reopened = await useCase.execute({ actorUserId: cashier.id, orderId: order.id });
+    const reopened = await useCase.execute({ actorUserId: server.id, orderId: order.id });
 
     expect(reopened.status).toBe('OPEN');
     expect(reopened.paymentRequestedAt).toBeNull();
@@ -168,7 +168,7 @@ describe('reopening', () => {
     const useCase = new ReopenOrderUseCase(unitOfWorkOf(world([tableWith(1)])), clock);
 
     await expect(
-      useCase.execute({ actorUserId: cashier.id, orderId: new OrderID('10') }),
+      useCase.execute({ actorUserId: server.id, orderId: new OrderID('10') }),
     ).rejects.toBeInstanceOf(InvalidStateTransitionError);
     await expect(
       useCase.execute({ actorUserId: admin.id, orderId: new OrderID('10') }),
@@ -199,7 +199,7 @@ describe('removing a line', () => {
       useCase.execute({ actorUserId: admin.id, orderId: new OrderID('10'), itemId: coffee.id }),
     ).rejects.toBeInstanceOf(ForbiddenError);
     await expect(
-      useCase.execute({ actorUserId: cashier.id, orderId: new OrderID('10'), itemId: coffee.id }),
+      useCase.execute({ actorUserId: server.id, orderId: new OrderID('10'), itemId: coffee.id }),
     ).resolves.toBeDefined();
   });
 });
@@ -255,13 +255,16 @@ describe('pricing', () => {
     expect(changed.total.cents).toBe(1600);
   });
 
-  test('the server, the cashier, and an administrator at the till may all adjust', async () => {
+  test('the server and the cashier at the till may adjust, but an administrator may not', async () => {
     const useCase = new SetOrderPricingUseCase(unitOfWorkOf(world([tableWith(1)])), clock);
     const input = { orderId: new OrderID('10'), discountCents: 100 };
 
-    for (const actor of [server, cashier, admin]) {
+    for (const actor of [server, cashier]) {
       await expect(useCase.execute({ ...input, actorUserId: actor.id })).resolves.toBeDefined();
     }
+    await expect(useCase.execute({ ...input, actorUserId: admin.id })).rejects.toBeInstanceOf(
+      ForbiddenError,
+    );
   });
 
   test('the service fee takes the current rate from the settings, and none when switched off', async () => {
