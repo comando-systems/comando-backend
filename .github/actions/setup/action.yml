@@ -9,4 +9,4 @@ runs:
         bun-version: 1.4.4
     - name: Install dependencies
       shell: bash
-      run: bun install --frozen-lockfile
+      run: bun install --frozen-lockfile --ignore-scripts

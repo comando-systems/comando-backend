@@ -14,6 +14,9 @@ const BASE_URL = __ENV.BASE_URL || 'http://localhost:3000';
 const EMAIL = __ENV.LOAD_EMAIL;
 const PASSWORD = __ENV.LOAD_PASSWORD;
 
+// Deterministic per-VU pacing: load tests must be reproducible, not pseudorandom.
+let browseIterations = 0;
+
 const BUDGET = ['p(95)<500', 'p(99)<1000'];
 
 export const options = {
@@ -94,12 +97,14 @@ export function browse(data) {
   });
   check(orders, { 'orders is 200': (r) => r.status === 200 });
 
-  if (Math.random() < 0.2) {
+  browseIterations += 1;
+
+  if (browseIterations % 5 === 0) {
     const ready = http.get(`${BASE_URL}/health/ready`, { tags: { endpoint: 'ready' } });
     check(ready, { 'ready is 200': (r) => r.status === 200 });
   }
 
-  sleep(0.2 + Math.random() * 0.3);
+  sleep(0.2 + (browseIterations % 3) * 0.1);
 }
 
 export function login() {

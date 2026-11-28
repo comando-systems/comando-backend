@@ -35,6 +35,16 @@ describe('validation helpers', () => {
 
   test('lower-cases and validates emails', () => {
     expect(normalizeEmail(' ADA@Example.com ')).toBe('ada@example.com');
-    expect(() => normalizeEmail('not-an-email')).toThrow(InvalidValueError);
+    expect(normalizeEmail('a.b+tag@sub.example.co.uk')).toBe('a.b+tag@sub.example.co.uk');
+    for (const bad of [
+      'not-an-email',
+      'ada@@example.com',
+      'ada@example',
+      'ada@example.',
+      'ada smith@example.com',
+      'ada@example.com extra',
+    ]) {
+      expect(() => normalizeEmail(bad)).toThrow(InvalidValueError);
+    }
   });
 });

@@ -30,10 +30,23 @@ export function requireValidDate(value: Date, field: string): Date {
   return new Date(value.getTime());
 }
 
+function isValidEmail(value: string): boolean {
+  const at = value.indexOf('@');
+
+  if (at <= 0 || at !== value.lastIndexOf('@')) {
+    return false;
+  }
+
+  const domain = value.slice(at + 1);
+  const dot = domain.lastIndexOf('.');
+
+  return dot > 0 && dot < domain.length - 1 && !/\s/.test(value);
+}
+
 export function normalizeEmail(value: string): string {
   const normalized = requireNonEmptyString(value, 'Email', 254).toLowerCase();
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+  if (!isValidEmail(normalized)) {
     throw new InvalidValueError('Email is invalid');
   }
 

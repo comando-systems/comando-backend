@@ -16,9 +16,9 @@ permissions:
 env:
   HUSKY: "0"
   # Disposable CI values, not real credentials.
-  TEST_DATABASE_URL: postgres://comando:comando@localhost:5432/comando_test?sslmode=disable
-  DATABASE_READ_URL: postgres://comando:comando@localhost:5432/comando_test?sslmode=disable
-  DATABASE_WRITE_URL: postgres://comando:comando@localhost:5432/comando_test?sslmode=disable
+  TEST_DATABASE_URL: postgres://comando:comando@localhost:5432/comando_test?sslmode=disable # NOSONAR disposable CI database
+  DATABASE_READ_URL: postgres://comando:comando@localhost:5432/comando_test?sslmode=disable # NOSONAR disposable CI database
+  DATABASE_WRITE_URL: postgres://comando:comando@localhost:5432/comando_test?sslmode=disable # NOSONAR disposable CI database
   JWT_SECRET: ci-disposable-value-for-tests-only-0123456789
   JWT_ISSUER: comando
   JWT_AUDIENCE: comando-api
@@ -144,7 +144,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      MIGRATE_URL: postgres://comando:comando@localhost:5432/comando_roundtrip?sslmode=disable
+      MIGRATE_URL: postgres://comando:comando@localhost:5432/comando_roundtrip?sslmode=disable # NOSONAR disposable CI database
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: ./.github/actions/database

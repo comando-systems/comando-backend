@@ -36,4 +36,4 @@ runs:
       run: |
         docker run --rm --network host -v "$GITHUB_WORKSPACE/migrations:/migrations:ro" \
           migrate/migrate:v4.18.3 -path /migrations \
-          -database "postgres://comando:comando@localhost:5432/${DB_NAME}?sslmode=disable" up
+          -database "postgres://comando:comando@localhost:5432/${DB_NAME}?sslmode=disable" up # NOSONAR disposable CI database
