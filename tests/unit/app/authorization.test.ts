@@ -20,7 +20,7 @@ describe('requireActorAny', () => {
 
   test('rejects an actor holding none of them', async () => {
     await expect(
-      requireActorAny(repositories, server.id, ['orders:close', 'users:manage']),
+      requireActorAny(repositories, server.id, ['users:manage', 'orders:history']),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 });

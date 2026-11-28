@@ -25,7 +25,8 @@ describe.skipIf(!TEST_DATABASE_URL)('audit events', () => {
 
   beforeEach(async () => {
     await resetDatabase(container.database);
-    adminId = await createUser('admin', ['ADMIN', 'CASHIER']);
+    // One root-like actor exercises every audited action in a single scenario.
+    adminId = await createUser('admin', ['ADMIN', 'CASHIER', 'SERVER']);
     const login = await call('POST', '/auth/login', {
       email: 'admin@example.com',
       password: PASSWORD,
