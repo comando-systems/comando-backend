@@ -204,7 +204,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: ./.github/actions/database
-      - run: docker build -f infra/api/Dockerfile -t comando-backend:ci .
+      - run: docker build -f Dockerfile -t comando-backend:ci .
       - name: Start the container
         run: |
           docker run -d --name api --network host \
@@ -231,8 +231,8 @@ jobs:
       - uses: ./.github/actions/setup
       - uses: ./.github/actions/database
       - run: bun run build
-      - name: Create the load test user
-        run: ADMIN_EMAIL="$LOAD_EMAIL" ADMIN_PASSWORD="$LOAD_PASSWORD" bun run db:create-admin
+      - name: Seed the root user
+        run: ROOT_EMAIL="$LOAD_EMAIL" ROOT_PASSWORD="$LOAD_PASSWORD" bun run db:seed-root
       - name: Start the production build
         run: |
           NODE_ENV=production CORS_ORIGIN=http://localhost HOST=127.0.0.1 PORT=3100 \

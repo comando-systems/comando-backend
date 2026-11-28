@@ -443,21 +443,24 @@ TEST_DATABASE_URL=postgres://comando:comando@localhost:55432/comando_test?sslmod
 
 ## Local development and Docker
 
-All Docker files live in `infra/` (see `infra/README.md`). Copy `.env.example` to `.env`, then:
+Docker files live at the repository root: `Dockerfile` (API), `database/Dockerfile`
+(PostgreSQL) and `nginx/nginx.conf` (reverse proxy). Compose is `docker-compose.yml`
+at the root. Copy `.env.example` to `.env`, then:
 
 ```bash
 bun install
 bun run docker:db        # PostgreSQL
 bun run docker:migrate   # apply migrations
-bun run db:create-admin  # first administrator (ADMIN_EMAIL, ADMIN_PASSWORD)
-bun run db:seed-root     # seed the root@comando.com system user (ROOT_EMAIL, ROOT_PASSWORD)
+bun run db:seed-root     # first administrator (ROOT_EMAIL, ROOT_PASSWORD)
 bun run db:seed-items    # curated demo catalog (idempotent)
 bun run dev              # API with hot reload
 ```
 
+`ROOT_EMAIL` defaults to `root@comando.com`. The seed is idempotent and creates the root user with the `ADMIN`, `CASHIER`, and `SERVER` roles; it is the only bootstrap user. After logging in as root, create any further administrators through the API.
+
 `bun run db:seed-items` loads 20 demo products with multiple categories and image URLs after the root seed. It is manual and idempotent: an item whose name already exists is skipped, so rerunning does not duplicate products. Image credits and licenses are recorded in `scripts/data/catalog.ts` (Open Food Facts product photos under CC BY-SA 3.0 and Pexels photos under the Pexels License); the API only stores the URLs. Because Pexels asks for visible attribution, a client displaying these photos should link back to Pexels and credit the photographer named in the dataset. Seeding never calls either API at runtime.
 
-`bun run docker:up` starts the whole stack (PostgreSQL, migrations, API, nginx) the way it runs in deployment.
+`bun run docker:up` starts the whole stack (PostgreSQL, migrations, API, nginx) the way it runs in deployment, including the root seed.
 
 ### Maintenance jobs
 
