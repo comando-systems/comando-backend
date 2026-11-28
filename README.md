@@ -77,6 +77,8 @@ Both are public. They are on by default outside production and off in production
 
 The document is built in code (`src/app/http/openapi/`). Request bodies reuse the same `zod` schemas the API validates with, response schemas are checked against the real serializers in the tests, and a test fails when a registered route is missing from the document or the document lists a route that does not exist. When you add or change an endpoint, update `src/app/http/openapi/document.ts` in the same change.
 
+For a route-by-route reference with request fields, response examples, permissions, and error codes, see `docs/api-reference.md`.
+
 ### Endpoints
 
 | Method | Path | Allowed roles | Description |
